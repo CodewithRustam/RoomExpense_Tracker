@@ -57,17 +57,14 @@ namespace RoomExpenseTracker.Controllers
 
             if (result.Succeeded)
             {
-                // 🔗 Link user to any unlinked Member entries
-                var matchingMembers = await _context.Members
-                    .Where(m => m.Name == model.UserName && m.ApplicationUserId == null)
-                    .ToListAsync();
+                var matchingMembers = await _context.Members.Where(m => m.Name == model.UserName && m.ApplicationUserId == null).ToListAsync();
 
                 foreach (var member in matchingMembers)
                 {
                     member.ApplicationUserId = user.Id;
                 }
 
-                await _context.SaveChangesAsync(); // save links
+                await _context.SaveChangesAsync(); 
 
                 await _signInManager.SignInAsync(user, isPersistent: false);
                 return RedirectToAction("Index", "Rooms");

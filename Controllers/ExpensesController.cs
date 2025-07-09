@@ -1,4 +1,3 @@
-// Controllers/ExpensesController.cs
 using RoomExpenseTracker.Data;
 using RoomExpenseTracker.Models;
 using Microsoft.AspNetCore.Mvc;
@@ -17,7 +16,6 @@ namespace RoomExpenseTracker.Controllers
             _context = context;
         }
 
-        // GET: Expenses/Add/5 (RoomId)
         public async Task<IActionResult> Add(int roomId)
         {
             var room = await _context.Rooms
@@ -38,7 +36,6 @@ namespace RoomExpenseTracker.Controllers
                 return RedirectToAction("Details", "Rooms", new { id = roomId });
             }
 
-            // Create view model
             var viewModel = new ExpenseViewModel
             {
                 Expense = new Expense { Date = DateTime.Today, RoomId = roomId },
@@ -53,7 +50,6 @@ namespace RoomExpenseTracker.Controllers
             return PartialView("_AddExpenseModal", viewModel);
         }
 
-        // POST: Expenses/Add
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Add(ExpenseViewModel viewModel)
@@ -66,7 +62,6 @@ namespace RoomExpenseTracker.Controllers
                 return RedirectToAction("Details", "Rooms", new { id = viewModel.RoomId });
             }
 
-            // Reload room for validation errors
             var room = await _context.Rooms
                 .Include(r => r.Members)
                 .FirstOrDefaultAsync(r => r.RoomId == viewModel.RoomId);
@@ -76,7 +71,6 @@ namespace RoomExpenseTracker.Controllers
                 return NotFound();
             }
 
-            // Repopulate Members for the view model
             viewModel.Members = (room.Members ?? new List<Member>())
                 .Select(m => new SelectListItem
                 {
