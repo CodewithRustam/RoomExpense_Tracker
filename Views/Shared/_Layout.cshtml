@@ -1,0 +1,95 @@
+﻿@{
+    Layout = null;
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+
+    <title>@ViewData["Title"] - RoomExpenseTracker</title>
+
+    <link rel="icon" href="~/favicon.png" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/flowbite@1.6.5/dist/flowbite.min.js"></script>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+    <!-- Mobile Sidebar Drawer -->
+    <div id="mobileSidebar"
+         class="fixed inset-y-0 left-0 w-64 bg-white shadow-lg z-40 transform -translate-x-full transition-transform duration-300 md:hidden">
+        <div class="p-4 border-b flex justify-between items-center">
+            <h2 class="text-xl font-bold text-indigo-600">🏠 RoomExpense</h2>
+            <button onclick="toggleSidebar()" class="text-gray-500 hover:text-red-600 text-xl">✖</button>
+        </div>
+        <ul class="p-4 space-y-2">
+            <li>
+                <a asp-controller="Rooms" asp-action="Index"
+                   class="block px-4 py-2 rounded hover:bg-indigo-100 text-indigo-700 font-medium">🏡 Home</a>
+            </li>
+            <li>
+                <a asp-controller="Home" asp-action="Privacy"
+                   class="block px-4 py-2 rounded hover:bg-indigo-100 text-indigo-700">🔒 Privacy</a>
+            </li>
+            <li>
+                @if (User.Identity?.IsAuthenticated ?? false)
+                {
+                    <form asp-controller="Account" asp-action="Logout" method="post">
+                        <button class="w-full text-left px-4 py-2 rounded hover:bg-red-100 text-red-600 font-medium">
+                            🚪 Logout
+                        </button>
+                    </form>
+                }
+            </li>
+        </ul>
+    </div>
+
+    <!-- Top Navbar -->
+    <nav class="bg-white shadow-md px-4 py-3 flex items-center justify-between sticky top-0 z-30">
+        <div class="flex items-center gap-4">
+            <!-- Hamburger only on small screens -->
+            <button onclick="toggleSidebar()" class="md:hidden text-2xl text-gray-700 hover:text-indigo-600">
+                ☰
+            </button>
+            <span class="text-xl font-bold text-indigo-600">RoomExpenseTracker</span>
+        </div>
+
+        <!-- Desktop navbar links -->
+        <div class="hidden md:flex items-center gap-6">
+            <a asp-controller="Rooms" asp-action="Index" class="text-gray-700 hover:text-indigo-600 font-medium">🏡 Home</a>
+            <a asp-controller="Home" asp-action="Privacy" class="text-gray-700 hover:text-indigo-600 font-medium">🔒 Privacy</a>
+
+            @if (User.Identity?.IsAuthenticated ?? false)
+            {
+                <form asp-controller="Account" asp-action="Logout" method="post">
+                    <button class="text-sm bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded">Logout</button>
+                </form>
+            }
+        </div>
+    </nav>
+
+    <!-- Page Content -->
+    <div class="container mx-auto px-4 py-6">
+        <main role="main">
+            @RenderBody()
+        </main>
+    </div>
+
+    <!-- Footer -->
+    <footer class="text-center text-sm text-gray-500 mt-10 border-t pt-4">
+        &copy; 2025 - RoomExpenseTracker -
+        <a asp-controller="Home" asp-action="Privacy" class="text-indigo-500 hover:underline">Privacy</a>
+    </footer>
+
+    @await RenderSectionAsync("Scripts", required: false)
+
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+    <script>
+        function toggleSidebar() {
+            const sidebar = document.getElementById("mobileSidebar");
+            sidebar.classList.toggle("-translate-x-full");
+        }
+    </script>
+
+</body>
+</html>

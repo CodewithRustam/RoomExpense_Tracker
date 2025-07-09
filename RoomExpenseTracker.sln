@@ -1,0 +1,24 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.2.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RoomExpenseTracker", "RoomExpenseTracker.csproj", "{24000B52-1005-D055-6329-5319028077DF}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{24000B52-1005-D055-6329-5319028077DF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{24000B52-1005-D055-6329-5319028077DF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{24000B52-1005-D055-6329-5319028077DF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{24000B52-1005-D055-6329-5319028077DF}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {9B917378-AD74-463C-B4F7-07A5C7855D28}
+	EndGlobalSection
+EndGlobal

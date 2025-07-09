@@ -1,0 +1,153 @@
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using RoomExpenseTracker.Data;
+using RoomExpenseTracker.Models;
+using RoomExpenseTracker.Models.AppUser;
+using RoomExpenseTracker.ViewModels;
+using System.Globalization;
+
+namespace ExpenseTracker.Controllers
+{
+    [Authorize]
+    public class RoomsController : Controller
+    {
+        private readonly AppDbContext _context;
+        private readonly UserManager<ApplicationUser> _userManager;
+
+        public RoomsController(AppDbContext context, UserManager<ApplicationUser> userManager)
+        {
+            _context = context;
+            _userManager = userManager;
+        }
+
+        public async Task<IActionResult> Index()
+        {
+            var userId = _userManager.GetUserId(User);
+            var rooms = await _context.Rooms
+                .Include(r => r.Members)
+                .Where(r => r.Members.Any(m => m.ApplicationUserId == userId))
+                .ToListAsync();
+
+            return View(rooms);
+        }
+
+        [HttpGet]
+        public IActionResult Create() => View();
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Create(RoomViewModel viewModel)
+        {
+            if (!ModelState.IsValid) return View(viewModel);
+
+            var userId = _userManager.GetUserId(User);
+            var user = await _userManager.GetUserAsync(User);
+
+            var room = new Room
+            {
+                Name = viewModel.Name,
+                CreatedByUserId = userId
+            };
+
+            _context.Rooms.Add(room);
+            await _context.SaveChangesAsync();
+
+            // Add room creator
+            _context.Members.Add(new Member
+            {
+                Name = user.UserName,
+                RoomId = room.RoomId,
+                ApplicationUserId = userId
+            });
+
+            // Add other members
+            foreach (var username in viewModel.MemberUserNames.Where(u => !string.IsNullOrWhiteSpace(u)))
+            {
+                var existingUser = await _userManager.FindByNameAsync(username);
+
+                _context.Members.Add(new Member
+                {
+                    Name = username,
+                    RoomId = room.RoomId,
+                    ApplicationUserId = existingUser?.Id
+                });
+            }
+
+            await _context.SaveChangesAsync();
+
+            return RedirectToAction(nameof(Index));
+        }
+        [HttpGet]
+        public async Task<IActionResult> Details(int id, string? month)
+        {
+            var userId = _userManager.GetUserId(User);
+            var room = await _context.Rooms
+                .Include(r => r.Members)
+                .Include(r => r.Expenses).ThenInclude(e => e.Member)
+                .FirstOrDefaultAsync(r => r.RoomId == id && r.Members.Any(m => m.ApplicationUserId == userId));
+
+            if (room == null)
+                return RedirectToAction("AccessDenied", "Account");
+
+            var months = room.Expenses
+                .Select(e => e.Date.ToString("yyyy-MM"))
+                .Distinct()
+                .OrderByDescending(m => m)
+                .ToList();
+
+            var vm = new RoomDetailsViewModel
+            {
+                Room = room,
+                AvailableMonths = months,
+                SelectedMonth = month ?? months.FirstOrDefault()
+            };
+
+            return View(vm);
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> DisplayExpenses(int id, string month)
+        {
+            var userId = _userManager.GetUserId(User);
+            var room = await _context.Rooms
+                .Include(r => r.Members)
+                .Include(r => r.Expenses).ThenInclude(e => e.Member)
+                .FirstOrDefaultAsync(r => r.RoomId == id && r.Members.Any(m => m.ApplicationUserId == userId));
+
+            if (room == null)
+                return RedirectToAction("AccessDenied", "Account");
+
+            if (!DateTime.TryParseExact(month + "-01", "yyyy-MM-dd", null, DateTimeStyles.None, out var selectedMonth))
+                return BadRequest("Invalid month format.");
+
+            var filtered = room.Expenses
+                .Where(e => e.Date.Year == selectedMonth.Year && e.Date.Month == selectedMonth.Month)
+                .ToList();
+
+            var summary = filtered
+                .GroupBy(e => e.Member.Name)
+                .Select(g => new ExpenseSummary
+                {
+                    MemberName = g.Key,
+                    Total = g.Sum(e => e.Amount),
+                    Items = g.OrderBy(e => e.Date).ToList()
+                })
+                .ToList();
+
+            var total = filtered.Sum(e => e.Amount);
+            var avg = room.Members.Count > 0 ? total / room.Members.Count : 0m;
+
+            var vm = new RoomExpensesViewModel
+            {
+                Summary = summary,
+                TotalExpense = total,
+                AvgPerPerson = avg
+            };
+
+            return PartialView("_DisplayRoomExpenses", vm);
+        }
+    }
+
+}
