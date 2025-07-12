@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using RoomExpenseTracker.Models;
@@ -5,7 +6,7 @@ using RoomExpenseTracker.Models.AppUser;
 
 namespace RoomExpenseTracker.Data
 {
-    public class AppDbContext : IdentityDbContext<ApplicationUser> 
+    public class AppDbContext : IdentityDbContext<ApplicationUser> , IDataProtectionKeyContext
     {
         public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
         {
@@ -15,6 +16,7 @@ namespace RoomExpenseTracker.Data
         public DbSet<Member> Members { get; set; }
         public DbSet<Expense> Expenses { get; set; }
 
+        public DbSet<DataProtectionKey> DataProtectionKeys { get; set; } = null!;
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder); // <-- required when using Identity

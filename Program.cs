@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using RoomExpenseTracker.Data;
@@ -5,14 +6,15 @@ using RoomExpenseTracker.Models.AppUser;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add DbContext
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// Add Identity services
+builder.Services.AddDataProtection()
+    .PersistKeysToDbContext<AppDbContext>()
+    .SetApplicationName("RoomExpenseTracker");
+
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 {
-    // Optional: customize password rules
     options.Password.RequireDigit = false;
     options.Password.RequireLowercase = false;
     options.Password.RequireNonAlphanumeric = false;
@@ -22,16 +24,14 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 .AddEntityFrameworkStores<AppDbContext>()
 .AddDefaultTokenProviders();
 
-// Configure login and access denied paths
 builder.Services.ConfigureApplicationCookie(options =>
 {
     options.LoginPath = "/Account/Login";
     options.AccessDeniedPath = "/Account/AccessDenied";
-    options.ExpireTimeSpan = TimeSpan.FromDays(14);
+    options.ExpireTimeSpan = TimeSpan.FromDays(1);
     options.SlidingExpiration = true;
 });
 
-// Enable MVC with client validation
 builder.Services.AddControllersWithViews().AddViewOptions(options =>
 {
     options.HtmlHelperOptions.ClientValidationEnabled = true;
@@ -39,7 +39,6 @@ builder.Services.AddControllersWithViews().AddViewOptions(options =>
 
 var app = builder.Build();
 
-// Middleware pipeline
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Home/Error");
@@ -47,11 +46,11 @@ if (!app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-app.UseStaticFiles(); // Required to serve CSS/JS/etc
+app.UseStaticFiles(); 
 
 app.UseRouting();
 
-app.UseAuthentication(); // << Important: Enable Identity middleware
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllerRoute(

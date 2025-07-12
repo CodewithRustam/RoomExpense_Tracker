@@ -3,35 +3,135 @@
     var today = DateTime.Today.ToString("yyyy-MM-dd");
 }
 
-
-<form asp-action="Add" method="post" class="space-y-4" id="addExpenseForm">
+<form asp-action="Add" method="post" class="max-w-md mx-auto pe-4 ps-4 bg-white space-y-6" id="addExpenseForm" novalidate data-dark-mode="false">
     <input type="hidden" asp-for="RoomId" />
     <input type="hidden" asp-for="Expense.RoomId" />
 
+    <!-- Item Field -->
     <div>
-        <label asp-for="Expense.Item" class="block text-sm font-medium">Item</label>
-        <input asp-for="Expense.Item" class="w-full p-2 border rounded" placeholder="e.g., Groceries" />
-        <span asp-validation-for="Expense.Item" class="text-red-500 text-sm"></span>
+        <label asp-for="Expense.Item" class="block text-sm font-medium text-gray-700 mb-1">Item <span class="text-red-500">*</span></label>
+        <input asp-for="Expense.Item"
+               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors @((ViewData.ModelState["Expense.Item"]?.Errors.Count ?? 0) > 0 ? "border-red-500" : "")"
+               placeholder="e.g., Groceries, Rent"
+               aria-required="true" />
+        <span asp-validation-for="Expense.Item" class="text-red-500 text-sm mt-1 block"></span>
     </div>
 
+    <!-- Amount Field -->
     <div>
-        <label asp-for="Expense.Amount" class="block text-sm font-medium">Amount</label>
-        <input asp-for="Expense.Amount" class="w-full p-2 border rounded" type="number" step="0.01" />
-        <span asp-validation-for="Expense.Amount" class="text-red-500 text-sm"></span>
+        <label asp-for="Expense.Amount" class="block text-sm font-medium text-gray-700 mb-1">Amount (₹) <span class="text-red-500">*</span></label>
+        <div class="relative">
+            <span class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">₹</span>
+            <input asp-for="Expense.Amount"
+                   type="number"
+                   step="0.01"
+                   class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors @((ViewData.ModelState["Expense.Amount"]?.Errors.Count ?? 0) > 0 ? "border-red-500" : "")"
+                   aria-required="true" />
+        </div>
+        <span asp-validation-for="Expense.Amount" class="text-red-500 text-sm mt-1 block"></span>
     </div>
 
+    <!-- Date Field with Icon -->
     <div>
-        <label asp-for="Expense.Date" class="block text-sm font-medium text-gray-700 mb-1">Date</label>
-        <input asp-for="Expense.Date"
-               type="date"
-               max="@today"
-               class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring focus:ring-blue-300" />
+        <label asp-for="Expense.Date" class="block text-sm font-medium text-gray-700 mb-1">Date <span class="text-red-500">*</span></label>
+        <div class="relative">
+            <input asp-for="Expense.Date"
+                   type="date"
+                   max="@today"
+                   class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring focus:ring-blue-300" />
+        </div>
         <span asp-validation-for="Expense.Date" class="text-red-500 text-sm mt-1 block"></span>
     </div>
 
+    <!-- Submit Button with Loading State -->
     <div class="flex justify-end gap-2">
-        <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Save</button>
+        <button type="submit"
+                id="submitButton"
+                class="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center gap-2 transition-all duration-200">
+            <span id="submitText">Save</span>
+            <span id="loadingSpinner" class="hidden animate-spin rounded-full h-4 w-4 border-t-2 border-white"></span>
+        </button>
     </div>
 </form>
 <partial name="_ValidationScriptsPartial" />
 
+@section Scripts {
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const form = document.getElementById('addExpenseForm');
+            const submitButton = document.getElementById('submitButton');
+            const submitText = document.getElementById('submitText');
+            const loadingSpinner = document.getElementById('loadingSpinner');
+
+            // Debug script loading
+            console.log('jQuery loaded:', typeof jQuery !== 'undefined');
+            console.log('jQuery Validate loaded:', typeof $.validator !== 'undefined');
+
+            // Initialize jQuery Validate with ASP.NET integration
+            $(form).validate({
+                rules: {
+                    "Expense.Item": { required: true, maxlength: 100 },
+                    "Expense.Amount": { required: true, number: true, min: 0.01 },
+                    "Expense.Date": { required: true, date: true },
+                    "Expense.Category": { maxlength: 50 },
+                    "Expense.Notes": { maxlength: 500 }
+                },
+                messages: {
+                    "Expense.Item": "Please enter an item name (max 100 characters).",
+                    "Expense.Amount": "Please enter a valid amount (minimum ₹0.01).",
+                    "Expense.Date": "Please select a valid date.",
+                    "Expense.Category": "Category cannot exceed 50 characters.",
+                    "Expense.Notes": "Notes cannot exceed 500 characters."
+                },
+                errorClass: "text-red-500 text-sm mt-1 block",
+                errorElement: "span",
+                highlight: function(element) {
+                    $(element).addClass('border-red-500');
+                },
+                unhighlight: function(element) {
+                    $(element).removeClass('border-red-500');
+                },
+                invalidHandler: function(event, validator) {
+                    console.log('Validation failed for fields:', validator.errorList);
+                },
+                submitHandler: function(form) {
+                    console.log('Form is valid, submitting...');
+                    showLoader();
+                    submitText.classList.add('hidden');
+                    loadingSpinner.classList.remove('hidden');
+                    submitButton.disabled = true;
+                    submitButton.classList.add('bg-blue-400', 'cursor-not-allowed');
+
+                    // Simulate async submission (replace with actual logic)
+                    setTimeout(() => {
+                        hideLoader();
+                        submitText.classList.remove('hidden');
+                        loadingSpinner.classList.add('hidden');
+                        submitButton.disabled = false;
+                        submitButton.classList.remove('bg-blue-400', 'cursor-not-allowed');
+                        form.submit(); // Ensure submission only if valid
+                    }, 2000); // Adjust delay as needed
+                }
+            });
+
+            // Optional dark mode toggle (disabled by default)
+            const darkMode = form.getAttribute('data-dark-mode') === 'true';
+            if (darkMode) {
+                document.body.classList.add('dark');
+            }
+
+            // Date picker fallback
+            const dateInput = document.getElementById('Expense_Date');
+            if (dateInput) {
+                dateInput.addEventListener('focus', () => {
+                    console.log('Date input focused');
+                    if (!dateInput.showPicker) {
+                        console.warn('Native date picker not supported. Consider a JS date picker library.');
+                    }
+                });
+            } else {
+                console.error('Date input not found!');
+            }
+        });
+    </script>
+}
