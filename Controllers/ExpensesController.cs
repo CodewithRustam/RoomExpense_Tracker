@@ -77,7 +77,7 @@ namespace RoomExpenseTracker.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> EditExpense(ExpenseViewModel viewModel)
         {
-            if (viewModel?.Expense == null || viewModel.RoomId <= 0)
+            if (viewModel?.Expense == null || viewModel.RoomId <= 0 || viewModel.Expense.Amount <= 0)
             {
                 TempData["ErrorMessage"] = "Invalid input data. Please check all fields and try again.";
                 return RedirectToAction("Details", "Rooms", new { id = viewModel?.RoomId ?? 0 });
