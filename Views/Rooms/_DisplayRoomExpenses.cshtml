@@ -1,4 +1,5 @@
-﻿@model RoomExpenseTracker.ViewModels.RoomExpensesViewModel
+﻿@using Microsoft.AspNetCore.Mvc.Rendering
+@model RoomExpenseTracker.ViewModels.RoomExpensesViewModel
 
 <div class="px-4 sm:px-0 mb-6">
     <div class="flex justify-start sm:justify-end items-center gap-3 text-base font-semibold flex-nowrap">
@@ -12,8 +13,6 @@
     </div>
 </div>
 
-
-
 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
     @foreach (var person in Model.Summary)
     {
@@ -21,9 +20,9 @@
         var isOwed = difference > 0;
         var isOwing = difference < 0;
         var amountClass = isOwed ? "text-green-600 bg-green-50" :
-        isOwing ? "text-red-600 bg-red-50" : "text-blue-600 bg-blue-50";
+                         isOwing ? "text-red-600 bg-red-50" : "text-blue-600 bg-blue-50";
         var badgeText = isOwed ? "You're owed" :
-        isOwing ? "You owe" : "Settled up";
+                       isOwing ? "You owe" : "Settled up";
         var badgeAmount = isOwing ? Math.Abs(difference) : difference;
 
         <div class="bg-white rounded-2xl shadow-xl hover:shadow-2xl transition-shadow p-5 relative overflow-hidden border border-gray-100">
@@ -47,11 +46,12 @@
 
             <div class="max-h-48 overflow-y-auto scrollbar-thin scrollbar-thumb-indigo-300 scrollbar-track-gray-100">
                 <table class="w-full text-sm mt-3">
-                    <thead>
+                    <thead class="text-center">
                         <tr class="text-left text-gray-500 border-b">
                             <th class="py-2 pr-2">Item</th>
-                            <th class="py-2 pr-2 text-right">Amount</th>
-                            <th class="py-2 text-right">Date</th>
+                            <th class="py-2 pr-2 text-left">Amount</th>
+                            <th class="py-2 text-left">Date</th>
+                            <th class="py-2 text-right">Action</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -59,8 +59,21 @@
                         {
                             <tr class="hover:bg-gray-50">
                                 <td class="py-2 pr-2 text-gray-700">@expense.Item</td>
-                                <td class="py-2 pr-2 text-right text-gray-700">₹@expense.Amount.ToString("F2")</td>
-                                <td class="py-2 text-right text-gray-500">@expense.Date.ToString("MMM dd, yyyy")</td>
+                                <td class="py-2 pr-2 text-gray-700">₹@expense.Amount.ToString("F2")</td>
+                                <td class="py-2 text-gray-500">@expense.Date.ToString("MMM dd, yyyy")</td>
+                                <td class="py-2 text-right">
+                                    <button class="edit-expense-btn text-indigo-600 hover:text-indigo-800" 
+                                            data-expense-id="@expense.ExpenseId"
+                                            data-item="@expense.Item"
+                                            data-amount="@expense.Amount"
+                                            data-date="@expense.Date.ToString("yyyy-MM-dd")"
+                                            data-room-id="@expense.RoomId"
+                                            onclick="openEditModal(this)">
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                                        </svg>
+                                    </button>
+                                </td>
                             </tr>
                         }
                     </tbody>
@@ -69,3 +82,96 @@
         </div>
     }
 </div>
+
+<!-- Edit Expense Modal -->
+<div id="editExpenseModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg p-6 w-full max-w-md">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-xl font-bold text-gray-800">Edit Expense</h2>
+            <button onclick="closeEditModal()" class="text-gray-500 hover:text-gray-700">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+        <form id="editExpenseForm" asp-action="EditExpense" asp-controller="RoomExpenses" method="post" data-ajax="true" data-ajax-method="POST">
+            @Html.AntiForgeryToken()
+            <input type="hidden" id="expenseId" name="Expense.ExpenseId" />
+            <input type="hidden" id="roomId" name="RoomId" />
+            <div class="mb-4">
+                <label for="item" class="block text-sm font-medium text-gray-700 mb-1">Item</label>
+                <input type="text" id="item" name="Expense.Item" 
+                       class="mt-1 block w-full px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-150 ease-in-out" 
+                       placeholder="Enter item name" required />
+            </div>
+            <div class="mb-4">
+                <label for="amount" class="block text-sm font-medium text-gray-700 mb-1">Amount</label>
+                <input type="number" id="amount" name="Expense.Amount" step="0.01" min="0" 
+                       class="mt-1 block w-full px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-150 ease-in-out" 
+                       placeholder="Enter amount" required />
+            </div>
+            <div class="mb-6">
+                <label for="date" class="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                <input type="date" id="date" name="Expense.Date" 
+                       class="mt-1 block w-full px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-150 ease-in-out" 
+                       required />
+            </div>
+            <div class="flex justify-end gap-3">
+                <button type="button" onclick="closeEditModal()" 
+                        class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition duration-150 ease-in-out">
+                    Cancel
+                </button>
+                <button type="submit" 
+                        class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition duration-150 ease-in-out">
+                    Save
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function openEditModal(button) {
+        const modal = document.getElementById('editExpenseModal');
+        const expenseId = button.getAttribute('data-expense-id');
+        const item = button.getAttribute('data-item');
+        const amount = button.getAttribute('data-amount');
+        const date = button.getAttribute('data-date');
+        const roomId = button.getAttribute('data-room-id');
+    
+        document.getElementById('expenseId').value = expenseId;
+        document.getElementById('item').value = item;
+        document.getElementById('amount').value = amount;
+        document.getElementById('date').value = date;
+        document.getElementById('roomId').value = roomId;
+    
+        modal.classList.remove('hidden');
+    }
+    
+    function closeEditModal() {
+        const modal = document.getElementById('editExpenseModal');
+        modal.classList.add('hidden');
+    }
+
+   $(document).ready(function () {
+       $('#editExpenseForm').on('submit', function (e) {
+           e.preventDefault();
+           $.ajax({
+               url: '@Url.Action("EditExpense", "Expenses")',
+               type: 'POST',
+               data: $(this).serialize(),
+               success: function (response) {
+                   if (response.redirectToUrl) {
+                       window.location.href = response.redirectToUrl;
+                   } else {
+                       closeEditModal();
+                       location.reload();
+                   }
+               },
+               error: function (xhr) {
+                   alert('Error: ' + xhr.responseText);
+               }
+           });
+       });
+   });
+</script>

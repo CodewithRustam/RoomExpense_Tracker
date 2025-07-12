@@ -72,5 +72,51 @@ namespace RoomExpenseTracker.Controllers
 
             return RedirectToAction("Details", "Rooms", new { id = viewModel.RoomId });
         }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> EditExpense(ExpenseViewModel viewModel)
+        {
+            if (viewModel?.Expense == null || viewModel.RoomId <= 0)
+            {
+                TempData["ErrorMessage"] = "Invalid input data. Please check all fields and try again.";
+                return RedirectToAction("Details", "Rooms", new { id = viewModel?.RoomId ?? 0 });
+            }
+
+            var userId = _userManager.GetUserId(User);
+            if (string.IsNullOrEmpty(userId))
+            {
+                TempData["ErrorMessage"] = "User not authenticated.";
+                return Unauthorized();
+            }
+
+            var expense = await _context.Expenses.Include(e => e.Room).FirstOrDefaultAsync(e => e.ExpenseId == viewModel.Expense.ExpenseId &&
+                                        e.Room.Members.Any(m => m.ApplicationUserId == userId));
+
+            if (expense == null)
+            {
+                TempData["ErrorMessage"] = "Expense not found or you don't have permission to edit it.";
+                return RedirectToAction("Details", "Rooms", new { id = viewModel.RoomId });
+            }
+
+            try
+            {
+                expense.Item = viewModel.Expense.Item?.Trim();
+                expense.Amount = viewModel.Expense.Amount;
+                expense.Date = viewModel.Expense.Date.Date;
+                expense.RoomId = viewModel.RoomId; 
+
+                _context.Update(expense);
+                await _context.SaveChangesAsync();
+                TempData["SuccessMessage"] = "Expense updated successfully.";
+            }
+            catch (DbUpdateException)
+            {
+                TempData["ErrorMessage"] = "An error occurred while updating the expense. Please try again.";
+                return RedirectToAction("Details", "Rooms", new { id = viewModel.RoomId });
+            }
+
+            return RedirectToAction("Details", "Rooms", new { id = viewModel.RoomId });
+        }
     }
 }
