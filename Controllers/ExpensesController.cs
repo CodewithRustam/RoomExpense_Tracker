@@ -1,9 +1,9 @@
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using RoomExpenseTracker.Data;
 using RoomExpenseTracker.Models;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Rendering;
-using Microsoft.EntityFrameworkCore;
-using System.Diagnostics;
+using RoomExpenseTracker.Models.AppUser;
 
 namespace RoomExpenseTracker.Controllers
 {
@@ -11,9 +11,12 @@ namespace RoomExpenseTracker.Controllers
     {
         private readonly AppDbContext _context;
 
-        public ExpensesController(AppDbContext context)
+        private readonly UserManager<ApplicationUser> _userManager;
+
+        public ExpensesController(AppDbContext context, UserManager<ApplicationUser> userManager)
         {
             _context = context;
+            _userManager = userManager;
         }
 
         public async Task<IActionResult> Add(int roomId)
@@ -40,11 +43,6 @@ namespace RoomExpenseTracker.Controllers
             {
                 Expense = new Expense { Date = DateTime.Today, RoomId = roomId },
                 RoomId = roomId,
-                Members = members.Select(m => new SelectListItem
-                {
-                    Value = m.MemberId.ToString(),
-                    Text = m.Name
-                }).ToList()
             };
 
             return PartialView("_AddExpenseModal", viewModel);
@@ -56,28 +54,21 @@ namespace RoomExpenseTracker.Controllers
         {
             if (viewModel!=null && viewModel.Expense!=null && viewModel.Expense.Item != null && viewModel.Expense.Amount > 0 && viewModel.RoomId>0)
             {
+                var userId = _userManager.GetUserId(User);
+
+                viewModel.Expense.MemberId = _context.Members.Where(x => x.ApplicationUserId == userId).Select(x => x.MemberId).FirstOrDefault();
                 viewModel.Expense.Date = viewModel.Expense.Date.Date;
                 _context.Add(viewModel.Expense);
                 await _context.SaveChangesAsync();
                 return RedirectToAction("Details", "Rooms", new { id = viewModel.RoomId });
             }
 
-            var room = await _context.Rooms
-                .Include(r => r.Members)
-                .FirstOrDefaultAsync(r => r.RoomId == viewModel.RoomId);
+            var room = await _context.Rooms.Include(r => r.Members).FirstOrDefaultAsync(r => r.RoomId == viewModel.RoomId);
 
             if (room == null)
             {
                 return NotFound();
             }
-
-            viewModel.Members = (room.Members ?? new List<Member>())
-                .Select(m => new SelectListItem
-                {
-                    Value = m.MemberId.ToString(),
-                    Text = m.Name,
-                    Selected = m.MemberId == viewModel.Expense.MemberId
-                }).ToList();
 
             return RedirectToAction("Details", "Rooms", new { id = viewModel.RoomId });
         }

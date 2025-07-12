@@ -6,6 +6,5 @@ namespace RoomExpenseTracker.Models
     {
         public Expense Expense { get; set; }
         public int RoomId { get; set; }
-        public List<SelectListItem> Members { get; set; }
     }
 }

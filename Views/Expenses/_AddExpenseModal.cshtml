@@ -9,14 +9,6 @@
     <input type="hidden" asp-for="Expense.RoomId" />
 
     <div>
-        <label asp-for="Expense.MemberId" class="block text-sm font-medium">Member</label>
-        <select asp-for="Expense.MemberId" asp-items="@Model.Members" class="w-full p-2 border rounded">
-            <option value="">Select a member</option>
-        </select>
-        <span asp-validation-for="Expense.MemberId" class="text-red-500 text-sm"></span>
-    </div>
-
-    <div>
         <label asp-for="Expense.Item" class="block text-sm font-medium">Item</label>
         <input asp-for="Expense.Item" class="w-full p-2 border rounded" placeholder="e.g., Groceries" />
         <span asp-validation-for="Expense.Item" class="text-red-500 text-sm"></span>

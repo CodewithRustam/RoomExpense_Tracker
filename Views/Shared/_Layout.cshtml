@@ -15,7 +15,10 @@
 </head>
 <body class="bg-gray-100 text-gray-800">
 
-    <!-- Mobile Sidebar Drawer -->
+    <div id="globalLoader" class="fixed inset-0 bg-gray-800 bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="animate-spin rounded-full h-16 w-16 border-t-4 border-indigo-600"></div>
+    </div>
+
     <div id="mobileSidebar"
          class="fixed inset-y-0 left-0 w-64 bg-white shadow-lg z-40 transform -translate-x-full transition-transform duration-300 md:hidden">
         <div class="p-4 border-b flex justify-between items-center">
@@ -44,17 +47,14 @@
         </ul>
     </div>
 
-    <!-- Top Navbar -->
     <nav class="bg-white shadow-md px-4 py-3 flex items-center justify-between sticky top-0 z-30">
         <div class="flex items-center gap-4">
-            <!-- Hamburger only on small screens -->
             <button onclick="toggleSidebar()" class="md:hidden text-2xl text-gray-700 hover:text-indigo-600">
                 ☰
             </button>
             <span class="text-xl font-bold text-indigo-600">RoomExpenseTracker</span>
         </div>
 
-        <!-- Desktop navbar links -->
         <div class="hidden md:flex items-center gap-6">
             <a asp-controller="Rooms" asp-action="Index" class="text-gray-700 hover:text-indigo-600 font-medium">🏡 Home</a>
             <a asp-controller="Home" asp-action="Privacy" class="text-gray-700 hover:text-indigo-600 font-medium">🔒 Privacy</a>
@@ -77,7 +77,7 @@
 
     <!-- Footer -->
     <footer class="text-center text-sm text-gray-500 mt-10 border-t pt-4">
-        &copy; 2025 - RoomExpenseTracker -
+        © 2025 - RoomExpenseTracker -
         <a asp-controller="Home" asp-action="Privacy" class="text-indigo-500 hover:underline">Privacy</a>
     </footer>
 
@@ -89,7 +89,41 @@
             const sidebar = document.getElementById("mobileSidebar");
             sidebar.classList.toggle("-translate-x-full");
         }
-    </script>
 
+        function showLoader() {
+            const loader = document.getElementById("globalLoader");
+            if (loader) {
+                loader.classList.remove("hidden");
+                console.log("Loader shown");
+            } else {
+                console.error("Loader element not found!");
+            }
+        }
+
+        function hideLoader() {
+            const loader = document.getElementById("globalLoader");
+            if (loader) {
+                loader.classList.add("hidden");
+                console.log("Loader hidden");
+            } else {
+                console.error("Loader element not found!");
+            }
+        }
+
+        document.addEventListener("submit", function(e) {
+            const forms = e.target.closest("form");
+            if (forms) {
+                showLoader();
+                setTimeout(() => {
+                    hideLoader();
+                }, 1500); 
+            }
+        });
+
+        window.addEventListener("load", function() {
+            showLoader();
+            setTimeout(hideLoader, 700); 
+        });
+    </script>
 </body>
 </html>
