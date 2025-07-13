@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using RoomExpenseTracker.Data;
 using RoomExpenseTracker.Models.AppUser;
+using RoomExpenseTracker.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -12,6 +13,8 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddDataProtection()
     .PersistKeysToDbContext<AppDbContext>()
     .SetApplicationName("RoomExpenseTracker");
+builder.Services.AddHostedService<DailyReportService>(); 
+builder.Services.AddScoped<DailyReportService>(); 
 
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 {

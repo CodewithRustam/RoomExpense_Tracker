@@ -2,7 +2,7 @@
 @{
     var today = DateTime.Today.ToString("yyyy-MM-dd");
 }
-<form id="editExpenseForm" asp-action="EditExpense" asp-controller="Expenses" method="post" novalidate data-ajax="true" data-ajax-method="POST">
+<form id="editExpenseForm" asp-action="EditExpense" asp-controller="Expenses" method="post" data-ajax="true" data-ajax-method="POST">
     @Html.AntiForgeryToken()
     <input type="hidden" id="expenseId" name="Expense.ExpenseId" />
     <input type="hidden" id="roomId" name="RoomId" />

@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using RoomExpenseTracker.Data;
 using RoomExpenseTracker.Models;
 using RoomExpenseTracker.Models.AppUser;
+using RoomExpenseTracker.Services;
 using RoomExpenseTracker.ViewModels;
 using System.Globalization;
 
@@ -15,11 +16,13 @@ namespace ExpenseTracker.Controllers
     {
         private readonly AppDbContext _context;
         private readonly UserManager<ApplicationUser> _userManager;
+        private readonly DailyReportService _dailyReportService;
 
-        public RoomsController(AppDbContext context, UserManager<ApplicationUser> userManager)
+        public RoomsController(AppDbContext context, UserManager<ApplicationUser> userManager, DailyReportService _dailyReportService)
         {
             _context = context;
             _userManager = userManager;
+            this._dailyReportService = _dailyReportService;
         }
 
         public async Task<IActionResult> Index()

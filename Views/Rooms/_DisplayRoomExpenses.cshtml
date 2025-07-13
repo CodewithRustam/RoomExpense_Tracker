@@ -20,9 +20,9 @@
         var isOwed = difference > 0;
         var isOwing = difference < 0;
         var amountClass = isOwed ? "text-green-600 bg-green-50" :
-                         isOwing ? "text-red-600 bg-red-50" : "text-blue-600 bg-blue-50";
+        isOwing ? "text-red-600 bg-red-50" : "text-blue-600 bg-blue-50";
         var badgeText = isOwed ? "You're owed" :
-                       isOwing ? "You owe" : "Settled up";
+        isOwing ? "You owe" : "Settled up";
         var badgeAmount = isOwing ? Math.Abs(difference) : difference;
 
         <div class="bg-white rounded-2xl shadow-xl hover:shadow-2xl transition-shadow p-5 relative overflow-hidden border border-gray-100">
@@ -72,13 +72,12 @@
                                                 data-item="@expense.Item"
                                                 data-amount="@expense.Amount"
                                                 data-date="@expense.Date.ToString("yyyy-MM-dd")"
-                                                data-room-id="@expense.RoomId"
-                                                onclick="openEditModal(this)">
+                                                data-room-id="@expense.RoomId">
                                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"
                                                  xmlns="http://www.w3.org/2000/svg">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 
-                                                      112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                                                      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0
+                                                                  112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
                                             </svg>
                                         </button>
                                     </td>
@@ -97,7 +96,7 @@
     <div class="bg-white rounded-lg p-6 w-[90%] sm:w-[80%] md:w-[60%] lg:w-[40%] xl:w-[30%] max-w-md relative z-[60]">
         <div class="flex justify-between items-center mb-6">
             <h2 id="editExpenseModalTitle" class="text-xl font-bold text-gray-800">Edit Expense</h2>
-            <button onclick="closeEditModal()" class="text-gray-500 hover:text-gray-700">
+            <button class="close-modal text-gray-500 hover:text-gray-700">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"
                      xmlns="http://www.w3.org/2000/svg">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -105,7 +104,7 @@
                 </svg>
             </button>
         </div>
-        @await Html.PartialAsync("_EditExpenseModal", new ExpenseViewModel())
+        @await Html.PartialAsync("_EditExpenseModal", new ExpenseViewModel())  
     </div>
 </div>
 
@@ -123,49 +122,73 @@
         opacity: 1;
     }
 </style>
+<partial name="_ValidationScriptsPartial" />
 
 <script>
-    function openEditModal(button) {
-        const modal = document.getElementById('editExpenseModal');
-        const expenseId = button.getAttribute('data-expense-id');
-        const item = button.getAttribute('data-item');
-        const amount = button.getAttribute('data-amount');
-        const date = button.getAttribute('data-date');
-        const roomId = button.getAttribute('data-room-id');
-
-        document.getElementById('expenseId').value = expenseId;
-        document.getElementById('item').value = item;
-        document.getElementById('amount').value = amount;
-        document.getElementById('date').value = date;
-        document.getElementById('roomId').value = roomId;
-
-        modal.classList.remove('hidden');
-        document.body.classList.add('no-scroll');
-    }
-
-    function closeEditModal() {
-        const modal = document.getElementById('editExpenseModal');
-        modal.classList.add('hidden');
-        document.body.classList.remove('no-scroll');
-    }
-
-    // Close modal when clicking on backdrop
-    document.getElementById('editExpenseModal').addEventListener('click', function (e) {
-        if (e.target === this) {
-            closeEditModal();
-        }
-    });
-
-    // Close modal with Escape key
-    document.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape') {
-            closeEditModal();
-        }
-    });
-
     $(document).ready(function () {
+        let originalItem, originalAmount, originalDate;
+
+        // Open modal
+    $('.edit-expense-btn').on('click', function () {
+        const $btn = $(this);
+        $('#expenseId').val($btn.data('expense-id'));
+        $('#item').val($btn.data('item'));
+        $('#amount').val($btn.data('amount'));
+        $('#date').val($btn.data('date'));
+        $('#roomId').val($btn.data('room-id'));
+
+        // Store original values
+        originalItem = $btn.data('item');
+        originalAmount = $btn.data('amount').toString();
+        originalDate = $btn.data('date');
+
+        $('#editExpenseModal').removeClass('hidden');
+        $('body').addClass('no-scroll');
+
+        // ✅ Trigger client-side validation for dynamic content
+        $.validator.unobtrusive.parse('#editExpenseForm');
+    });
+
+        // Close modal
+        $('.close-modal').on('click', function () {
+            $('#editExpenseModal').addClass('hidden');
+            $('body').removeClass('no-scroll');
+        });
+
+        // Click on backdrop
+        $('#editExpenseModal').on('click', function (e) {
+            if ($(e.target).is('#editExpenseModal')) {
+                $(this).addClass('hidden');
+                $('body').removeClass('no-scroll');
+            }
+        });
+
+        $(document).on('keydown', function (e) {
+            if (e.key === 'Escape') {
+                $('#editExpenseModal').addClass('hidden');
+                $('body').removeClass('no-scroll');
+            }
+        });
+
         $('#editExpenseForm').on('submit', function (e) {
-            e.preventDefault();
+            const currentItem = $('#item').val();
+            const currentAmount = $('#amount').val();
+            const currentDate = $('#date').val();
+
+            if(currentAmount <= 0)
+            {
+                alert("Amount must be greater than zero.");
+                e.preventDefault();
+                return;
+            }
+
+            if (currentItem === originalItem && currentAmount === originalAmount && currentDate === originalDate) 
+            {
+                alert("No changes made to the expense. Please update before saving.");
+                e.preventDefault();
+                return;
+            }
+
             $.ajax({
                 url: '@Url.Action("EditExpense", "Expenses")',
                 type: 'POST',
@@ -174,7 +197,8 @@
                     if (response.redirectToUrl) {
                         window.location.href = response.redirectToUrl;
                     } else {
-                        closeEditModal();
+                        $('#editExpenseModal').addClass('hidden');
+                        $('body').removeClass('no-scroll');
                         location.reload();
                     }
                 },
@@ -182,6 +206,8 @@
                     alert('Error: ' + xhr.responseText);
                 }
             });
+
+            e.preventDefault(); 
         });
     });
 </script>
