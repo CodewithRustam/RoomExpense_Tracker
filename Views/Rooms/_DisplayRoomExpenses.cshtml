@@ -105,50 +105,7 @@
                 </svg>
             </button>
         </div>
-        <form id="editExpenseForm" asp-action="EditExpense" asp-controller="RoomExpenses" method="post" data-ajax="true" data-ajax-method="POST">
-            @Html.AntiForgeryToken()
-            <input type="hidden" id="expenseId" name="Expense.ExpenseId" />
-            <input type="hidden" id="roomId" name="RoomId" />
-
-            <!-- Item -->
-            <div class="mb-4">
-                <label for="item" class="block text-sm font-medium text-gray-700 mb-1">Item</label>
-                <input type="text" id="item" name="Expense.Item"
-                       class="mt-1 block w-full px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-150 ease-in-out"
-                       placeholder="Enter item name" required />
-                <span asp-validation-for="Expense.Item" class="text-red-500 text-sm mt-1 block"></span>
-            </div>
-
-            <!-- Amount -->
-            <div class="mb-4">
-                <label for="amount" class="block text-sm font-medium text-gray-700 mb-1">Amount</label>
-                <input type="number" id="amount" name="Expense.Amount" step="0.01" min="0"
-                       class="mt-1 block w-full px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-150 ease-in-out"
-                       placeholder="Enter amount" required />
-                <span asp-validation-for="Expense.Amount" class="text-red-500 text-sm mt-1 block"></span>
-            </div>
-
-            <!-- Date -->
-            <div class="mb-6">
-                <label for="date" class="block text-sm font-medium text-gray-700 mb-1">Date</label>
-                <input type="date" id="date" name="Expense.Date"
-                       class="mt-1 block w-full px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-150 ease-in-out"
-                       required />
-                <span asp-validation-for="Expense.Date" class="text-red-500 text-sm mt-1 block"></span>
-            </div>
-
-            <!-- Buttons -->
-            <div class="flex justify-end gap-3">
-                <button type="button" onclick="closeEditModal()"
-                        class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition duration-150 ease-in-out">
-                    Cancel
-                </button>
-                <button type="submit"
-                        class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition duration-150 ease-in-out">
-                    Save
-                </button>
-            </div>
-        </form>
+        @await Html.PartialAsync("_EditExpenseModal", new ExpenseViewModel())
     </div>
 </div>
 
@@ -210,7 +167,7 @@
         $('#editExpenseForm').on('submit', function (e) {
             e.preventDefault();
             $.ajax({
-                url: '@Url.Action("EditExpense", "RoomExpenses")',
+                url: '@Url.Action("EditExpense", "Expenses")',
                 type: 'POST',
                 data: $(this).serialize(),
                 success: function (response) {

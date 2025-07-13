@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -7,6 +8,7 @@ using RoomExpenseTracker.Models.AppUser;
 
 namespace RoomExpenseTracker.Controllers
 {
+    [Authorize]
     public class ExpensesController : Controller
     {
         private readonly AppDbContext _context;
