@@ -23,9 +23,7 @@ namespace RoomExpenseTracker.Controllers
 
         public async Task<IActionResult> Add(int roomId)
         {
-            var room = await _context.Rooms
-                .Include(r => r.Members)
-                .FirstOrDefaultAsync(r => r.RoomId == roomId);
+            var room = await _context.Rooms.Include(r => r.Members).FirstOrDefaultAsync(r => r.RoomId == roomId);
 
             if (room == null)
             {

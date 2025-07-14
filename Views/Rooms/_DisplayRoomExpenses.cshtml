@@ -4,11 +4,11 @@
 <div class="px-4 sm:px-0 mb-6">
     <div class="flex justify-start sm:justify-end items-center gap-3 text-base font-semibold flex-nowrap">
         <span class="text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full shadow-sm whitespace-nowrap">
-            ₹@Model.AvgPerPerson.ToString("F2") / person
+            ₹@(Model.AvgPerPerson?.ToString("F2") ?? "0.00") / person
         </span>
         <span class="text-gray-500">•</span>
         <span class="text-red-500 bg-red-50 px-3 py-1 rounded-full shadow-sm whitespace-nowrap">
-            ₹@Model.TotalExpense.ToString("F2") total
+            ₹@(Model.TotalExpense?.ToString("F2") ?? "0.00") total
         </span>
     </div>
 </div>
@@ -23,7 +23,7 @@
         isOwing ? "text-red-600 bg-red-50" : "text-blue-600 bg-blue-50";
         var badgeText = isOwed ? "You're owed" :
         isOwing ? "You owe" : "Settled up";
-        var badgeAmount = isOwing ? Math.Abs(difference) : difference;
+        var badgeAmount = isOwing ? Math.Abs(Convert.ToDecimal(difference)) : difference;
 
         <div class="bg-white rounded-2xl shadow-xl hover:shadow-2xl transition-shadow p-5 relative overflow-hidden border border-gray-100">
             <div class="absolute -top-10 -right-10 w-32 h-32 bg-gradient-to-br from-indigo-200 to-purple-300 opacity-10 rotate-45"></div>
@@ -34,14 +34,14 @@
                     @badgeText
                     @if (difference != 0)
                     {
-                        <span>: ₹@badgeAmount.ToString("F2")</span>
+                        <span>: ₹@badgeAmount?.ToString("F2")</span>
                     }
                 </span>
             </div>
 
             <p class="text-gray-500 mb-2">
                 Total:
-                <span class="font-semibold text-gray-800">₹@person.Total.ToString("F2")</span>
+                <span class="font-semibold text-gray-800">₹@person.Total?.ToString("F2")</span>
             </p>
 
             <div class="max-h-48 overflow-y-auto scrollbar-thin scrollbar-thumb-indigo-300 scrollbar-track-gray-100">
@@ -145,7 +145,6 @@
         $('#editExpenseModal').removeClass('hidden');
         $('body').addClass('no-scroll');
 
-        // ✅ Trigger client-side validation for dynamic content
         $.validator.unobtrusive.parse('#editExpenseForm');
     });
 

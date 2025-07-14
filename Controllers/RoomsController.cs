@@ -28,10 +28,7 @@ namespace ExpenseTracker.Controllers
         public async Task<IActionResult> Index()
         {
             var userId = _userManager.GetUserId(User);
-            var rooms = await _context.Rooms
-                .Include(r => r.Members)
-                .Where(r => r.Members.Any(m => m.ApplicationUserId == userId))
-                .ToListAsync();
+            var rooms = await _context.Rooms.Include(r => r.Members).Where(r => r.Members.Any(m => m.ApplicationUserId == userId)).ToListAsync();
 
             return View(rooms);
         }
@@ -107,36 +104,53 @@ namespace ExpenseTracker.Controllers
         [HttpGet]
         public async Task<IActionResult> DisplayExpenses(int id, string month)
         {
-            var userId = _userManager.GetUserId(User);
-            var room = await _context.Rooms.Include(r => r.Members).Include(r => r.Expenses).ThenInclude(e => e.Member).FirstOrDefaultAsync(r => r.RoomId == id && r.Members.Any(m => m.ApplicationUserId == userId));
-
-            if (room == null)
+            if (id <= 0)
+            {
                 return RedirectToAction("AccessDenied", "Account");
+            }
+
+            var userId = _userManager.GetUserId(User);
 
             if (!DateTime.TryParseExact(month + "-01", "yyyy-MM-dd", null, DateTimeStyles.None, out var selectedMonth))
                 return BadRequest("Invalid month format.");
 
-            var filtered = room.Expenses.Where(e => e.Date.Year == selectedMonth.Year && e.Date.Month == selectedMonth.Month).ToList();
+            var expenses = _context.Expenses.Where(x => x.RoomId == id && x.Date.Year == selectedMonth.Year && x.Date.Month == selectedMonth.Month)
+                           .Select(x => new Expense
+                           {
+                               Date = x.Date,
+                               Amount = x.Amount,
+                               Member = x.Member,
+                               Item = x.Item
+                           }).ToList();
 
-            var summary = filtered.GroupBy(e => e.Member.Name)
-                          .Select(g => new ExpenseSummary
-                          {
-                              MemberName = g.Key,
-                              Total = g.Sum(e => e.Amount),
-                              Items = g.OrderBy(e => e.Date).ToList()
-                          }).ToList();
-
-            var total = filtered.Sum(e => e.Amount);
-            var avg = room.Members.Count > 0 ? total / room.Members.Count : 0m;
-
-            var vm = new RoomExpensesViewModel
+            List<ExpenseSummary> expensesSummary = new List<ExpenseSummary>();    
+            if (expenses != null)
             {
-                Summary = summary,
+                expensesSummary = expenses.GroupBy(x => x.Member.Name).Select(y => new ExpenseSummary
+                {
+                    MemberName = y.Key,
+                    Total = y.Sum(x => x.Amount),
+                    Items = y.OrderBy(x => x.Date).ToList()
+                }).ToList();
+            }
+
+            if(expensesSummary == null || !expensesSummary.Any())
+            {
+                return PartialView("_DisplayRoomExpenses", new RoomExpensesViewModel());
+            }
+
+            decimal? total = expenses?.Sum(x => x.Amount);
+            int memberCount = await _context.Members.CountAsync(rm => rm.RoomId == id);
+            decimal? avgAmount = memberCount > 0 ? total / memberCount : 0m;
+
+            RoomExpensesViewModel roomExpenseVM = new RoomExpensesViewModel
+            {
+                Summary = expensesSummary,
                 TotalExpense = total,
-                AvgPerPerson = avg
+                AvgPerPerson = avgAmount,
             };
 
-            return PartialView("_DisplayRoomExpenses", vm);
+            return PartialView("_DisplayRoomExpenses", roomExpenseVM);
         }
     }
 
