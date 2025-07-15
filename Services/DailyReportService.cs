@@ -2,6 +2,7 @@
 using MimeKit;
 using RoomExpenseTracker.Data;
 using RoomExpenseTracker.Models;
+using RoomExpenseTracker.Models.AppUser;
 using System.Text;
 
 namespace RoomExpenseTracker.Services
@@ -22,7 +23,7 @@ namespace RoomExpenseTracker.Services
             while (!stoppingToken.IsCancellationRequested)
             {
                 var now = DateTime.Now;
-                var nextRun = now.Date.AddDays(1).AddHours(0); 
+                var nextRun = now.Date.AddDays(1).AddHours(0);
                 var delay = nextRun - now;
 
                 if (delay.TotalMilliseconds > 0)
@@ -36,65 +37,59 @@ namespace RoomExpenseTracker.Services
         {
             using var scope = _serviceProvider.CreateScope();
             var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            var rooms = await context.Rooms
-                .Include(r => r.Members)
-                .ThenInclude(m => m.ApplicationUser)
-                .Include(r => r.Expenses)
-                .ThenInclude(e => e.Member)
-                .ToListAsync(stoppingToken);
+            var users = await context.Users.ToListAsync(stoppingToken);
 
-            foreach (var room in rooms)
+            foreach (var user in users)
             {
                 if (stoppingToken.IsCancellationRequested) break;
 
-                var csvContent = GenerateCsvReport(room, DateTime.Today.AddDays(-1));
-                await SendEmailAsync(room, csvContent, stoppingToken);
+                if (string.IsNullOrEmpty(user.Email)) continue;
+
+                var csvContent = GenerateUserCsvReport(user, DateTime.Today);
+
+                // Only send email if user has expenses this month
+                if (!string.IsNullOrWhiteSpace(csvContent))
+                {
+                    await SendEmailToUserAsync(user, csvContent, stoppingToken);
+                }
             }
         }
 
-        private string GenerateCsvReport(Room room, DateTime date)
+        private string GenerateUserCsvReport(ApplicationUser user, DateTime referenceDate)
         {
             var sb = new StringBuilder();
-            sb.AppendLine("MemberName,ExpenseDate,Amount,Description");
+            sb.AppendLine("Item,Amount,ExpenseDate,");
+            using var scope = _serviceProvider.CreateScope();
+            var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var expenses = context.Expenses.Where(e => e.Member.ApplicationUserId == user.Id && e.Date.Year == referenceDate.Year && e.Date.Month == referenceDate.Month)
+                           .OrderBy(e => e.Date);
 
-            var expenses = room.Expenses
-                .Where(e => e.Date.Date == date.Date)
-                .OrderBy(e => e.Member.Name)
-                .ThenBy(e => e.Date);
+            if (!expenses.Any()) return null;
 
             foreach (var expense in expenses)
             {
-                sb.AppendLine($"\"{expense.Member.Name}\",\"{expense.Date:yyyy-MM-dd}\",\"{expense.Amount:C2}\"");
+                sb.AppendLine($"\"{expense.Item}\",\"{expense.Amount}\",\"{expense.Date:yyyy-MM-dd}\"");
             }
 
             return sb.ToString();
         }
 
-        private async Task SendEmailAsync(Room room, string csvContent, CancellationToken stoppingToken)
+        private async Task SendEmailToUserAsync(ApplicationUser user, string csvContent, CancellationToken stoppingToken)
         {
             var emailConfig = _configuration.GetSection("EmailSettings");
 
             var message = new MimeMessage();
             message.From.Add(new MailboxAddress(emailConfig["SenderName"], emailConfig["SenderEmail"]));
+            message.To.Add(new MailboxAddress(user.UserName, user.Email));
 
-            var creator = room.Members.FirstOrDefault(m => m.ApplicationUserId == room.CreatedByUserId)?.ApplicationUser;
-            if (creator?.Email != null)
-            {
-                message.To.Add(new MailboxAddress(creator.UserName, "rustamali637@gmail.com"));
-            }
-            else
-            {
-                return;
-            }
-
-            message.Subject = $"Daily Expense Report for {room.Name} - {DateTime.Today.AddDays(-1):yyyy-MM-dd}";
-            var body = new TextPart("plain") { Text = "Please find attached the daily expense report." };
+            message.Subject = $"Your Monthly Expense Report - {DateTime.Today:MMMM yyyy}";
+            var body = new TextPart("plain") { Text = "Please find your monthly expense report attached." };
 
             var attachment = new MimePart("text", "csv")
             {
                 Content = new MimeContent(new MemoryStream(Encoding.UTF8.GetBytes(csvContent))),
                 ContentDisposition = new ContentDisposition(ContentDisposition.Attachment),
-                FileName = $"DailyReport_{room.Name}_{DateTime.Today.AddDays(-1):yyyy-MM-dd}.csv"
+                FileName = $"MonthlyReport_{user.UserName}_{DateTime.Today:yyyy-MM}.csv"
             };
 
             var multipart = new Multipart("mixed") { body, attachment };
@@ -114,7 +109,7 @@ namespace RoomExpenseTracker.Services
             }
             catch (Exception ex)
             {
-                return;
+                // Optionally log the error
             }
             finally
             {

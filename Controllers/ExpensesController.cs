@@ -105,14 +105,13 @@ namespace RoomExpenseTracker.Controllers
 
                 _context.Update(expense);
                 await _context.SaveChangesAsync();
-                TempData["SuccessMessage"] = "Expense updated successfully.";
             }
             catch (DbUpdateException)
             {
                 TempData["ErrorMessage"] = "An error occurred while updating the expense. Please try again.";
                 return RedirectToAction("Details", "Rooms", new { id = viewModel.RoomId });
             }
-
+            TempData["SuccessMessage"] = "Expense updated successfully.";
             return RedirectToAction("Details", "Rooms", new { id = viewModel.RoomId });
         }
 

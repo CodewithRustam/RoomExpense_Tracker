@@ -14,7 +14,6 @@ builder.Services.AddDataProtection()
     .PersistKeysToDbContext<AppDbContext>()
     .SetApplicationName("RoomExpenseTracker");
 builder.Services.AddHostedService<DailyReportService>(); 
-builder.Services.AddScoped<DailyReportService>(); 
 
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 {

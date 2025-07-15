@@ -5,9 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using RoomExpenseTracker.Data;
 using RoomExpenseTracker.Models;
 using RoomExpenseTracker.Models.AppUser;
-using RoomExpenseTracker.Services;
 using RoomExpenseTracker.ViewModels;
-using System.Globalization;
 
 namespace ExpenseTracker.Controllers
 {
@@ -16,19 +14,22 @@ namespace ExpenseTracker.Controllers
     {
         private readonly AppDbContext _context;
         private readonly UserManager<ApplicationUser> _userManager;
-        private readonly DailyReportService _dailyReportService;
 
-        public RoomsController(AppDbContext context, UserManager<ApplicationUser> userManager, DailyReportService _dailyReportService)
+        public RoomsController(AppDbContext context, UserManager<ApplicationUser> userManager)
         {
             _context = context;
             _userManager = userManager;
-            this._dailyReportService = _dailyReportService;
         }
 
         public async Task<IActionResult> Index()
         {
             var userId = _userManager.GetUserId(User);
             var rooms = await _context.Rooms.Include(r => r.Members).Where(r => r.Members.Any(m => m.ApplicationUserId == userId)).ToListAsync();
+
+            if(userId != "dd113e0c-6899-4659-a498-be1829ff89dc")
+            {
+                rooms.RemoveAll(x=>x.RoomId == 6);
+            }
 
             return View(rooms);
         }
