@@ -100,58 +100,6 @@ namespace ExpenseTracker.Controllers
 
             return View(vm);
         }
-
-        [HttpGet]
-        public async Task<IActionResult> DisplayExpenses(int id, string month)
-        {
-            if (id <= 0)
-            {
-                return RedirectToAction("AccessDenied", "Account");
-            }
-
-            var userId = _userManager.GetUserId(User);
-
-            if (!DateTime.TryParseExact(month + "-01", "yyyy-MM-dd", null, DateTimeStyles.None, out var selectedMonth))
-                return BadRequest("Invalid month format.");
-
-            var expenses = _context.Expenses.Where(x => x.RoomId == id && x.Date.Year == selectedMonth.Year && x.Date.Month == selectedMonth.Month)
-                           .Select(x => new Expense
-                           {
-                               Date = x.Date,
-                               Amount = x.Amount,
-                               Member = x.Member,
-                               Item = x.Item
-                           }).ToList();
-
-            List<ExpenseSummary> expensesSummary = new List<ExpenseSummary>();    
-            if (expenses != null)
-            {
-                expensesSummary = expenses.GroupBy(x => x.Member.Name).Select(y => new ExpenseSummary
-                {
-                    MemberName = y.Key,
-                    Total = y.Sum(x => x.Amount),
-                    Items = y.OrderBy(x => x.Date).ToList()
-                }).ToList();
-            }
-
-            if(expensesSummary == null || !expensesSummary.Any())
-            {
-                return PartialView("_DisplayRoomExpenses", new RoomExpensesViewModel());
-            }
-
-            decimal? total = expenses?.Sum(x => x.Amount);
-            int memberCount = await _context.Members.CountAsync(rm => rm.RoomId == id);
-            decimal? avgAmount = memberCount > 0 ? total / memberCount : 0m;
-
-            RoomExpensesViewModel roomExpenseVM = new RoomExpensesViewModel
-            {
-                Summary = expensesSummary,
-                TotalExpense = total,
-                AvgPerPerson = avgAmount,
-            };
-
-            return PartialView("_DisplayRoomExpenses", roomExpenseVM);
-        }
     }
 
 }

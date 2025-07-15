@@ -5,6 +5,8 @@ using Microsoft.EntityFrameworkCore;
 using RoomExpenseTracker.Data;
 using RoomExpenseTracker.Models;
 using RoomExpenseTracker.Models.AppUser;
+using RoomExpenseTracker.ViewModels;
+using System.Globalization;
 
 namespace RoomExpenseTracker.Controllers
 {
@@ -12,7 +14,6 @@ namespace RoomExpenseTracker.Controllers
     public class ExpensesController : Controller
     {
         private readonly AppDbContext _context;
-
         private readonly UserManager<ApplicationUser> _userManager;
 
         public ExpensesController(AppDbContext context, UserManager<ApplicationUser> userManager)
@@ -21,55 +22,50 @@ namespace RoomExpenseTracker.Controllers
             _userManager = userManager;
         }
 
-        public async Task<IActionResult> Add(int roomId)
+        private async Task<int> GetMemberId(string? userId)
         {
-            var room = await _context.Rooms.Include(r => r.Members).FirstOrDefaultAsync(r => r.RoomId == roomId);
+            return await _context.Members.Where(x => x.ApplicationUserId == userId).Select(x => x.MemberId) .FirstOrDefaultAsync();
+        }
 
-            if (room == null)
-            {
-                TempData["Error"] = "Room not found.";
-                return RedirectToAction("Index", "Rooms");
-            }
-
-            var members = room.Members ?? new List<Member>();
-
-            if (!members.Any())
-            {
-                TempData["Error"] = "No members found in this room. Please add members first.";
-                return RedirectToAction("Details", "Rooms", new { id = roomId });
-            }
-
-            var viewModel = new ExpenseViewModel
-            {
-                Expense = new Expense { Date = DateTime.Today, RoomId = roomId },
-                RoomId = roomId,
-            };
-
-            return PartialView("_AddExpenseModal", viewModel);
+        private async Task<bool> IsValidRoomAsync(int roomId)
+        {
+            return await _context.Rooms.AnyAsync(r => r.RoomId == roomId);
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Add(ExpenseViewModel viewModel)
         {
-            if (viewModel!=null && viewModel.Expense!=null && viewModel.Expense.Item != null && viewModel.Expense.Amount > 0 && viewModel.RoomId>0)
+            if (!IsValidExpenseViewModel(viewModel))
             {
-                var userId = _userManager.GetUserId(User);
-
-                viewModel.Expense.MemberId = _context.Members.Where(x => x.ApplicationUserId == userId).Select(x => x.MemberId).FirstOrDefault();
-                viewModel.Expense.Date = viewModel.Expense.Date.Date;
-                _context.Add(viewModel.Expense);
-                await _context.SaveChangesAsync();
                 return RedirectToAction("Details", "Rooms", new { id = viewModel.RoomId });
             }
 
-            var room = await _context.Rooms.Include(r => r.Members).FirstOrDefaultAsync(r => r.RoomId == viewModel.RoomId);
+            var userId = _userManager.GetUserId(User);
+            var memberId = await GetMemberId(userId);
 
-            if (room == null)
+            if (memberId == 0)
             {
-                return NotFound();
+                TempData["ErrorMessage"] = "Member not found for the current user.";
+                return RedirectToAction("Details", "Rooms", new { id = viewModel.RoomId });
             }
 
+            viewModel.Expense.MemberId = memberId;
+            viewModel.Expense.Date = viewModel.Expense.Date.Date;
+
+            try
+            {
+                _context.Add(viewModel.Expense);
+                await _context.SaveChangesAsync();
+            }
+            catch (Exception)
+            {
+                TempData["ErrorMessage"] = "An error occurred while adding the expense. Please try again.";
+                // Log the exception (optional)
+                return RedirectToAction("Details", "Rooms", new { id = viewModel.RoomId });
+            }
+
+            TempData["SuccessMessage"] = "Expense added successfully.";
             return RedirectToAction("Details", "Rooms", new { id = viewModel.RoomId });
         }
 
@@ -90,8 +86,9 @@ namespace RoomExpenseTracker.Controllers
                 return Unauthorized();
             }
 
-            var expense = await _context.Expenses.Include(e => e.Room).FirstOrDefaultAsync(e => e.ExpenseId == viewModel.Expense.ExpenseId &&
-                                        e.Room.Members.Any(m => m.ApplicationUserId == userId));
+            var expense = await _context.Expenses
+                .Where(e => e.ExpenseId == viewModel.Expense.ExpenseId && e.RoomId == viewModel.RoomId)
+                .FirstOrDefaultAsync();
 
             if (expense == null)
             {
@@ -104,7 +101,7 @@ namespace RoomExpenseTracker.Controllers
                 expense.Item = viewModel.Expense.Item?.Trim();
                 expense.Amount = viewModel.Expense.Amount;
                 expense.Date = viewModel.Expense.Date.Date;
-                expense.RoomId = viewModel.RoomId; 
+                expense.RoomId = viewModel.RoomId;
 
                 _context.Update(expense);
                 await _context.SaveChangesAsync();
@@ -117,6 +114,53 @@ namespace RoomExpenseTracker.Controllers
             }
 
             return RedirectToAction("Details", "Rooms", new { id = viewModel.RoomId });
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> DisplayExpenses(int roomId, string month)
+        {
+            if (roomId <= 0 || !await IsValidRoomAsync(roomId))
+            {
+                return RedirectToAction("AccessDenied", "Account");
+            }
+
+            if (!DateTime.TryParseExact(month + "-01", "yyyy-MM-dd", null, DateTimeStyles.None, out var selectedMonth))
+            {
+                return BadRequest("Invalid month format.");
+            }
+
+            var expenses = await _context.Expenses.Where(x => x.RoomId == roomId && x.Date.Year == selectedMonth.Year && x.Date.Month == selectedMonth.Month).Include(x => x.Member).ToListAsync();
+
+            if (expenses == null || !expenses.Any())
+            {
+                return PartialView("_DisplayRoomExpenses", new RoomExpensesViewModel());
+            }
+
+            var expensesSummary = expenses
+                .GroupBy(x => x.Member.Name)
+                .Select(y => new ExpenseSummary
+                {
+                    MemberName = y.Key,
+                    Total = y.Sum(x => x.Amount),
+                    Items = y.OrderBy(x => x.Date).ToList()
+                }).ToList();
+
+            decimal? total = expenses?.Sum(x => x.Amount);
+            int memberCount = await _context.Members.CountAsync(rm => rm.RoomId == roomId);
+            decimal? avgAmount = memberCount > 0 ? total / memberCount : 0m;
+
+            var roomExpenseVM = new RoomExpensesViewModel
+            {
+                Summary = expensesSummary,
+                TotalExpense = total,
+                AvgPerPerson = avgAmount,
+            };
+
+            return PartialView("_DisplayRoomExpenses", roomExpenseVM);
+        }
+        private bool IsValidExpenseViewModel(ExpenseViewModel viewModel)
+        {
+            return viewModel != null && viewModel.Expense != null && !string.IsNullOrWhiteSpace(viewModel.Expense.Item) && viewModel.Expense.Amount > 0 && viewModel.RoomId > 0;
         }
     }
 }

@@ -10,8 +10,9 @@
     <title>@ViewData["Title"] - RoomExpenseTracker</title>
 
     <link rel="icon" href="~/favicon.png" />
+	<link href="~/css/toast.css" rel="stylesheet" />
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/flowbite@1.6.5/dist/flowbite.min.js"></script>
+	<script src="https://unpkg.com/flowbite@1.6.5/dist/flowbite.min.js"></script>
 </head>
 <body class="bg-gray-100 text-gray-800">
 
@@ -68,6 +69,7 @@
         </div>
     </nav>
 
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
     <!-- Page Content -->
     <div class="container mx-auto px-4 py-6">
         <main role="main">
@@ -80,10 +82,37 @@
         © 2025 - RoomExpenseTracker -
         <a asp-controller="Home" asp-action="Privacy" class="text-indigo-500 hover:underline">Privacy</a>
     </footer>
+	<script src="~/js/toast.js"></script>
+	<script>
+            document.addEventListener('DOMContentLoaded', function() {
+            const successMessage = '@TempData["SuccessMessage"]';
+            if (successMessage) {
+               showToast(successMessage, 'success');
+            }
+
+            const errorMessage = '@TempData["ErrorMessage"]';
+            if (errorMessage) {
+               showToast(errorMessage, 'error');
+            }
+
+            const infoMessage = '@TempData["InfoMessage"]';
+            if (infoMessage) {
+               showToast(infoMessage, 'info');
+            }
+
+            const warningMessage = '@TempData["WarningMessage"]';
+            if (warningMessage) {
+               showToast(warningMessage, 'warning');
+            }
+        });
+    </script>
 
     @await RenderSectionAsync("Scripts", required: false)
 
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+    <div id="toast-container" class="toast-container">
+        <!-- Toasts will be inserted here -->
+    </div>
+
     <script>
         function toggleSidebar() {
             const sidebar = document.getElementById("mobileSidebar");
@@ -104,7 +133,6 @@
             const loader = document.getElementById("globalLoader");
             if (loader) {
                 loader.classList.add("hidden");
-                console.log("Loader hidden");
             } else {
                 console.error("Loader element not found!");
             }

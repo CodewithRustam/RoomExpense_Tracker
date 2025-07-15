@@ -2,6 +2,7 @@
 
 @{
     var room = Model.Room;
+    Layout = "_Layout";
 }
 
 <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -93,7 +94,7 @@
                     </button>
                 </div>
                 <div class="pe-4 ps-4 pb-6" id="modalContent">
-                    <!-- AJAX-loaded form will appear here -->
+                    @await Html.PartialAsync("~/Views/Expenses/_AddExpenseModal.cshtml", new RoomExpenseTracker.Models.ExpenseViewModel { Expense = new Expense { Date = DateTime.Today, RoomId = room.RoomId }, RoomId = room.RoomId })
                 </div>
             </div>
         </div>
@@ -101,18 +102,17 @@
 </div>
 
 @section Scripts {
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
     <partial name="_ValidationScriptsPartial" />
 
     <script>
-        var roomId = @room.RoomId;
+        var roomId = @room.RoomId
 
         function loadExpenses(month) {
             $('#expenseGrid').html(`
                 <div class="text-center text-indigo-400 animate-pulse py-8 text-sm">
                     Loading expenses...
                 </div>`);
-            $.get('/Rooms/DisplayExpenses', { id: roomId, month: month }, function (html) {
+            $.get('/Expenses/DisplayExpenses', { roomId: roomId, month: month }, function (html) {
                 $('#expenseGrid').html(html);
             });
         }
@@ -127,10 +127,7 @@
             });
 
             $('[data-modal-toggle]').on('click', function () {
-                $.get('/Expenses/Add', { roomId: roomId }, function (html) {
-                    $('#modalContent').html(html);
                     $('#authentication-modal').removeClass('hidden');
-                });
             });
 
             $('[data-modal-hide]').on('click', function () {
