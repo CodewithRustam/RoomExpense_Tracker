@@ -23,7 +23,7 @@ namespace RoomExpenseTracker.Services
             while (!stoppingToken.IsCancellationRequested)
             {
                 var now = DateTime.Now;
-                var nextRun = now.Date.AddDays(1).AddHours(0);
+                var nextRun = now.Date.AddMinutes(2);
                 var delay = nextRun - now;
 
                 if (delay.TotalMilliseconds > 0)
@@ -47,7 +47,6 @@ namespace RoomExpenseTracker.Services
 
                 var csvContent = GenerateUserCsvReport(user, DateTime.Today);
 
-                // Only send email if user has expenses this month
                 if (!string.IsNullOrWhiteSpace(csvContent))
                 {
                     await SendEmailToUserAsync(user, csvContent, stoppingToken);
@@ -58,22 +57,43 @@ namespace RoomExpenseTracker.Services
         private string GenerateUserCsvReport(ApplicationUser user, DateTime referenceDate)
         {
             var sb = new StringBuilder();
-            sb.AppendLine("Item,Amount,ExpenseDate,");
             using var scope = _serviceProvider.CreateScope();
             var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            var expenses = context.Expenses.Where(e => e.Member.ApplicationUserId == user.Id && e.Date.Year == referenceDate.Year && e.Date.Month == referenceDate.Month)
-                           .OrderBy(e => e.Date);
 
-            if (!expenses.Any()) return null;
+            // Fetch data to memory before grouping
+            var expensesByRoom = context.Expenses
+                .Where(e => e.Member.ApplicationUserId == user.Id &&
+                            e.Date.Year == referenceDate.Year &&
+                            e.Date.Month == referenceDate.Month)
+                .ToList() // Materialize the query to avoid translation issues
+                .GroupBy(e => e.RoomId)
+                .OrderBy(g => g.Key)
+                .ToList();
 
-            foreach (var expense in expenses)
+            if (!expensesByRoom.Any()) return string.Empty;
+
+            bool isFirstRoom = true;
+            foreach (var roomGroup in expensesByRoom)
             {
-                sb.AppendLine($"\"{expense.Item}\",\"{expense.Amount}\",\"{expense.Date:yyyy-MM-dd}\"");
+                // Add a separator and room header between sheets
+                if (!isFirstRoom)
+                {
+                    sb.AppendLine(); // Empty line for separation
+                }
+                sb.AppendLine($"Room {roomGroup.Key} Expenses");
+                sb.AppendLine("Item,Amount,ExpenseDate");
+
+                // Sort expenses within the room by date
+                var sortedExpenses = roomGroup.OrderBy(e => e.Date);
+                foreach (var expense in sortedExpenses)
+                {
+                    sb.AppendLine($"\"{expense.Item}\",\"{expense.Amount}\",\"{expense.Date:yyyy-MM-dd}\"");
+                }
+                isFirstRoom = false;
             }
 
             return sb.ToString();
         }
-
         private async Task SendEmailToUserAsync(ApplicationUser user, string csvContent, CancellationToken stoppingToken)
         {
             var emailConfig = _configuration.GetSection("EmailSettings");
