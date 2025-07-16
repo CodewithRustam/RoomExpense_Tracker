@@ -15,6 +15,8 @@ namespace RoomExpenseTracker.Data
         public DbSet<Room> Rooms { get; set; }
         public DbSet<Member> Members { get; set; }
         public DbSet<Expense> Expenses { get; set; }
+        public DbSet<DailyReportLog> DailyReportLogs { get; set; }
+
 
         public DbSet<DataProtectionKey> DataProtectionKeys { get; set; } = null!;
         protected override void OnModelCreating(ModelBuilder modelBuilder)

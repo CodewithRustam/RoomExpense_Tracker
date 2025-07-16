@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.AspNetCore.Routing.Tree;
+using Microsoft.EntityFrameworkCore;
 using MimeKit;
 using RoomExpenseTracker.Data;
 using RoomExpenseTracker.Models;
@@ -20,18 +21,60 @@ namespace RoomExpenseTracker.Services
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
+            var indiaTimeZone = TimeZoneInfo.FindSystemTimeZoneById("India Standard Time");
+
             while (!stoppingToken.IsCancellationRequested)
             {
-                var now = DateTime.Now;
-                var nextRun = now.Date.AddMinutes(2);
-                var delay = nextRun - now;
+                var utcNow = DateTime.UtcNow;
+                var indiaNow = TimeZoneInfo.ConvertTimeFromUtc(utcNow, indiaTimeZone);
+
+                var nextRun = indiaNow.Date.AddDays(1);
+
+                var delay = nextRun - indiaNow;
 
                 if (delay.TotalMilliseconds > 0)
-                    await Task.Delay(delay, stoppingToken);
+                {
+                    try
+                    {
+                        using var scope = _serviceProvider.CreateScope();
+                        var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                        context.DailyReportLogs.Add(new DailyReportLog
+                        {
+                            RunDate = indiaNow,
+                            ReportName = "Monthly Expense Report",
+                            Status = "Task Delay:- " + delay,
+                            Message = "Report not generated"
+                        });
+                        await context.SaveChangesAsync(stoppingToken);
+                    }
+                    catch (Exception  ex)
+                    {
 
+                        throw;
+                    }
+                    await Task.Delay(delay, stoppingToken);                    
+                }
+                try
+                {
+                    using var scope = _serviceProvider.CreateScope();
+                    var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                    context.DailyReportLogs.Add(new DailyReportLog
+                    {
+                        RunDate = indiaNow,
+                        ReportName = "Monthly Expense Report",
+                        Status = "Task Delay:- " + delay,
+                        Message = "Report generating and sending started."
+                    });
+                    await context.SaveChangesAsync(stoppingToken);
+                }
+                catch (Exception ex)
+                {
+                    throw;
+                }
                 await GenerateAndSendReportsAsync(stoppingToken);
             }
         }
+
 
         private async Task GenerateAndSendReportsAsync(CancellationToken stoppingToken)
         {
@@ -45,12 +88,51 @@ namespace RoomExpenseTracker.Services
 
                 if (string.IsNullOrEmpty(user.Email)) continue;
 
-                var csvContent = GenerateUserCsvReport(user, DateTime.Today);
-
-                if (!string.IsNullOrWhiteSpace(csvContent))
+                try
                 {
-                    await SendEmailToUserAsync(user, csvContent, stoppingToken);
+                    var csvContent = GenerateUserCsvReport(user, DateTime.Today);
+
+                    if (!string.IsNullOrWhiteSpace(csvContent))
+                    {
+                        await SendEmailToUserAsync(user, csvContent, stoppingToken);
+
+                        context.DailyReportLogs.Add(new DailyReportLog
+                        {
+                            UserId = user.Id,
+                            Email = user.Email,
+                            RunDate = DateTime.UtcNow,
+                            ReportName = "Monthly Expense Report",
+                            Status = "Success",
+                            Message = "Report sent successfully"
+                        });
+                    }
+                    else
+                    {
+                        context.DailyReportLogs.Add(new DailyReportLog
+                        {
+                            UserId = user.Id,
+                            Email = user.Email,
+                            RunDate = DateTime.UtcNow,
+                            ReportName = "Monthly Expense Report",
+                            Status = "Skipped",
+                            Message = "No data to send"
+                        });
+                    }
                 }
+                catch (Exception ex)
+                {
+                    context.DailyReportLogs.Add(new DailyReportLog
+                    {
+                        UserId = user.Id,
+                        Email = user.Email,
+                        RunDate = DateTime.UtcNow,
+                        ReportName = "Monthly Expense Report",
+                        Status = "Failed",
+                        Message = ex.Message
+                    });
+                }
+
+                await context.SaveChangesAsync(stoppingToken); 
             }
         }
 
@@ -60,30 +142,24 @@ namespace RoomExpenseTracker.Services
             using var scope = _serviceProvider.CreateScope();
             var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-            // Fetch data to memory before grouping
             var expensesByRoom = context.Expenses
-                .Where(e => e.Member.ApplicationUserId == user.Id &&
-                            e.Date.Year == referenceDate.Year &&
-                            e.Date.Month == referenceDate.Month)
-                .ToList() // Materialize the query to avoid translation issues
-                .GroupBy(e => e.RoomId)
-                .OrderBy(g => g.Key)
-                .ToList();
+                                .Where(e => e.Member.ApplicationUserId == user.Id &&
+                                            e.Date.Year == referenceDate.Year &&
+                                            e.Date.Month == referenceDate.Month).Include(e => e.Room) 
+                                .ToList().GroupBy(e => new { e.RoomId, e.Room.Name }).OrderBy(g => g.Key.RoomId).ToList();
 
             if (!expensesByRoom.Any()) return string.Empty;
 
             bool isFirstRoom = true;
             foreach (var roomGroup in expensesByRoom)
             {
-                // Add a separator and room header between sheets
                 if (!isFirstRoom)
                 {
-                    sb.AppendLine(); // Empty line for separation
+                    sb.AppendLine(); 
                 }
-                sb.AppendLine($"Room {roomGroup.Key} Expenses");
+                sb.AppendLine($"Room {roomGroup.Key.Name} Expenses");
                 sb.AppendLine("Item,Amount,ExpenseDate");
 
-                // Sort expenses within the room by date
                 var sortedExpenses = roomGroup.OrderBy(e => e.Date);
                 foreach (var expense in sortedExpenses)
                 {
@@ -100,7 +176,7 @@ namespace RoomExpenseTracker.Services
 
             var message = new MimeMessage();
             message.From.Add(new MailboxAddress(emailConfig["SenderName"], emailConfig["SenderEmail"]));
-            message.To.Add(new MailboxAddress(user.UserName, user.Email));
+            message.To.Add(new MailboxAddress(user.UserName, user.Email+"@gmail.com"));
 
             message.Subject = $"Your Monthly Expense Report - {DateTime.Today:MMMM yyyy}";
             var body = new TextPart("plain") { Text = "Please find your monthly expense report attached." };
