@@ -28,7 +28,17 @@ namespace RoomExpenseTracker.Services
                 var utcNow = DateTime.UtcNow;
                 var indiaNow = TimeZoneInfo.ConvertTimeFromUtc(utcNow, indiaTimeZone);
 
-                var nextRun = indiaNow.Date.AddDays(1);
+                var todayTargetTime = indiaNow.Date.AddHours(0).AddMinutes(45);
+                DateTime nextRun;
+
+                if (indiaNow < todayTargetTime)
+                {
+                    nextRun = todayTargetTime;
+                }
+                else
+                {
+                    nextRun = todayTargetTime.AddDays(1);
+                }
 
                 var delay = nextRun - indiaNow;
 
@@ -42,18 +52,19 @@ namespace RoomExpenseTracker.Services
                         {
                             RunDate = indiaNow,
                             ReportName = "Monthly Expense Report",
-                            Status = "Task Delay:- " + delay,
-                            Message = "Report not generated"
+                            Status = $"Waiting for {delay.TotalMinutes:F1} min",
+                            Message = $"Next run scheduled at: {nextRun} IST"
                         });
                         await context.SaveChangesAsync(stoppingToken);
                     }
-                    catch (Exception  ex)
+                    catch (Exception)
                     {
-
                         throw;
                     }
-                    await Task.Delay(delay, stoppingToken);                    
+
+                    await Task.Delay(delay, stoppingToken);
                 }
+
                 try
                 {
                     using var scope = _serviceProvider.CreateScope();
@@ -62,15 +73,16 @@ namespace RoomExpenseTracker.Services
                     {
                         RunDate = indiaNow,
                         ReportName = "Monthly Expense Report",
-                        Status = "Task Delay:- " + delay,
+                        Status = "Started",
                         Message = "Report generating and sending started."
                     });
                     await context.SaveChangesAsync(stoppingToken);
                 }
-                catch (Exception ex)
+                catch (Exception)
                 {
                     throw;
                 }
+
                 await GenerateAndSendReportsAsync(stoppingToken);
             }
         }
@@ -203,9 +215,8 @@ namespace RoomExpenseTracker.Services
                 await client.AuthenticateAsync(emailConfig["SmtpUsername"], emailConfig["SmtpPassword"], stoppingToken);
                 await client.SendAsync(message, stoppingToken);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                // Optionally log the error
             }
             finally
             {
