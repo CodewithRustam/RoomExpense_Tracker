@@ -91,8 +91,8 @@
     }
 </div>
 <!-- Edit Expense Modal -->
-<div id="editExpenseModal" tabindex="-1" aria-hidden="true"
-     class="fixed inset-0 hidden z-50 bg-black bg-opacity-50 flex items-center justify-center">
+<div id="editExpenseModal" tabindex="-1" aria-hidden="true" class="fixed hidden inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center" style="
+    margin-top: 0rem;">
     <div class="relative w-full max-w-md p-4">
         <div class="bg-white rounded-lg shadow-xl border border-gray-200">
             <div class="flex justify-between items-center p-4 border-b">
@@ -114,17 +114,15 @@
         const $saveBtn = $form.find('button[type="submit"]');
 
         let original = {};
-        // Open modal
         $('.edit-expense-btn').on('click', function () {
             $('#editExpenseModal').removeClass('hidden'); 
-            
+            $('body').addClass('overflow-hidden');
             const $btn = $(this);
 
             const item = $btn.data('item');
             const amount = $btn.data('amount');
             const date = $btn.data('date');
 
-            // Set values
             $('#expenseId').val($btn.data('expense-id'));
             $('#item').val(item);
             $('#amount').val(amount);
@@ -133,7 +131,6 @@
 
             original = { item, amount: parseFloat(amount), date };
 
-            // Disable save initially
             $saveBtn.prop('disabled', true);
         });
 
@@ -146,10 +143,9 @@
             $saveBtn.prop('disabled', !changed);
         });
 
-
-        // Close modal
         $('[data-modal-hide]').on('click', function () {
             $('#editExpenseModal').addClass('hidden');
+            $('body').removeClass('overflow-hidden'); 
         });
     });
 </script>
