@@ -90,123 +90,66 @@
         </div>
     }
 </div>
-
 <!-- Edit Expense Modal -->
-<div id="editExpenseModal" class="fixed inset-0 hidden z-50 bg-black bg-opacity-50 flex items-center justify-center transition-opacity duration-300 ease-in-out" style="background-color: rgba(0, 0, 0, 0.5); top:-16px" role="dialog" aria-modal="true" aria-labelledby="editExpenseModalTitle">
-    <div class="bg-white rounded-lg p-6 w-[90%] sm:w-[80%] md:w-[60%] lg:w-[40%] xl:w-[30%] max-w-md relative z-[60]">
-        <div class="flex justify-between items-center mb-6">
-            <h2 id="editExpenseModalTitle" class="text-xl font-bold text-gray-800">Edit Expense</h2>
-            <button class="close-modal text-gray-500 hover:text-gray-700">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                     xmlns="http://www.w3.org/2000/svg">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                          d="M6 18L18 6M6 6l12 12"></path>
-                </svg>
-            </button>
+<div id="editExpenseModal" tabindex="-1" aria-hidden="true"
+     class="fixed inset-0 hidden z-50 bg-black bg-opacity-50 flex items-center justify-center">
+    <div class="relative w-full max-w-md p-4">
+        <div class="bg-white rounded-lg shadow-xl border border-gray-200">
+            <div class="flex justify-between items-center p-4 border-b">
+                <h3 class="text-lg font-semibold text-gray-900">Edit Expense</h3>
+                <button type="button" data-modal-hide="authentication-modal"
+                        class="w-8 h-8 text-gray-500 hover:text-gray-900 transition rounded-full flex items-center justify-center">
+                    ✕
+                </button>
+            </div>
+            <div class="pe-4 ps-4 pb-6">
+                @await Html.PartialAsync("~/Views/Expenses/_EditExpenseModal.cshtml", new ExpenseViewModel())
+            </div>
         </div>
-        @await Html.PartialAsync("_EditExpenseModal", new ExpenseViewModel())  
     </div>
 </div>
-
-<style>
-    .no-scroll {
-        overflow: hidden;
-    }
-
-    #editExpenseModal {
-        transition: opacity 0.3s ease-in-out;
-        opacity: 0;
-    }
-
-    #editExpenseModal:not(.hidden) {
-        opacity: 1;
-    }
-</style>
-<partial name="_ValidationScriptsPartial" />
-
 <script>
     $(document).ready(function () {
-        let originalItem, originalAmount, originalDate;
+         const $form = $('#editExpenseForm');
+        const $saveBtn = $form.find('button[type="submit"]');
 
+        let original = {};
         // Open modal
-    $('.edit-expense-btn').on('click', function () {
-        const $btn = $(this);
-        $('#expenseId').val($btn.data('expense-id'));
-        $('#item').val($btn.data('item'));
-        $('#amount').val($btn.data('amount'));
-        $('#date').val($btn.data('date'));
-        $('#roomId').val($btn.data('room-id'));
+        $('.edit-expense-btn').on('click', function () {
+            $('#editExpenseModal').removeClass('hidden'); 
+            
+            const $btn = $(this);
 
-        // Store original values
-        originalItem = $btn.data('item');
-        originalAmount = $btn.data('amount').toString();
-        originalDate = $btn.data('date');
+            const item = $btn.data('item');
+            const amount = $btn.data('amount');
+            const date = $btn.data('date');
 
-        $('#editExpenseModal').removeClass('hidden');
-        $('body').addClass('no-scroll');
+            // Set values
+            $('#expenseId').val($btn.data('expense-id'));
+            $('#item').val(item);
+            $('#amount').val(amount);
+            $('#date').val(date);
+            $('#roomId').val($btn.data('room-id'));
 
-        $.validator.unobtrusive.parse('#editExpenseForm');
-    });
+            original = { item, amount: parseFloat(amount), date };
+
+            // Disable save initially
+            $saveBtn.prop('disabled', true);
+        });
+
+        $('#item, #amount, #date').on('input change', function () {
+            const changed =
+                $('#item').val() !== original.item ||
+                parseFloat($('#amount').val()) !== original.amount ||
+                $('#date').val() !== original.date;
+
+            $saveBtn.prop('disabled', !changed);
+        });
+
 
         // Close modal
-        $('.close-modal').on('click', function () {
+        $('[data-modal-hide]').on('click', function () {
             $('#editExpenseModal').addClass('hidden');
-            $('body').removeClass('no-scroll');
-        });
-
-        // Click on backdrop
-        $('#editExpenseModal').on('click', function (e) {
-            if ($(e.target).is('#editExpenseModal')) {
-                $(this).addClass('hidden');
-                $('body').removeClass('no-scroll');
-            }
-        });
-
-        $(document).on('keydown', function (e) {
-            if (e.key === 'Escape') {
-                $('#editExpenseModal').addClass('hidden');
-                $('body').removeClass('no-scroll');
-            }
-        });
-
-        $('#editExpenseForm').on('submit', function (e) {
-            const currentItem = $('#item').val();
-            const currentAmount = $('#amount').val();
-            const currentDate = $('#date').val();
-
-            if(currentAmount <= 0)
-            {
-                alert("Amount must be greater than zero.");
-                e.preventDefault();
-                return;
-            }
-
-            if (currentItem === originalItem && currentAmount === originalAmount && currentDate === originalDate) 
-            {
-                alert("No changes made to the expense. Please update before saving.");
-                e.preventDefault();
-                return;
-            }
-
-            $.ajax({
-                url: '@Url.Action("EditExpense", "Expenses")',
-                type: 'POST',
-                data: $(this).serialize(),
-                success: function (response) {
-                    if (response.redirectToUrl) {
-                        window.location.href = response.redirectToUrl;
-                    } else {
-                        $('#editExpenseModal').addClass('hidden');
-                        $('body').removeClass('no-scroll');
-                        location.reload();
-                    }
-                },
-                error: function (xhr) {
-                    alert('Error: ' + xhr.responseText);
-                }
-            });
-
-            e.preventDefault(); 
         });
     });
 </script>

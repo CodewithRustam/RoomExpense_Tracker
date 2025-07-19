@@ -5,21 +5,35 @@
 }
 
 <!-- Page Container -->
-<div class="container mx-auto px-4 py-8">
+<div class="container mx-auto px-4 sm:px-6 lg:px-8 py-12">
     <!-- Page Heading -->
-    <div class="flex justify-between items-center mb-8">
-        <h1 class="text-4xl font-bold text-gray-800">🏠 Shared Rooms</h1>
-        <a asp-action="Create" class="bg-blue-600 text-white px-5 py-2 rounded-lg hover:bg-blue-700 transition-all shadow-md">
-            + Create New Room
+    <div class="flex justify-between items-center mb-10">
+        <h1 class="text-2xl font-medium text-[rgba(97,38,255,0.84)] flex items-center gap-3">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-[rgba(97,38,255,0.84)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true" focusable="false">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10l1-2m0 0l1-2m10 4v10m-6 0H5a2 2 0 01-2-2V10m0 0l9-7 9 7m-9 7h.01" />
+            </svg>
+            Shared Rooms
+        </h1>
+        <a asp-action="Create" class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-[rgba(97,38,255,0.84)] rounded-full hover:bg-[rgba(97,38,255,0.94)] transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-[rgba(97,38,255,0.5)]">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true" focusable="false">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+            </svg>
+            New Room
         </a>
     </div>
 
     <!-- Check if there are rooms -->
     @if (!Model.Any())
     {
-        <div class="text-center py-20 text-gray-500">
-            <p class="text-xl">You don’t have any rooms yet.</p>
-            <p class="mt-2">Start by creating your first shared room!</p>
+        <div class="text-center py-16 text-gray-600">
+            <p class="text-base font-medium">No rooms to show.</p>
+            <p class="mt-2 mb-6 text-sm">Create a shared room to get started!</p>
+            <a asp-action="Create" class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-[rgba(97,38,255,0.84)] rounded-full hover:bg-[rgba(97,38,255,0.94)] transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-[rgba(97,38,255,0.5)]">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true" focusable="false">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                </svg>
+                Create Room
+            </a>
         </div>
     }
     else
@@ -28,27 +42,34 @@
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             @foreach (var room in Model)
             {
-                <div class="bg-white rounded-xl shadow hover:shadow-lg transition-all p-6 flex flex-col justify-between">
+                <div class="bg-white rounded-lg p-5 flex flex-col justify-between border-l-4 border-[rgba(97,38,255,0.84)] hover:bg-[rgba(97,38,255,0.05)] transition-colors duration-200">
                     <div>
-                        <h2 class="text-2xl font-semibold text-gray-800 mb-2 flex items-center">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-blue-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <div class="flex items-center mb-3">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-[rgba(97,38,255,0.84)] mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true" focusable="false">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10l1-2m0 0l1-2m10 4v10m-6 0H5a2 2 0 01-2-2V10m0 0l9-7 9 7m-9 7h.01" />
                             </svg>
-                            @room.Name
-                        </h2>
-                        <p class="text-gray-600 mb-4">👥 Members: <strong>@(room.Members?.Count ?? 0)</strong></p>
+                            <h2 class="text-lg font-medium text-gray-800 truncate" aria-label="Room Name: @room.Name">
+                                @room.Name
+                            </h2>
+                        </div>
+                        <p class="text-sm text-gray-600 flex items-center gap-1">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true" focusable="false">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                            </svg>
+                            @(room.Members?.Count ?? 0) Members
+                        </p>
+                        
+                        <p class="text-xs text-gray-400">Created: @room.CreatedDate.ToString("MMM dd, yyyy")</p>
                     </div>
                     <a asp-action="Details" asp-route-id="@room.RoomId"
-                       class="mt-auto text-blue-600 font-medium hover:underline hover:text-blue-800 transition-all">
-                        ➤ View Details
+                       class="mt-4 inline-flex items-center text-sm font-medium text-[rgba(97,38,255,0.84)] hover:text-[rgba(97,38,255,1)] hover:underline transition-colors duration-150 focus:outline-none focus:underline">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true" focusable="false">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                        </svg>
+                        View Details
                     </a>
                 </div>
             }
         </div>
     }
 </div>
-
-@section Scripts {
-    <!-- Load Tailwind CSS via CDN (for dev) -->
-    <script src="https://cdn.tailwindcss.com"></script>
-}

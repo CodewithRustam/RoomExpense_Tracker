@@ -3,7 +3,7 @@
     var today = DateTime.Today.ToString("yyyy-MM-dd");
 }
 
-<form asp-action="Add" asp-controller="Expenses" method="post" class="max-w-md mx-auto pe-4 ps-4 bg-white space-y-6" id="addExpenseForm" novalidate data-dark-mode="false">
+<form asp-action="Add" asp-controller="Expenses" method="post" class="max-w-md mx-auto pe-4 ps-4 bg-white space-y-6" id="addExpenseForm" novalidate>
     <input type="hidden" asp-for="RoomId" />
     <input type="hidden" asp-for="Expense.RoomId" />
 
