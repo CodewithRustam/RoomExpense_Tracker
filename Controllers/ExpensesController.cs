@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -22,9 +22,12 @@ namespace RoomExpenseTracker.Controllers
             _userManager = userManager;
         }
 
-        private async Task<int> GetMemberId(string? userId)
+        private async Task<int> GetMemberId(string? userId, int roomId)
         {
-            return await _context.Members.Where(x => x.ApplicationUserId == userId).Select(x => x.MemberId) .FirstOrDefaultAsync();
+            return await _context.Members
+                .Where(x => x.ApplicationUserId == userId && x.RoomId == roomId)
+                .Select(x => x.MemberId)
+                .FirstOrDefaultAsync();
         }
 
         private async Task<bool> IsValidRoomAsync(int roomId)
@@ -42,7 +45,7 @@ namespace RoomExpenseTracker.Controllers
             }
 
             var userId = _userManager.GetUserId(User);
-            var memberId = await GetMemberId(userId);
+            var memberId = await GetMemberId(userId, viewModel.RoomId);
 
             if (memberId == 0)
             {
@@ -61,7 +64,6 @@ namespace RoomExpenseTracker.Controllers
             catch (Exception)
             {
                 TempData["ErrorMessage"] = "An error occurred while adding the expense. Please try again.";
-                // Log the exception (optional)
                 return RedirectToAction("Details", "Rooms", new { id = viewModel.RoomId });
             }
 
@@ -87,7 +89,7 @@ namespace RoomExpenseTracker.Controllers
             }
 
             var expense = await _context.Expenses
-                .Where(e => e.ExpenseId == viewModel.Expense.ExpenseId && e.RoomId == viewModel.RoomId)
+                .Where(e => e.ExpenseId == viewModel.Expense.ExpenseId && e.RoomId == viewModel.RoomId && (e.IsDeleted == false || e.IsDeleted == null))
                 .FirstOrDefaultAsync();
 
             if (expense == null)
@@ -118,44 +120,236 @@ namespace RoomExpenseTracker.Controllers
         [HttpGet]
         public async Task<IActionResult> DisplayExpenses(int roomId, string month)
         {
-            if (roomId <= 0 || !await IsValidRoomAsync(roomId))
+            RoomExpensesViewModel roomExpenseVM = new RoomExpensesViewModel();
+            try
             {
-                return RedirectToAction("AccessDenied", "Account");
-            }
-
-            if (!DateTime.TryParseExact(month + "-01", "yyyy-MM-dd", null, DateTimeStyles.None, out var selectedMonth))
-            {
-                return BadRequest("Invalid month format.");
-            }
-
-            var expenses = await _context.Expenses.Where(x => x.RoomId == roomId && x.Date.Year == selectedMonth.Year && x.Date.Month == selectedMonth.Month).Include(x => x.Member).ToListAsync();
-
-            if (expenses == null || !expenses.Any())
-            {
-                return PartialView("_DisplayRoomExpenses", new RoomExpensesViewModel());
-            }
-
-            var expensesSummary = expenses
-                .GroupBy(x => x.Member.Name)
-                .Select(y => new ExpenseSummary
+                if (roomId <= 0 || !await IsValidRoomAsync(roomId))
                 {
-                    MemberName = y.Key,
-                    Total = y.Sum(x => x.Amount),
-                    Items = y.OrderBy(x => x.Date).ToList()
-                }).ToList();
+                    return RedirectToAction("AccessDenied", "Account");
+                }
 
-            decimal? total = expenses?.Sum(x => x.Amount);
-            int memberCount = await _context.Members.CountAsync(rm => rm.RoomId == roomId);
-            decimal? avgAmount = memberCount > 0 ? total / memberCount : 0m;
+                if (!DateTime.TryParseExact(month + "-01", "yyyy-MM-dd", null, DateTimeStyles.None, out var selectedMonth))
+                {
+                    return BadRequest("Invalid month format.");
+                }
 
-            var roomExpenseVM = new RoomExpensesViewModel
+                // Fetch expenses for the selected month and room
+                var expenses = await _context.Expenses
+                    .Where(x => x.RoomId == roomId && (x.IsDeleted == false || x.IsDeleted == null)
+                             && x.Date.Year == selectedMonth.Year
+                             && x.Date.Month == selectedMonth.Month)
+                    .ToListAsync();
+
+                // Fetch settlements for the same period
+                var settlements = await _context.Settlements
+                    .Where(x => x.RoomId == roomId
+                             && x.SettlementDate.Year == selectedMonth.Year
+                             && x.SettlementDate.Month == selectedMonth.Month)
+                    .ToListAsync();
+
+                // Fetch all members of the room
+                var members = await _context.Members
+                    .Where(m => m.RoomId == roomId)
+                    .ToListAsync();
+
+                // Build summary per member
+                var expensesSummary = new List<ExpenseSummary>();
+
+                decimal? total = expenses.Sum(x => (decimal?)x.Amount) ?? 0m;
+                int memberCount = members.Count;
+                decimal? avgAmount = memberCount > 0 ? Math.Round(total.GetValueOrDefault() / memberCount, 2) : 0m;
+
+                foreach (var member in members)
+                {
+                    // Get expenses for this member
+                    var memberExpenses = expenses
+                        .Where(e => e.MemberId == member.MemberId)
+                        .OrderBy(e => e.Date)
+                        .ToList();
+
+                    // Calculate total expenses for this member
+                    var totalExpense = memberExpenses.Sum(e => e.Amount);
+
+                    // Get total settlements paid by this member
+                    var totalSettlementsPaid = settlements
+                        .Where(s => s.MemberId == member.MemberId)
+                        .Sum(s => s.Amount);
+
+                    // Get total settlements received by this member
+                    var totalSettlementsReceived = settlements
+                        .Where(s => s.PaidToMemberId == member.MemberId)
+                        .Sum(s => s.Amount);
+
+                    var netBalance = totalExpense + totalSettlementsPaid - totalSettlementsReceived;
+
+                    // Create summary
+                    var summary = new ExpenseSummary
+                    {
+                        MemberName = member.Name,
+                        NetBalance = netBalance, 
+                        TotalExpense = totalExpense, 
+                        Items = memberExpenses,
+                        PaidAmount = totalSettlementsPaid,
+                        ReceivedAmount = totalSettlementsReceived
+                    };
+                    expensesSummary.Add(summary);
+                }
+
+                roomExpenseVM = new RoomExpensesViewModel
+                {
+                    Summary = expensesSummary,
+                    TotalExpense = total,
+                    AvgPerPerson = avgAmount,
+                    Expense = new Expense { RoomId = roomId }
+                };
+            }
+            catch (Exception ex)
             {
-                Summary = expensesSummary,
-                TotalExpense = total,
-                AvgPerPerson = avgAmount,
-            };
+                throw;
+            }
 
             return PartialView("_DisplayRoomExpenses", roomExpenseVM);
+        }
+        [HttpPost]
+        [ValidateAntiForgeryToken] // Added for security
+        public async Task<IActionResult> Settle(int RoomId, string MemberName, string PaidToMemberName, decimal Amount)
+        {
+            // 1. Validate user authentication and authorization
+            if (!User.Identity.IsAuthenticated || User.Identity.Name != MemberName)
+            {
+                TempData["ErrorMessage"] = "User not authorized to settle this expense.";
+                return Unauthorized();
+            }
+
+            // 2. Validate input parameters
+            if (string.IsNullOrEmpty(PaidToMemberName))
+            {
+                TempData["ErrorMessage"] = "Please select a member to settle with.";
+                return RedirectToAction("Details", "Rooms", new { id = RoomId });
+            }
+
+            if (Amount <= 0)
+            {
+                TempData["ErrorMessage"] = "Settlement amount must be greater than zero.";
+                return RedirectToAction("Details", "Rooms", new { id = RoomId });
+            }
+
+            // 3. Get the current user's member record
+            var userId = _userManager.GetUserId(User);
+            var member = await _context.Members
+                .FirstOrDefaultAsync(m => m.Name == MemberName && m.RoomId == RoomId && m.ApplicationUserId == userId);
+
+            if (member == null)
+            {
+                TempData["ErrorMessage"] = "Member not found.";
+                return RedirectToAction("Details", "Rooms", new { id = RoomId });
+            }
+
+            // 4. Get the recipient's member record
+            var paidToMember = await _context.Members
+                .FirstOrDefaultAsync(m => m.Name == PaidToMemberName && m.RoomId == RoomId);
+
+            if (paidToMember == null)
+            {
+                TempData["ErrorMessage"] = "Recipient member not found.";
+                return RedirectToAction("Details", "Rooms", new { id = RoomId });
+            }
+
+            // 5. Validate room existence
+            var roomExists = await _context.Rooms.AnyAsync(r => r.RoomId == RoomId);
+            if (!roomExists)
+            {
+                TempData["ErrorMessage"] = "Room not found.";
+                return RedirectToAction("Details", "Rooms", new { id = RoomId });
+            }
+
+            // 6. Calculate balances
+            var totalExpenses = await _context.Expenses
+                .Where(e => e.RoomId == RoomId && e.MemberId == member.MemberId && (e.IsDeleted == false || e.IsDeleted == null))
+                .SumAsync(e => e.Amount);
+
+            var totalSettlementsPaid = await _context.Settlements
+                .Where(s => s.RoomId == RoomId && s.MemberId == member.MemberId)
+                .SumAsync(s => s.Amount);
+
+            var totalSettlementsReceived = await _context.Settlements
+                .Where(s => s.RoomId == RoomId && s.PaidToMemberId == member.MemberId)
+                .SumAsync(s => s.Amount);
+
+            var paidToTotalExpenses = await _context.Expenses
+                .Where(e => e.RoomId == RoomId && e.MemberId == paidToMember.MemberId && (e.IsDeleted == false || e.IsDeleted == null))
+                .SumAsync(e => e.Amount);
+
+            var paidToSettlementsPaid = await _context.Settlements
+                .Where(s => s.RoomId == RoomId && s.MemberId == paidToMember.MemberId)
+                .SumAsync(s => s.Amount);
+
+            var paidToSettlementsReceived = await _context.Settlements
+                .Where(s => s.RoomId == RoomId && s.PaidToMemberId == paidToMember.MemberId)
+                .SumAsync(s => s.Amount);
+
+            var totalRoomExpenses = await _context.Expenses
+                .Where(e => e.RoomId == RoomId && (e.IsDeleted == false || e.IsDeleted == null))
+                .SumAsync(e => e.Amount);
+
+            var memberCount = await _context.Members
+                .CountAsync(m => m.RoomId == RoomId);
+
+            var avgPerPerson = memberCount > 0 ? totalRoomExpenses / memberCount : 0;
+
+            // 7. Calculate current balances
+            var payerBalance = totalExpenses - totalSettlementsPaid + totalSettlementsReceived;
+            var payerOwedAmount = Math.Abs(payerBalance - avgPerPerson); // Amount the payer owes
+            var recipientBalance = paidToTotalExpenses - paidToSettlementsPaid + paidToSettlementsReceived;
+            var recipientOwedAmount = recipientBalance - avgPerPerson; // Amount the recipient is owed
+
+            // 8. Validate settlement amount
+            if (payerBalance >= avgPerPerson)
+            {
+                TempData["ErrorMessage"] = "You are not owing any amount.";
+                return RedirectToAction("Details", "Rooms", new { id = RoomId });
+            }
+
+            if (recipientBalance <= avgPerPerson)
+            {
+                TempData["ErrorMessage"] = "The selected member is not owed any amount.";
+                return RedirectToAction("Details", "Rooms", new { id = RoomId });
+            }
+
+            //var maxSettlementAmount = payerOwedAmount - avgPerPerson;
+            //if (Amount > maxSettlementAmount)
+            //{
+            //    TempData["ErrorMessage"] = $"Settlement amount cannot exceed ₹{maxSettlementAmount:F2}.";
+            //    return RedirectToAction("Details", "Rooms", new { id = RoomId });
+            //}
+
+            // 9. Record the settlement
+            var settlement = new Settlement
+            {
+                MemberId = member.MemberId,
+                PaidToMemberId = paidToMember.MemberId,
+                RoomId = RoomId,
+                Amount = Amount,
+                SettlementDate = DateTime.UtcNow
+            };
+
+            try
+            {
+                using (var transaction = await _context.Database.BeginTransactionAsync())
+                {
+                    _context.Settlements.Add(settlement);
+                    await _context.SaveChangesAsync();
+                    await transaction.CommitAsync();
+                }
+            }
+            catch (DbUpdateException)
+            {
+                TempData["ErrorMessage"] = "An error occurred while recording the settlement. Please try again.";
+                return RedirectToAction("Details", "Rooms", new { id = RoomId });
+            }
+
+            TempData["SuccessMessage"] = $"Successfully settled ₹{Amount:F2} to {PaidToMemberName}.";
+            return RedirectToAction("Details", "Rooms", new { id = RoomId });
         }
         private bool IsValidExpenseViewModel(ExpenseViewModel viewModel)
         {

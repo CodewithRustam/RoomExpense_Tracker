@@ -16,6 +16,8 @@ namespace RoomExpenseTracker.Data
         public DbSet<Member> Members { get; set; }
         public DbSet<Expense> Expenses { get; set; }
         public DbSet<DailyReportLog> DailyReportLogs { get; set; }
+        public DbSet<Settlement> Settlements { get; set; }
+
 
 
         public DbSet<DataProtectionKey> DataProtectionKeys { get; set; } = null!;
@@ -46,6 +48,7 @@ namespace RoomExpenseTracker.Data
                 .WithMany()
                 .HasForeignKey(r => r.CreatedByUserId)
                 .OnDelete(DeleteBehavior.Cascade);
+
         }
     }
 }

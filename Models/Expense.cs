@@ -16,6 +16,7 @@ namespace RoomExpenseTracker.Models
         public DateTime Date { get; set; }
         [Required]
         public int RoomId { get; set; }
+        public bool? IsDeleted { get; set; }
         public Room Room { get; set; }
         public Member Member { get; set; }
     }

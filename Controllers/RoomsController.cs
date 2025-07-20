@@ -48,6 +48,7 @@ namespace ExpenseTracker.Controllers
 
             var room = new Room
             {
+                CreatedByUser = user,
                 Name = viewModel.Name,
                 CreatedByUserId = userId
             };

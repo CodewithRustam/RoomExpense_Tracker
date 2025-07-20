@@ -155,7 +155,7 @@ namespace RoomExpenseTracker.Services
             var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
             var expensesByRoom = context.Expenses
-                                .Where(e => e.Member.ApplicationUserId == user.Id &&
+                                .Where(e => e.Member.ApplicationUserId == user.Id && e.IsDeleted == false &&
                                             e.Date.Year == referenceDate.Year &&
                                             e.Date.Month == referenceDate.Month).Include(e => e.Room) 
                                 .ToList().GroupBy(e => new { e.RoomId, e.Room.Name }).OrderBy(g => g.Key.RoomId).ToList();

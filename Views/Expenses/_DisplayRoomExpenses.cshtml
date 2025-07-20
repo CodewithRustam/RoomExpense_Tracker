@@ -1,5 +1,4 @@
-﻿@using Microsoft.AspNetCore.Mvc.Rendering
-@model RoomExpenseTracker.ViewModels.RoomExpensesViewModel
+﻿@model RoomExpenseTracker.ViewModels.RoomExpensesViewModel
 
 <div class="px-4 sm:px-0 mb-6">
     <div class="flex justify-start sm:justify-end items-center gap-3 text-base font-semibold flex-nowrap">
@@ -16,7 +15,8 @@
 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
     @foreach (var person in Model.Summary)
     {
-        var difference = person.Total - Model.AvgPerPerson;
+        var difference = person.NetBalance - Model.AvgPerPerson;
+        difference = Math.Abs(difference.GetValueOrDefault()) < 0.5m ? 0m : difference;
         var isOwed = difference > 0;
         var isOwing = difference < 0;
         var amountClass = isOwed ? "text-green-600 bg-green-50" :
@@ -26,24 +26,71 @@
         var badgeAmount = isOwing ? Math.Abs(Convert.ToDecimal(difference)) : difference;
 
         <div class="bg-white rounded-2xl shadow-xl hover:shadow-2xl transition-shadow p-5 relative overflow-hidden border border-gray-100">
-            <div class="absolute -top-10 -right-10 w-32 h-32 bg-gradient-to-br from-indigo-200 to-purple-300 opacity-10 rotate-45"></div>
+            <div class="absolute -top-10 -right-10 w-32 h-32 bg-gradient-to-br from-indigo-200 to-purple-300 opacity-10 rotate-45 pointer-events-none"></div>
 
             <div class="flex justify-between items-center mb-4">
                 <h3 class="text-xl font-bold text-gray-800">@person.MemberName</h3>
-                <span class="@amountClass px-3 py-1 rounded-full text-sm font-medium shadow">
-                    @badgeText
-                    @if (difference != 0)
+                <div class="flex items-center gap-2">
+                    <span class="@amountClass px-3 py-1 rounded-full text-sm font-medium shadow">
+                        @badgeText
+                        @if (difference != 0)
+                        {
+                            <span>: ₹@badgeAmount?.ToString("F2")</span>
+                        }
+                    </span>
+                    @if (isOwing && User.Identity != null && User.Identity.IsAuthenticated && User.Identity.Name == person.MemberName)
                     {
-                        <span>: ₹@badgeAmount?.ToString("F2")</span>
+                        <button class="settle-btn text-indigo-600 hover:text-indigo-800"
+                                data-member-name="@person.MemberName"
+                                data-amount="@badgeAmount"
+                                data-room-id="@Model.Expense?.RoomId"
+                                data-avg-per-person="@Model.AvgPerPerson">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                      d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                        </button>
                     }
-                </span>
+                </div>
             </div>
 
-            <p class="text-gray-500 mb-2">
-                Total:
-                <span class="font-semibold text-gray-800">₹@person.Total?.ToString("F2")</span>
-            </p>
+            <div class="flex items-center flex-wrap" style="gap: 4.25rem; @@media (max-width: 640px) { gap: 2rem; }">
+                <!-- Total Expenses -->
+                <div class="relative group">
+                    <p class="text-sm text-gray-600 font-medium mb-1 transition-colors duration-200 group-hover:text-gray-800">
+                        Total Expenses
+                    </p>
+                    <p class="font-semibold text-gray-900 px-2 py-1 rounded-md shadow-sm transition-all duration-200 group-hover:shadow-md" style="background:rgb(239 224 250)">
+                        ₹@person.TotalExpense?.ToString("F2")<span class="sr-only"> Total Expenses</span>
+                    </p>
+                </div>
 
+                <!-- Paid Amount -->
+                @if (person.PaidAmount > 0)
+                {
+                    <div class="relative group">
+                        <p class="text-sm text-gray-600 font-medium mb-1 transition-colors duration-200 group-hover:text-gray-800">
+                            Paid
+                        </p>
+                        <p class="font-semibold text-red-600 bg-red-50 px-2 py-1 rounded-md shadow-sm transition-all duration-200 group-hover:bg-red-100 group-hover:shadow-md">
+                            ₹@person.PaidAmount?.ToString("F2")<span class="sr-only"> Paid</span>
+                        </p>
+                    </div>
+                }
+
+                <!-- Received Amount -->
+                @if (person.ReceivedAmount > 0)
+                {
+                    <div class="relative group">
+                        <p class="text-sm text-gray-600 font-medium mb-1 transition-colors duration-200 group-hover:text-gray-800">
+                            Received
+                        </p>
+                        <p class="font-semibold text-green-600 bg-green-50 px-2 py-1 rounded-md shadow-sm transition-all duration-200 group-hover:bg-green-100 group-hover:shadow-md">
+                            ₹@person.ReceivedAmount?.ToString("F2")<span class="sr-only"> Received</span>
+                        </p>
+                    </div>
+                }
+            </div>
             <div class="max-h-48 overflow-y-auto scrollbar-thin scrollbar-thumb-indigo-300 scrollbar-track-gray-100">
                 <table class="w-full text-sm mt-3">
                     <thead class="text-center">
@@ -58,31 +105,34 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach (var expense in person.Items)
+                        @if (person.Items != null && person.Items.Count > 0)
                         {
-                            <tr class="hover:bg-gray-50">
-                                <td class="py-2 pr-2 text-gray-700" style="width: 50%;">@expense.Item</td>
-                                <td class="py-2 pr-2 text-gray-700" style="width: 20%;">₹@expense.Amount.ToString("F2")</td>
-                                <td class="py-2 text-gray-500 whitespace-nowrap" style="width: 20%;">@expense.Date.ToString("MMM dd")</td>
-                                @if (User.Identity != null && User.Identity.IsAuthenticated && User.Identity.Name == person.MemberName)
-                                {
-                                    <td class="py-2 text-right" style="width: 10%;">
-                                        <button class="edit-expense-btn text-indigo-600 hover:text-indigo-800"
-                                                data-expense-id="@expense.ExpenseId"
-                                                data-item="@expense.Item"
-                                                data-amount="@expense.Amount"
-                                                data-date="@expense.Date.ToString("yyyy-MM-dd")"
-                                                data-room-id="@expense.RoomId">
-                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                                                 xmlns="http://www.w3.org/2000/svg">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0
-                                                                  112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
-                                            </svg>
-                                        </button>
-                                    </td>
-                                }
-                            </tr>
+                            @foreach (var expense in person.Items)
+                            {
+                                <tr class="hover:bg-gray-50">
+                                    <td class="py-2 pr-2 text-gray-700" style="width: 50%;">@expense.Item</td>
+                                    <td class="py-2 pr-2 text-gray-700" style="width: 20%;">₹@expense.Amount.ToString("F2")</td>
+                                    <td class="py-2 text-gray-500 whitespace-nowrap" style="width: 20%;">@expense.Date.ToString("MMM dd")</td>
+                                    @if (User.Identity != null && User.Identity.IsAuthenticated && User.Identity.Name == person.MemberName)
+                                    {
+                                        <td class="py-2 text-right" style="width: 10%;">
+                                            <button class="edit-expense-btn text-indigo-600 hover:text-indigo-800"
+                                                    data-expense-id="@expense.ExpenseId"
+                                                    data-item="@expense.Item"
+                                                    data-amount="@expense.Amount"
+                                                    data-date="@expense.Date.ToString("yyyy-MM-dd")"
+                                                    data-room-id="@expense.RoomId">
+                                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                                                     xmlns="http://www.w3.org/2000/svg">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                          d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0
+                                                                                                  112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                                                </svg>
+                                            </button>
+                                        </td>
+                                    }
+                                </tr>
+                            }
                         }
                     </tbody>
                 </table>
@@ -90,32 +140,71 @@
         </div>
     }
 </div>
+
 <!-- Edit Expense Modal -->
-<div id="editExpenseModal" tabindex="-1" aria-hidden="true" class="fixed hidden inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center" style="
-    margin-top: 0rem;">
+<div id="editExpenseModal" tabindex="-1" aria-hidden="true" class="fixed hidden inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center" style="margin-top: 0rem;">
     <div class="relative w-full max-w-md p-4">
         <div class="bg-white rounded-lg shadow-xl border border-gray-200">
             <div class="flex justify-between items-center p-4 border-b">
                 <h3 class="text-lg font-semibold text-gray-900">Edit Expense</h3>
-                <button type="button" data-modal-hide="authentication-modal"
+                <button type="button" data-modal-hide="editExpenseModal"
                         class="w-8 h-8 text-gray-500 hover:text-gray-900 transition rounded-full flex items-center justify-center">
                     ✕
                 </button>
             </div>
             <div class="pe-4 ps-4 pb-6">
-                @await Html.PartialAsync("~/Views/Expenses/_EditExpenseModal.cshtml", new ExpenseViewModel())
+                @await Html.PartialAsync("~/Views/Expenses/_EditExpenseModal.cshtml", new RoomExpenseTracker.Models.ExpenseViewModel())
             </div>
         </div>
     </div>
 </div>
+
+<!-- Settle Up Modal -->
+<div id="settleModal" tabindex="-1" aria-hidden="true" class="fixed hidden inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center" style="margin-top: 0rem;">
+    <div class="relative w-full max-w-md p-4">
+        <div class="bg-white rounded-lg shadow-xl border border-gray-200">
+            <div class="flex justify-between items-center p-4 border-b">
+                <h3 class="text-lg font-semibold text-gray-900">Settle Up</h3>
+                <button type="button" data-modal-hide="settleModal"
+                        class="w-8 h-8 text-gray-500 hover:text-gray-900 transition rounded-full flex items-center justify-center">
+                    ✕
+                </button>
+            </div>
+            <div class="pe-4 ps-4 pb-6">
+                <form id="settleForm" method="post" asp-action="Settle" asp-controller="Expenses">
+                    <input type="hidden" id="settleRoomId" name="RoomId" />
+                    <input type="hidden" id="settleMemberName" name="MemberName" />
+                    <input type="hidden" id="settleAmount" name="Amount" />
+                    <label for="paidToMemberName" class="block text-sm font-medium text-gray-700 mb-2">Pay to</label>
+                    <select id="paidToMemberName" name="PaidToMemberName" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors">
+                        <option value="" disabled selected>Select a person to settle with</option>
+                        @foreach (var person in Model.Summary.Where(p => (p.NetBalance - Model.AvgPerPerson) > 0))
+                        {
+                            <option value="@person.MemberName" data-owed-amount="@((person.NetBalance - Model.AvgPerPerson).Value.ToString("F2"))">@person.MemberName (Owed: ₹@((person.NetBalance - Model.AvgPerPerson).Value.ToString("F2")))</option>
+                        }
+                    </select>
+                    <p class="text-gray-700 mb-4 mt-4">
+                        Confirm settlement of <span id="settleAmountDisplay" class="font-semibold"></span> for <span id="settleMemberDisplay" class="font-semibold"></span> to <span id="paidToMemberDisplay" class="font-semibold"></span>.
+                    </p>
+                    <div class="flex justify-end gap-3">
+                        <button type="button" data-modal-hide="settleModal" class="px-4 py-2 text-gray-600 bg-gray-100 rounded-md hover:bg-gray-200">Cancel</button>
+                        <button type="submit" id="confirmSettleBtn" class="px-4 py-2 text-white bg-indigo-600 rounded-md hover:bg-indigo-700" disabled>Confirm</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
     $(document).ready(function () {
-         const $form = $('#editExpenseForm');
+        // Edit Expense Modal Logic
+        const $form = $('#editExpenseForm');
         const $saveBtn = $form.find('button[type="submit"]');
 
         let original = {};
         $('.edit-expense-btn').on('click', function () {
-            $('#editExpenseModal').removeClass('hidden'); 
+            $('#editExpenseModal').removeClass('hidden');
             $('body').addClass('overflow-hidden');
             const $btn = $(this);
 
@@ -143,9 +232,60 @@
             $saveBtn.prop('disabled', !changed);
         });
 
-        $('[data-modal-hide]').on('click', function () {
+        $('[data-modal-hide="editExpenseModal"]').on('click', function () {
             $('#editExpenseModal').addClass('hidden');
-            $('body').removeClass('overflow-hidden'); 
+            $('body').removeClass('overflow-hidden');
+        });
+
+        // Settle Up Modal Logic
+        $('.settle-btn').on('click', function () {
+            $('#settleModal').removeClass('hidden');
+            $('body').addClass('overflow-hidden');
+            const $btn = $(this);
+
+            const memberName = $btn.data('member-name');
+            const amountOwed = parseFloat($btn.data('amount')); // Amount the current user owes
+            const roomId = $btn.data('room-id');
+            const avgPerPerson = parseFloat($btn.data('avg-per-person'));
+
+            $('#settleRoomId').val(roomId);
+            $('#settleMemberName').val(memberName);
+            $('#settleMemberDisplay').text(memberName);
+            $('#settleAmount').val('');
+            $('#settleAmountDisplay').text('');
+            $('#paidToMemberName').val('');
+            $('#paidToMemberDisplay').text('');
+            $('#confirmSettleBtn').prop('disabled', true);
+
+            // Reset dropdown and amount
+            $('#paidToMemberName').val('');
+        });
+
+        $('#paidToMemberName').on('change', function () {
+            const selectedMember = $(this).val();
+            const owedAmount = parseFloat($(this).find(':selected').data('owed-amount'));
+            const memberName = $('#settleMemberName').val();
+            const amountOwed = parseFloat($('.settle-btn[data-member-name="' + memberName + '"]').data('amount'));
+            const avgPerPerson = parseFloat($('.settle-btn[data-member-name="' + memberName + '"]').data('avg-per-person'));
+
+            if (selectedMember) {
+                // Calculate settlement amount: min(owedAmount, amountOwed - avgPerPerson)
+                const settlementAmount = Math.abs(amountOwed).toFixed(2);
+                $('#settleAmount').val(settlementAmount);
+                $('#settleAmountDisplay').text('₹' + settlementAmount);
+                $('#paidToMemberDisplay').text(selectedMember);
+                $('#confirmSettleBtn').prop('disabled', false);
+            } else {
+                $('#settleAmount').val('');
+                $('#settleAmountDisplay').text('');
+                $('#paidToMemberDisplay').text('');
+                $('#confirmSettleBtn').prop('disabled', true);
+            }
+        });
+
+        $('[data-modal-hide="settleModal"]').on('click', function () {
+            $('#settleModal').addClass('hidden');
+            $('body').removeClass('overflow-hidden');
         });
     });
 </script>
