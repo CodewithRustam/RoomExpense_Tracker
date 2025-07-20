@@ -13,6 +13,7 @@ namespace RoomExpenseTracker.Models
         [Range(0.01, double.MaxValue, ErrorMessage = "Settlement amount must be greater than zero")]
         public decimal Amount { get; set; }
         public DateTime SettlementDate { get; set; }
+        public DateTime SettlementForDate { get; set; }
         public int PaidToMemberId { get; set; }
     }
 }

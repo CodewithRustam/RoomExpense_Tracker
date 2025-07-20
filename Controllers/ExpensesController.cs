@@ -143,8 +143,8 @@ namespace RoomExpenseTracker.Controllers
                 // Fetch settlements for the same period
                 var settlements = await _context.Settlements
                     .Where(x => x.RoomId == roomId
-                             && x.SettlementDate.Year == selectedMonth.Year
-                             && x.SettlementDate.Month == selectedMonth.Month)
+                             && x.SettlementForDate.Year == selectedMonth.Year
+                             && x.SettlementForDate.Month == selectedMonth.Month)
                     .ToListAsync();
 
                 // Fetch all members of the room
