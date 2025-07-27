@@ -4,27 +4,27 @@
 }
 
 <div class="min-h-[80vh] flex items-center justify-center">
-    <div class="bg-white p-8 rounded-2xl shadow-lg w-full max-w-md">
-        <h2 class="text-3xl font-bold text-center text-indigo-600 mb-6">🔐 Login</h2>
+    <div class="bg-white/10 backdrop-blur-lg p-8 rounded-xl border border-white/20 shadow-lg text-light-700 w-full max-w-md">
+        <h2 class="text-3xl font-bold text-center text-white-600 mb-6">🔐 Login</h2>
 
         <form asp-action="Login" method="post" class="space-y-5">
             <div asp-validation-summary="ModelOnly" class="text-red-500 text-sm mb-3"></div>
 
             <div>
-                <label asp-for="UserName" class="block mb-1 text-gray-700">Username</label>
-                <input asp-for="UserName" class="w-full px-4 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                <label asp-for="UserName" class="block mb-1">Username</label>
+                <input asp-for="UserName" class="w-full px-4 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500" style="background:#26272d" placeholder="Username"/>
                 <span asp-validation-for="UserName" class="text-red-500 text-sm"></span>
             </div>
 
             <div>
-                <label asp-for="Password" class="block mb-1 text-gray-700">Password</label>
-                <input asp-for="Password" type="password" class="w-full px-4 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                <label asp-for="Password" class="block mb-1">Password</label>
+                <input asp-for="Password" type="password" class="w-full px-4 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Password" style="background:#26272d"/>
                 <span asp-validation-for="Password" class="text-red-500 text-sm"></span>
             </div>
 
             <div class="flex items-center">
                 <input asp-for="RememberMe" class="mr-2 rounded" />
-                <label asp-for="RememberMe" class="text-sm text-gray-700">Remember Me</label>
+                <label asp-for="RememberMe" class="text-sm">Remember Me</label>
             </div>
 
             <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 rounded shadow transition">
@@ -33,7 +33,7 @@
 
             <div class="text-center text-sm mt-4">
                 Don’t have an account?
-                <a asp-action="Register" class="text-indigo-600 hover:underline">Register here</a>
+                <a asp-action="Register" class="text-yellow-600 hover:underline">Register here</a>
             </div>
         </form>
     </div>

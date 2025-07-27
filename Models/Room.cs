@@ -11,6 +11,7 @@ namespace RoomExpenseTracker.Models
         public string? CreatedByUserId { get; set; }
         public DateTime CreatedDate { get; set; } = DateTime.Now;
         public ApplicationUser? CreatedByUser { get; set; }
+        public bool IsDeleted { get; set; }
         public List<Member> Members { get; set; } = new();
         public List<Expense> Expenses { get; set; } = new();
     }

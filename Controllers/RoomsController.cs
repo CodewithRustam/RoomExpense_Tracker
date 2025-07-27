@@ -24,13 +24,17 @@ namespace ExpenseTracker.Controllers
         public async Task<IActionResult> Index()
         {
             var userId = _userManager.GetUserId(User);
-            var rooms = await _context.Rooms.Include(r => r.Members).Where(r => r.Members.Any(m => m.ApplicationUserId == userId)).ToListAsync();
+            var rooms = await _context.Rooms
+                .Where(r => r.Members.Any(m => m.ApplicationUserId == userId) && r.IsDeleted == false)
+                .ToListAsync();
 
-            if(userId != "dd113e0c-6899-4659-a498-be1829ff89dc")
+
+            foreach (var room in rooms)
             {
-                rooms.RemoveAll(x=>x.RoomId == 6);
+                room.Members = await _context.Members
+                    .Where(m => m.RoomId == room.RoomId)
+                    .ToListAsync();
             }
-
             return View(rooms);
         }
 

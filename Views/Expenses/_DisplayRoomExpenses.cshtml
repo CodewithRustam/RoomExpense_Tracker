@@ -25,11 +25,10 @@
         isOwing ? "You owe" : "Settled up";
         var badgeAmount = isOwing ? Math.Abs(Convert.ToDecimal(difference)) : difference;
 
-        <div class="bg-white rounded-2xl shadow-xl hover:shadow-2xl transition-shadow p-5 relative overflow-hidden border border-gray-100">
+        <div class="bg-white/10 backdrop-blur-lg p-6 rounded-xl border border-white/20 shadow-lg">
             <div class="absolute -top-10 -right-10 w-32 h-32 bg-gradient-to-br from-indigo-200 to-purple-300 opacity-10 rotate-45 pointer-events-none"></div>
-
             <div class="flex justify-between items-center mb-4">
-                <h3 class="text-xl font-bold text-gray-800">@person.MemberName</h3>
+                <h3 class="text-xl font-bold text-white-800">@person.MemberName</h3>
                 <div class="flex items-center gap-2">
                     <span class="@amountClass px-3 py-1 rounded-full text-sm font-medium shadow">
                         @badgeText
@@ -57,7 +56,7 @@
             <div class="flex justify-between  items-center flex-wrap">
                 <!-- Total Expenses -->
                 <div class="relative group">
-                    <p class="text-sm text-gray-600 font-medium mb-1 transition-colors duration-200 group-hover:text-gray-800">
+                    <p class="text-sm text-white-600 font-medium mb-1 transition-colors">
                         Total Expenses
                     </p>
                     <p class="font-semibold text-gray-900 px-2 py-1 rounded-md shadow-sm transition-all duration-200 group-hover:shadow-md" style="background:rgb(239 224 250)">
@@ -69,7 +68,7 @@
                 @if (person.PaidAmount > 0)
                 {
                     <div class="relative group">
-                        <p class="text-sm text-gray-600 font-medium mb-1 transition-colors duration-200 group-hover:text-gray-800">
+                        <p class="text-sm text-white-600 font-medium mb-1">
                             Paid
                         </p>
                         <p class="font-semibold text-red-600 bg-red-50 px-2 py-1 rounded-md shadow-sm transition-all duration-200 group-hover:bg-red-100 group-hover:shadow-md">
@@ -82,7 +81,7 @@
                 @if (person.ReceivedAmount > 0)
                 {
                     <div class="relative group">
-                        <p class="text-sm text-gray-600 font-medium mb-1 transition-colors duration-200 group-hover:text-gray-800">
+                        <p class="text-sm text-gray-600 font-medium mb-1">
                             Received
                         </p>
                         <p class="font-semibold text-green-600 bg-green-50 px-2 py-1 rounded-md shadow-sm transition-all duration-200 group-hover:bg-green-100 group-hover:shadow-md">
@@ -91,10 +90,10 @@
                     </div>
                 }
             </div>
-            <div class="max-h-48 overflow-y-auto scrollbar-thin scrollbar-thumb-indigo-300 scrollbar-track-gray-100">
+            <div class="max-h-48 overflow-y-auto scrollbar-thin scrollbar-thumb-indigo-300 scrollbar-track-gray-100 ">
                 <table class="w-full text-sm mt-3">
                     <thead class="text-center">
-                        <tr class="text-left text-gray-500 border-b">
+                        <tr class="text-left text-white-500 border-b">
                             <th class="py-2 pr-2 text-left" style="width: 50%;">Item</th>
                             <th class="py-2 pr-2 text-left" style="width: 20%;">Amount</th>
                             <th class="py-2 text-left" style="width: 20%;">Date</th>
@@ -109,10 +108,10 @@
                         {
                             @foreach (var expense in person.Items)
                             {
-                                <tr class="hover:bg-gray-50">
-                                    <td class="py-2 pr-2 text-gray-700" style="width: 50%;">@expense.Item</td>
-                                    <td class="py-2 pr-2 text-gray-700" style="width: 20%;">₹@expense.Amount.ToString("F2")</td>
-                                    <td class="py-2 text-gray-500 whitespace-nowrap" style="width: 20%;">@expense.Date.ToString("MMM dd")</td>
+                                <tr>
+                                    <td class="py-2 pr-2 text-white-700" style="width: 50%;">@expense.Item</td>
+                                    <td class="py-2 pr-2 text-white-700" style="width: 20%;">₹@expense.Amount.ToString("F2")</td>
+                                    <td class="py-2 text-white-500 whitespace-nowrap" style="width: 20%;">@expense.Date.ToString("MMM dd")</td>
                                     @if (User.Identity != null && User.Identity.IsAuthenticated && User.Identity.Name == person.MemberName)
                                     {
                                         <td class="py-2 text-right" style="width: 10%;">
@@ -144,11 +143,11 @@
 <!-- Edit Expense Modal -->
 <div id="editExpenseModal" tabindex="-1" aria-hidden="true" class="fixed hidden inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center" style="margin-top: 0rem;">
     <div class="relative w-full max-w-md p-4">
-        <div class="bg-white rounded-lg shadow-xl border border-gray-200">
+        <div class="bg-white/10 backdrop-blur-lg p-6 rounded-xl border border-white/20 shadow-lg">
             <div class="flex justify-between items-center p-4 border-b">
-                <h3 class="text-lg font-semibold text-gray-900">Edit Expense</h3>
+                <h3 class="text-lg font-semibold text-white-900">Edit Expense</h3>
                 <button type="button" data-modal-hide="editExpenseModal"
-                        class="w-8 h-8 text-gray-500 hover:text-gray-900 transition rounded-full flex items-center justify-center">
+                        class="w-8 h-8 text-white-500 transition rounded-full flex items-center justify-center">
                     ✕
                 </button>
             </div>
