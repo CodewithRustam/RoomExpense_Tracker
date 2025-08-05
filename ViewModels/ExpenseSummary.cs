@@ -4,11 +4,16 @@ namespace RoomExpenseTracker.ViewModels
 {
     public class ExpenseSummary
     {
-        public string? MemberName { get; set; }
+        public string MemberName { get; set; }
         public decimal? TotalExpense { get; set; }
-        public decimal? NetBalance { get; set; }
         public decimal? PaidAmount { get; set; }
         public decimal? ReceivedAmount { get; set; }
-        public List<Expense> Items { get; set; } = new();
+        public decimal NetBalance { get; set; }
+        public List<Expense> Items { get; set; }
+        public bool IsOwed { get; set; }
+        public bool IsOwing { get; set; }
+        public string BadgeText { get; set; }
+        public decimal BadgeAmount { get; set; }
+        public decimal RawDifference { get; set; } // for possible debugging/JS use
     }
 }

@@ -120,96 +120,81 @@ namespace RoomExpenseTracker.Controllers
         [HttpGet]
         public async Task<IActionResult> DisplayExpenses(int roomId, string month)
         {
-            RoomExpensesViewModel roomExpenseVM = new RoomExpensesViewModel();
-            try
+            if (roomId <= 0 || !await IsValidRoomAsync(roomId))
+                return RedirectToAction("AccessDenied", "Account");
+
+            if (!DateTime.TryParseExact(month + "-01", "yyyy-MM-dd", null, DateTimeStyles.None, out var selectedMonth))
+                return BadRequest("Invalid month format.");
+
+            // Fetch expenses for the selected month and room
+            var expenses = await _context.Expenses
+                .Where(x => x.RoomId == roomId && (x.IsDeleted == false || x.IsDeleted == null)
+                         && x.Date.Year == selectedMonth.Year
+                         && x.Date.Month == selectedMonth.Month)
+                .ToListAsync();
+
+            // Fetch settlements for the same period
+            var settlements = await _context.Settlements
+                .Where(x => x.RoomId == roomId
+                         && x.SettlementForDate.Year == selectedMonth.Year
+                         && x.SettlementForDate.Month == selectedMonth.Month)
+                .ToListAsync();
+
+            // Fetch all members of the room
+            var members = await _context.Members
+                .Where(m => m.RoomId == roomId)
+                .ToListAsync();
+
+            // Calculate overall totals
+            var total = expenses.Sum(x => (decimal?)x.Amount) ?? 0m;
+            var memberCount = members.Count;
+            var avgAmount = memberCount > 0
+                ? Math.Round(total / memberCount, 2)
+                : 0m;
+
+            var summaries = new List<ExpenseSummary>();
+            foreach (var member in members)
             {
-                if (roomId <= 0 || !await IsValidRoomAsync(roomId))
+                var memberExpenses = expenses.Where(e => e.MemberId == member.MemberId).OrderBy(e => e.Date).ToList();
+                var totalExpense = memberExpenses.Sum(e => e.Amount);
+
+                var totalPaid = settlements.Where(s => s.MemberId == member.MemberId).Sum(s => s.Amount);
+                var totalReceived = settlements.Where(s => s.PaidToMemberId == member.MemberId).Sum(s => s.Amount);
+
+                var rawDifference = (totalExpense + totalPaid) - totalReceived - avgAmount;
+                // Ignore differences under 0.5
+                var effectiveDifference = Math.Abs(rawDifference) < 0.5m ? 0m : rawDifference;
+
+                var summary = new ExpenseSummary
                 {
-                    return RedirectToAction("AccessDenied", "Account");
-                }
-
-                if (!DateTime.TryParseExact(month + "-01", "yyyy-MM-dd", null, DateTimeStyles.None, out var selectedMonth))
-                {
-                    return BadRequest("Invalid month format.");
-                }
-
-                // Fetch expenses for the selected month and room
-                var expenses = await _context.Expenses
-                    .Where(x => x.RoomId == roomId && (x.IsDeleted == false || x.IsDeleted == null)
-                             && x.Date.Year == selectedMonth.Year
-                             && x.Date.Month == selectedMonth.Month)
-                    .ToListAsync();
-
-                // Fetch settlements for the same period
-                var settlements = await _context.Settlements
-                    .Where(x => x.RoomId == roomId
-                             && x.SettlementForDate.Year == selectedMonth.Year
-                             && x.SettlementForDate.Month == selectedMonth.Month)
-                    .ToListAsync();
-
-                // Fetch all members of the room
-                var members = await _context.Members
-                    .Where(m => m.RoomId == roomId)
-                    .ToListAsync();
-
-                // Build summary per member
-                var expensesSummary = new List<ExpenseSummary>();
-
-                decimal? total = expenses.Sum(x => (decimal?)x.Amount) ?? 0m;
-                int memberCount = members.Count;
-                decimal? avgAmount = memberCount > 0 ? Math.Round(total.GetValueOrDefault() / memberCount, 2) : 0m;
-
-                foreach (var member in members)
-                {
-                    // Get expenses for this member
-                    var memberExpenses = expenses
-                        .Where(e => e.MemberId == member.MemberId)
-                        .OrderBy(e => e.Date)
-                        .ToList();
-
-                    // Calculate total expenses for this member
-                    var totalExpense = memberExpenses.Sum(e => e.Amount);
-
-                    // Get total settlements paid by this member
-                    var totalSettlementsPaid = settlements
-                        .Where(s => s.MemberId == member.MemberId)
-                        .Sum(s => s.Amount);
-
-                    // Get total settlements received by this member
-                    var totalSettlementsReceived = settlements
-                        .Where(s => s.PaidToMemberId == member.MemberId)
-                        .Sum(s => s.Amount);
-
-                    var netBalance = totalExpense + totalSettlementsPaid - totalSettlementsReceived;
-
-                    // Create summary
-                    var summary = new ExpenseSummary
-                    {
-                        MemberName = member.Name,
-                        NetBalance = netBalance, 
-                        TotalExpense = totalExpense, 
-                        Items = memberExpenses,
-                        PaidAmount = totalSettlementsPaid,
-                        ReceivedAmount = totalSettlementsReceived
-                    };
-                    expensesSummary.Add(summary);
-                }
-
-                roomExpenseVM = new RoomExpensesViewModel
-                {
-                    Summary = expensesSummary,
-                    TotalExpense = total,
-                    AvgPerPerson = avgAmount,
-                    Expense = new Expense { RoomId = roomId }
+                    MemberName = member.Name,
+                    TotalExpense = totalExpense,
+                    PaidAmount = totalPaid,
+                    ReceivedAmount = totalReceived,
+                    NetBalance = totalExpense + totalPaid - totalReceived,  // Useful for admin tabular summary
+                    Items = memberExpenses,
+                    IsOwed = effectiveDifference > 0,
+                    IsOwing = effectiveDifference < 0,
+                    BadgeText = effectiveDifference > 0 ? "You're owed"
+                              : effectiveDifference < 0 ? "You owe"
+                              : "Settled up",
+                    BadgeAmount = effectiveDifference != 0 ? Math.Abs(effectiveDifference) : 0m,
+                    RawDifference = effectiveDifference // for possible JS use
                 };
-            }
-            catch (Exception ex)
-            {
-                throw;
+                summaries.Add(summary);
             }
 
-            return PartialView("_DisplayRoomExpenses", roomExpenseVM);
+            var model = new RoomExpensesViewModel
+            {
+                Summary = summaries,
+                TotalExpense = total,
+                AvgPerPerson = avgAmount,
+                Expense = new Expense { RoomId = roomId }
+            };
+
+            return PartialView("_DisplayRoomExpenses", model);
         }
+
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Settle(int RoomId, string MemberName, string PaidToMemberName, decimal Amount, string Month)

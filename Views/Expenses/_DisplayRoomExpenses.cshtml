@@ -15,35 +15,29 @@
 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
     @foreach (var person in Model.Summary)
     {
-        var difference = person.NetBalance - Model.AvgPerPerson;
-        difference = Math.Abs(difference.GetValueOrDefault()) < 0.5m ? 0m : difference;
-        var isOwed = difference > 0;
-        var isOwing = difference < 0;
-        var amountClass = isOwed ? "text-green-600 bg-green-50" :
-        isOwing ? "text-red-600 bg-red-50" : "text-blue-600 bg-blue-50";
-        var badgeText = isOwed ? "You're owed" :
-        isOwing ? "You owe" : "Settled up";
-        var badgeAmount = isOwing ? Math.Abs(Convert.ToDecimal(difference)) : difference;
-
+        var amountClass = person.IsOwed ? "text-green-600 bg-green-50"
+        : person.IsOwing ? "text-red-600 bg-red-50"
+        : "text-blue-600 bg-blue-50";
         <div class="bg-white/10 backdrop-blur-lg p-6 rounded-xl border border-white/20 shadow-lg">
             <div class="absolute -top-10 -right-10 w-32 h-32 bg-gradient-to-br from-indigo-200 to-purple-300 opacity-10 rotate-45 pointer-events-none"></div>
             <div class="flex justify-between items-center mb-4">
                 <h3 class="text-xl font-bold text-white-800">@person.MemberName</h3>
                 <div class="flex items-center gap-2">
                     <span class="@amountClass px-3 py-1 rounded-full text-sm font-medium shadow">
-                        @badgeText
-                        @if (difference != 0)
+                        @person.BadgeText
+                        @if (person.BadgeAmount != 0)
                         {
-                            <span>: ₹@badgeAmount?.ToString("F2")</span>
+                            <span>: ₹@person.BadgeAmount.ToString("F2")</span>
                         }
                     </span>
-                    @if (isOwing && User.Identity != null && User.Identity.IsAuthenticated && User.Identity.Name == person.MemberName)
+                    @if (person.IsOwing && User.Identity?.IsAuthenticated == true && User.Identity.Name == person.MemberName)
                     {
                         <button class="settle-btn text-indigo-600 hover:text-indigo-800"
                                 data-member-name="@person.MemberName"
-                                data-amount="@badgeAmount"
+                                data-amount="@person.BadgeAmount"
                                 data-room-id="@Model.Expense?.RoomId"
                                 data-avg-per-person="@Model.AvgPerPerson">
+                            <!-- svg icon unchanged -->
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                       d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
@@ -52,67 +46,61 @@
                     }
                 </div>
             </div>
-
-            <div class="flex justify-between  items-center flex-wrap">
-                <!-- Total Expenses -->
+            <div class="flex justify-between items-center flex-wrap">
                 <div class="relative group">
-                    <p class="text-sm text-white-600 font-medium mb-1 transition-colors">
-                        Total Expenses
-                    </p>
-                    <p class="font-semibold text-gray-900 px-2 py-1 rounded-md shadow-sm transition-all duration-200 group-hover:shadow-md" style="background:rgb(239 224 250)">
+                    <p class="text-sm text-white-600 font-medium mb-1">Total Expenses</p>
+                    <p class="font-semibold text-gray-900 px-2 py-1 rounded-md shadow-sm" style="background:rgb(239 224 250)">
                         ₹@person.TotalExpense?.ToString("F2")<span class="sr-only"> Total Expenses</span>
                     </p>
                 </div>
-
-                <!-- Paid Amount -->
                 @if (person.PaidAmount > 0)
                 {
                     <div class="relative group">
-                        <p class="text-sm text-white-600 font-medium mb-1">
-                            Paid
-                        </p>
+                        <p class="text-sm text-white-600 font-medium mb-1">Paid</p>
                         <p class="font-semibold text-red-600 bg-red-50 px-2 py-1 rounded-md shadow-sm transition-all duration-200 group-hover:bg-red-100 group-hover:shadow-md">
                             ₹@person.PaidAmount?.ToString("F2")<span class="sr-only"> Paid</span>
                         </p>
                     </div>
                 }
-
-                <!-- Received Amount -->
                 @if (person.ReceivedAmount > 0)
                 {
                     <div class="relative group">
-                        <p class="text-sm text-gray-600 font-medium mb-1">
-                            Received
-                        </p>
+                        <p class="text-sm text-gray-600 font-medium mb-1">Received</p>
                         <p class="font-semibold text-green-600 bg-green-50 px-2 py-1 rounded-md shadow-sm transition-all duration-200 group-hover:bg-green-100 group-hover:shadow-md">
                             ₹@person.ReceivedAmount?.ToString("F2")<span class="sr-only"> Received</span>
                         </p>
                     </div>
                 }
             </div>
-            <div class="max-h-48 overflow-y-auto scrollbar-thin scrollbar-thumb-indigo-300 scrollbar-track-gray-100 ">
-                <table class="w-full text-sm mt-3">
-                    <thead class="text-center">
-                        <tr class="text-left text-white-500 border-b">
-                            <th class="py-2 pr-2 text-left" style="width: 50%;">Item</th>
-                            <th class="py-2 pr-2 text-left" style="width: 20%;">Amount</th>
-                            <th class="py-2 text-left" style="width: 20%;">Date</th>
-                            @if (User.Identity != null && User.Identity.IsAuthenticated && User.Identity.Name == person.MemberName)
-                            {
-                                <th class="py-2 text-right" style="width: 10%;">Action</th>
-                            }
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @if (person.Items != null && person.Items.Count > 0)
-                        {
+            @if (person.Items == null || person.Items.Count == 0)
+            {
+                <div class="py-10 text-center text-white-500">
+                    No expenses added yet.
+                </div>
+            }
+            else
+            {
+                <div class="max-h-48 overflow-y-auto scrollbar-thin scrollbar-thumb-indigo-300 scrollbar-track-gray-100 ">
+                    <table class="w-full text-sm mt-3">
+                        <thead class="text-center">
+                            <tr class="text-left text-white-500 border-b">
+                                <th class="py-2 pr-2 text-left" style="width: 50%;">Item</th>
+                                <th class="py-2 pr-2 text-left" style="width: 20%;">Amount</th>
+                                <th class="py-2 text-left" style="width: 20%;">Date</th>
+                                @if (User.Identity?.IsAuthenticated == true && User.Identity.Name == person.MemberName)
+                                {
+                                    <th class="py-2 text-right" style="width: 10%;">Action</th>
+                                }
+                            </tr>
+                        </thead>
+                        <tbody>
                             @foreach (var expense in person.Items)
                             {
                                 <tr>
                                     <td class="py-2 pr-2 text-white-700" style="width: 50%;">@expense.Item</td>
                                     <td class="py-2 pr-2 text-white-700" style="width: 20%;">₹@expense.Amount.ToString("F2")</td>
                                     <td class="py-2 text-white-500 whitespace-nowrap" style="width: 20%;">@expense.Date.ToString("MMM dd")</td>
-                                    @if (User.Identity != null && User.Identity.IsAuthenticated && User.Identity.Name == person.MemberName)
+                                    @if (User.Identity?.IsAuthenticated == true && User.Identity.Name == person.MemberName)
                                     {
                                         <td class="py-2 text-right" style="width: 10%;">
                                             <button class="edit-expense-btn text-indigo-600 hover:text-indigo-800"
@@ -125,104 +113,50 @@
                                                      xmlns="http://www.w3.org/2000/svg">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                                           d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0
-                                                                                                                  112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                                                                                                                                  112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
                                                 </svg>
                                             </button>
                                         </td>
                                     }
                                 </tr>
                             }
-                        }
-                    </tbody>
-                </table>
-            </div>
+                        </tbody>
+                    </table>
+                </div>
+            }
         </div>
     }
 </div>
 
-<!-- Edit Expense Modal -->
-<div id="editExpenseModal" tabindex="-1" aria-hidden="true" class="fixed hidden inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center" style="margin-top: 0rem;">
-    <div class="relative w-full max-w-md p-4">
-        <div class="bg-white/10 backdrop-blur-lg p-6 rounded-xl border border-white/20 shadow-lg">
-            <div class="flex justify-between items-center p-4 border-b">
-                <h3 class="text-lg font-semibold text-white-900">Edit Expense</h3>
-                <button type="button" data-modal-hide="editExpenseModal"
-                        class="w-8 h-8 text-white-500 transition rounded-full flex items-center justify-center">
-                    ✕
-                </button>
-            </div>
-            <div class="pe-4 ps-4 pb-6">
-                @await Html.PartialAsync("~/Views/Expenses/_EditExpenseModal.cshtml", new RoomExpenseTracker.Models.ExpenseViewModel())
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Settle Up Modal -->
-<div id="settleModal" tabindex="-1" aria-hidden="true" class="fixed hidden inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center" style="margin-top: 0rem;">
-    <div class="relative w-full max-w-md p-4">
-        <div class="bg-white/10 backdrop-blur-lg p-6 rounded-xl border border-white/20 shadow-lg">
-            <div class="flex justify-between items-center p-4 border-b">
-                <h3 class="text-lg font-semibold text-white-900">Settle Up</h3>
-                <button type="button" data-modal-hide="settleModal"
-                        class="w-8 h-8 text-white-500 transition rounded-full flex items-center justify-center">
-                    ✕
-                </button>
-            </div>
-            <div class="pe-4 ps-4 pb-6">
-                <form id="settleForm" method="post" asp-action="Settle" asp-controller="Expenses">
-                    <input type="hidden" id="settleRoomId" name="RoomId" />
-                    <input type="hidden" id="settleMemberName" name="MemberName" />
-                    <input type="hidden" id="settleAmount" name="Amount" />
-                    <input type="hidden" id="settleMonth" name="Month" />
-                    <label for="paidToMemberName" class="block text-sm font-medium text-white-700 mb-2">Pay to</label>
-                    <select id="paidToMemberName" style="background:#26272d"  name="PaidToMemberName" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors">
-                        <option value="" disabled selected>Select a person to settle with</option>
-                        @foreach (var person in Model.Summary.Where(p => (p.NetBalance - Model.AvgPerPerson) > 0))
-                        {
-                            <option value="@person.MemberName" data-owed-amount="@((person.NetBalance - Model.AvgPerPerson).Value.ToString("F2"))">@person.MemberName (Owed: ₹@((person.NetBalance - Model.AvgPerPerson).Value.ToString("F2")))</option>
-                        }
-                    </select>
-                    <p class="text-white-700 mb-4 mt-4">
-                        Confirm settlement of <span id="settleAmountDisplay" class="font-semibold"></span> for <span id="settleMemberDisplay" class="font-semibold"></span> to <span id="paidToMemberDisplay" class="font-semibold"></span>.
-                    </p>
-                    <div class="flex justify-end gap-3">
-                        <button type="button" data-modal-hide="settleModal" class="px-4 py-2 text-gray-600 bg-gray-100 rounded-md hover:bg-gray-200">Cancel</button>
-                        <button type="submit" id="confirmSettleBtn" class="px-4 py-2 text-white bg-indigo-600 rounded-md hover:bg-indigo-700" disabled>Confirm</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-</div>
-
 <script>
-    $(document).ready(function () {
+    $(function () {
         // Edit Expense Modal Logic
         const $form = $('#editExpenseForm');
         const $saveBtn = $form.find('button[type="submit"]');
-
         let original = {};
+
+        // Open 'Edit Expense' modal & populate values
         $('.edit-expense-btn').on('click', function () {
             $('#editExpenseModal').removeClass('hidden');
             $('body').addClass('overflow-hidden');
+
             const $btn = $(this);
-
-            const item = $btn.data('item');
-            const amount = $btn.data('amount');
-            const date = $btn.data('date');
-
             $('#expenseId').val($btn.data('expense-id'));
-            $('#item').val(item);
-            $('#amount').val(amount);
-            $('#date').val(date);
+            $('#item').val($btn.data('item'));
+            $('#amount').val($btn.data('amount'));
+            $('#date').val($btn.data('date'));
             $('#roomId').val($btn.data('room-id'));
 
-            original = { item, amount: parseFloat(amount), date };
+            original = {
+                item: $btn.data('item'),
+                amount: parseFloat($btn.data('amount')),
+                date: $btn.data('date')
+            };
 
             $saveBtn.prop('disabled', true);
         });
 
+        // Enable 'Save' only if fields changed
         $('#item, #amount, #date').on('input change', function () {
             const changed =
                 $('#item').val() !== original.item ||
@@ -243,41 +177,27 @@
             $('body').addClass('overflow-hidden');
             const $btn = $(this);
 
-            const memberName = $btn.data('member-name');
-            const amountOwed = parseFloat($btn.data('amount')); // Amount the current user owes
-            const roomId = $btn.data('room-id');
-            const avgPerPerson = parseFloat($btn.data('avg-per-person'));
-            const month = $('#monthSelect').val();
-
-
-            $('#settleRoomId').val(roomId);
-            $('#settleMemberName').val(memberName);
-            $('#settleMemberDisplay').text(memberName);
-            $('#settleMonth').val(month);
+            $('#settleRoomId').val($btn.data('room-id'));
+            $('#settleMemberName').val($btn.data('member-name'));
+            $('#settleMemberDisplay').text($btn.data('member-name'));
+            $('#settleMonth').val($('#monthSelect').val());
             $('#settleAmount').val('');
             $('#settleAmountDisplay').text('');
             $('#paidToMemberName').val('');
             $('#paidToMemberDisplay').text('');
             $('#confirmSettleBtn').prop('disabled', true);
-
-            // Reset dropdown and amount
-            $('#paidToMemberName').val('');
         });
 
         $('#paidToMemberName').on('change', function () {
-            const selectedMember = $(this).val();
-            const owedAmountSelctedMember = parseFloat($(this).find(':selected').data('owed-amount'));
-            const memberName = $('#settleMemberName').val();
-            const amountOwe = parseFloat($('.settle-btn[data-member-name="' + memberName + '"]').data('amount'));
-            const avgPerPerson = parseFloat($('.settle-btn[data-member-name="' + memberName + '"]').data('avg-per-person'));
+            const $selected = $(this).find('option:selected');
+            const settlementMember = $selected.val();
+            const owedAmount = parseFloat($selected.data('owed-amount') || 0);
 
-            if (selectedMember) {
-                debugger;
-                const amountOwed = Math.max(owedAmountSelctedMember, amountOwe - avgPerPerson);
-                const settlementAmount = Math.abs(amountOwed).toFixed(2);
+            if (settlementMember) {
+                const settlementAmount = Math.abs(owedAmount).toFixed(2);
                 $('#settleAmount').val(settlementAmount);
                 $('#settleAmountDisplay').text('₹' + settlementAmount);
-                $('#paidToMemberDisplay').text(selectedMember);
+                $('#paidToMemberDisplay').text(settlementMember);
                 $('#confirmSettleBtn').prop('disabled', false);
             } else {
                 $('#settleAmount').val('');
