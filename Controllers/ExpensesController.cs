@@ -7,6 +7,7 @@ using RoomExpenseTracker.Models;
 using RoomExpenseTracker.Models.AppUser;
 using RoomExpenseTracker.ViewModels;
 using System.Globalization;
+using System.Security.Claims;
 
 namespace RoomExpenseTracker.Controllers
 {
@@ -141,9 +142,18 @@ namespace RoomExpenseTracker.Controllers
                 .ToListAsync();
 
             // Fetch all members of the room
-            var members = await _context.Members
-                .Where(m => m.RoomId == roomId)
-                .ToListAsync();
+            var members = await _context.Members.Where(m => m.RoomId == roomId).ToListAsync();
+
+            // Get the current logged-in user ID (assuming you're using ASP.NET Identity)
+            var loggedInUserId = User.FindFirstValue(ClaimTypes.NameIdentifier); // or wherever the logged-in user's ID is stored
+
+            int loggedInMemberId = _context.Members.Where(x => x.ApplicationUserId == loggedInUserId).Select(x=>x.MemberId).FirstOrDefault();
+
+            // Sort members: put the logged-in member on top
+            var sortedMembers = members
+                .OrderByDescending(m => m.MemberId.ToString() == loggedInMemberId.ToString())
+                .ThenBy(m => m.Name)  // Secondary sorting by name or another property
+                .ToList();
 
             // Calculate overall totals
             var total = expenses.Sum(x => (decimal?)x.Amount) ?? 0m;
@@ -153,7 +163,7 @@ namespace RoomExpenseTracker.Controllers
                 : 0m;
 
             var summaries = new List<ExpenseSummary>();
-            foreach (var member in members)
+            foreach (var member in sortedMembers)
             {
                 var memberExpenses = expenses.Where(e => e.MemberId == member.MemberId).OrderBy(e => e.Date).ToList();
                 var totalExpense = memberExpenses.Sum(e => e.Amount);
@@ -179,7 +189,7 @@ namespace RoomExpenseTracker.Controllers
                               : effectiveDifference < 0 ? "Owe"
                               : "Settled up",
                     BadgeAmount = effectiveDifference != 0 ? Math.Abs(effectiveDifference) : 0m,
-                    RawDifference = effectiveDifference 
+                    RawDifference = effectiveDifference
                 };
                 summaries.Add(summary);
             }
@@ -210,20 +220,20 @@ namespace RoomExpenseTracker.Controllers
             if (!DateTime.TryParseExact(Month + "-01", "yyyy-MM-dd", null, System.Globalization.DateTimeStyles.None, out var settlementForMonth))
             {
                 TempData["ErrorMessage"] = "Invalid month format.";
-                return RedirectToAction("Details", "Rooms", new { id = RoomId });
+                return RedirectToAction("Details", "Rooms", new { id = RoomId, month = Month });
             }
 
             // 3. Validate inputs
             if (string.IsNullOrEmpty(PaidToMemberName))
             {
                 TempData["ErrorMessage"] = "Please select a member to settle with.";
-                return RedirectToAction("Details", "Rooms", new { id = RoomId });
+                return RedirectToAction("Details", "Rooms", new { id = RoomId, month = Month });
             }
 
             if (Amount <= 0)
             {
                 TempData["ErrorMessage"] = "Settlement amount must be greater than zero.";
-                return RedirectToAction("Details", "Rooms", new { id = RoomId });
+                return RedirectToAction("Details", "Rooms", new { id = RoomId, month = Month });
             }
 
             // 4. Get the current user's member record
@@ -234,7 +244,7 @@ namespace RoomExpenseTracker.Controllers
             if (member == null)
             {
                 TempData["ErrorMessage"] = "Member not found.";
-                return RedirectToAction("Details", "Rooms", new { id = RoomId });
+                return RedirectToAction("Details", "Rooms", new { id = RoomId, month = Month });
             }
 
             // 5. Get the recipient's member record
@@ -244,7 +254,7 @@ namespace RoomExpenseTracker.Controllers
             if (paidToMember == null)
             {
                 TempData["ErrorMessage"] = "Recipient member not found.";
-                return RedirectToAction("Details", "Rooms", new { id = RoomId });
+                return RedirectToAction("Details", "Rooms", new { id = RoomId, month = Month });
             }
 
             // 6. Validate room existence
@@ -302,7 +312,7 @@ namespace RoomExpenseTracker.Controllers
             var avgPerPerson = memberCount > 0 ? totalRoomExpenses / memberCount : 0;
 
             // 8. Calculate current balances
-            var payerBalance = totalExpenses - totalSettlementsPaid + totalSettlementsReceived;
+            var payerBalance = totalExpenses + totalSettlementsPaid + totalSettlementsReceived;
             var payerOwedAmount = Math.Abs(payerBalance - avgPerPerson); // Amount the payer owes
             var recipientBalance = paidToTotalExpenses - paidToSettlementsPaid + paidToSettlementsReceived;
             var recipientOwedAmount = recipientBalance - avgPerPerson; // Amount the recipient is owed
@@ -311,21 +321,21 @@ namespace RoomExpenseTracker.Controllers
             if (payerBalance >= avgPerPerson)
             {
                 TempData["ErrorMessage"] = "You are not owing any amount for this month.";
-                return RedirectToAction("Details", "Rooms", new { id = RoomId });
+                return RedirectToAction("Details", "Rooms", new { id = RoomId, month = Month });
             }
 
             if (recipientBalance <= avgPerPerson)
             {
                 TempData["ErrorMessage"] = "The selected member is not owed any amount for this month.";
-                return RedirectToAction("Details", "Rooms", new { id = RoomId });
+                return RedirectToAction("Details", "Rooms", new { id = RoomId, month = Month });
             }
 
             // 10. Ensure settlement amount doesn't exceed what's owed
-            var maxSettlementAmount = Math.Min(payerOwedAmount, Math.Abs(recipientOwedAmount));
+            var maxSettlementAmount = Math.Max(payerOwedAmount, Math.Abs(recipientOwedAmount));
             if (Amount > maxSettlementAmount)
             {
                 TempData["ErrorMessage"] = $"Settlement amount cannot exceed ₹{maxSettlementAmount:F2}.";
-                return RedirectToAction("Details", "Rooms", new { id = RoomId });
+                return RedirectToAction("Details", "Rooms", new { id = RoomId, month= Month});
             }
 
             // 11. Record the settlement
@@ -351,11 +361,11 @@ namespace RoomExpenseTracker.Controllers
             catch (DbUpdateException)
             {
                 TempData["ErrorMessage"] = "An error occurred while recording the settlement. Please try again.";
-                return RedirectToAction("Details", "Rooms", new { id = RoomId });
+                return RedirectToAction("Details", "Rooms", new { id = RoomId, month = Month });
             }
 
             TempData["SuccessMessage"] = $"Successfully settled ₹{Amount} to {PaidToMemberName} for {Month}.";
-            return RedirectToAction("Details", "Rooms", new { id = RoomId });
+            return RedirectToAction("Details", "Rooms", new { id = RoomId, month = Month });
         }
         private bool IsValidExpenseViewModel(ExpenseViewModel viewModel)
         {

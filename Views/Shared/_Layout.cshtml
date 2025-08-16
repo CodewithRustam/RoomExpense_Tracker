@@ -2,7 +2,7 @@
     Layout = null;
 }
 <!DOCTYPE html>
-<html lang="en" class="overflow-x-hidden">
+<html lang="en">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
@@ -12,7 +12,8 @@
     <link rel="icon" href="~/favicon.png" />
     <link href="~/css/toast.css" rel="stylesheet" />
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/flowbite@1.6.5/dist/flowbite.min.js"></script>
+    <script src="https://unpkg.com/heroicons@2.0.13/20/outline/heroicons.js"></script>
+<link href="https://cdn.jsdelivr.net/npm/flowbite@1.5.4/dist/flowbite.min.css" rel="stylesheet" />
 </head>
 <body class="flex flex-col min-h-screen overflow-x-hidden bg-gradient-to-br from-[#000000] to-[#000000] text-white">
     <div id="globalLoader" class="fixed inset-0 bg-gray-800 bg-opacity-50 flex items-center justify-center z-50 hidden">
@@ -20,31 +21,43 @@
     </div>
 
     <div id="mobileSidebar"
-         class="fixed inset-y-0 left-0 w-64 bg-white/10 backdrop-blur-lg border-r border-white/20 shadow-lg z-40 transform -translate-x-full transition-transform duration-300 md:hidden rounded-r-xl">
-        <div class="p-4 border-b border-white/20 flex justify-between items-center">
-            <h2 class="text-xl font-bold text-indigo-200">🏠 RoomExpense</h2>
-            <button onclick="toggleSidebar()" class="text-gray-300 hover:text-red-400 text-xl">✖</button>
-        </div>
-        <ul class="p-4 space-y-2 text-white-100">
-            <li>
-                <a asp-controller="Rooms" asp-action="Index"
-                   class="block px-4 py-2 rounded hover:bg-indigo-200/10 font-medium">🏡 Home</a>
-            </li>
-            <li>
-                <a asp-controller="Home" asp-action="Privacy"
-                   class="block px-4 py-2 rounded hover:bg-indigo-200/10">🔒 Privacy</a>
-            </li>
-            <li>
+         class="fixed inset-y-0 left-0 w-64 bg-white/10 backdrop-blur-lg border-r border-white/20 shadow-lg z-40 transform -translate-x-full transition-transform duration-300 md:hidden rounded-r-xl flex flex-col justify-between">
+
+        <!-- Top section -->
+        <div>
+            <div class="p-4 border-b border-white/20 flex justify-between items-center">
+                <h2 class="text-xl font-bold text-indigo-200">🏠 RoomExpense</h2>
+                <button onclick="toggleSidebar()" class="text-gray-300 hover:text-red-400 text-xl">✖</button>
+            </div>
+            <ul class="p-4 space-y-2 text-white-100">
+                <li>
+                    <a asp-controller="Rooms" asp-action="Index"
+                       class="block px-4 py-2 rounded hover:bg-indigo-200/10 font-medium">🏡 Home</a>
+                </li>
+                <li>
+                    <a asp-controller="Home" asp-action="Privacy"
+                       class="block px-4 py-2 rounded hover:bg-indigo-200/10">🔒 Privacy</a>
+                </li>
                 @if (User.Identity?.IsAuthenticated ?? false)
                 {
-                    <form asp-controller="Account" asp-action="Logout" method="post">
-                        <button class="w-full text-left px-4 py-2 rounded hover:bg-red-200/10 text-red-400 font-medium">
-                            🚪 Logout
-                        </button>
-                    </form>
+                    <li>
+                        <form asp-controller="Account" asp-action="Logout" method="post">
+                            <button class="w-full text-left px-4 py-2 rounded hover:bg-red-200/10 text-red-400 font-medium">
+                                🚪 Logout
+                            </button>
+                        </form>
+                    </li>
                 }
-            </li>
-        </ul>
+            </ul>
+        </div>
+
+        <!-- Bottom section for username -->
+        @if (User.Identity?.IsAuthenticated ?? false)
+        {
+            <div class="p-4 border-t border-white/20 text-sm text-indigo-100">
+                👤 <span class="text-white-600">@User.Identity?.Name</span>
+            </div>
+        }
     </div>
 
 <nav class="fixed top-0 left-0 right-0 bg-white/10 backdrop-blur-lg shadow-md border-b border-white/20 px-6 py-4 flex justify-between items-center z-50">
@@ -59,6 +72,12 @@
             <a asp-controller="Rooms" asp-action="Index" class="text-white-700 hover:text-green-600 font-medium">🏡 Home</a>
             <a asp-controller="Home" asp-action="Privacy" class="text-white-700 hover:text-green-600 font-medium">🔒 Privacy</a>
 
+            @if (User.Identity?.IsAuthenticated ?? false)
+            {
+                <a class="text-white-700 font-medium">
+                    👤 <span class="text-white-600">@User.Identity?.Name</span>
+                </a>
+            }
             @if (User.Identity?.IsAuthenticated ?? false)
             {
                 <form asp-controller="Account" asp-action="Logout" method="post">
@@ -119,12 +138,23 @@
                 const sidebar = $('#mobileSidebar');
                 if (!sidebar.hasClass('-translate-x-full') && !$(e.target).closest('#mobileSidebar').length) {
                     sidebar.addClass('-translate-x-full');
+                    document.body.classList.remove('overflow-hidden');
                 }
             });
         });
 
         function toggleSidebar() {
-            $('#mobileSidebar').toggleClass('-translate-x-full');
+            const sidebar = document.getElementById('mobileSidebar');
+            const isOpen = !sidebar.classList.contains('-translate-x-full');
+
+            if (isOpen) {
+                sidebar.classList.add('-translate-x-full');
+                document.body.classList.remove('overflow-hidden');
+            } 
+            else{
+                sidebar.classList.remove('-translate-x-full');
+                document.body.classList.add('overflow-hidden');
+            }
         }
 
         function showLoader() {
@@ -163,9 +193,9 @@
     </script>
 
     @await RenderSectionAsync("Scripts", required: false)
-
     <div id="toast-container" class="toast-container">
         <!-- Toasts will be inserted here -->
     </div>
+    <script src="https://cdn.jsdelivr.net/npm/flowbite@2.3.0/dist/flowbite.min.js"></script>
 </body>
 </html>

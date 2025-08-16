@@ -48,10 +48,9 @@
                     <!-- Paid -->
                     @if (person.PaidAmount > 0)
                     {
-                        <div>
-                            <p class="text-sm text-gray-600 font-medium mb-1">Paid</p>
-                            <p class="font-semibold text-red-600 bg-red-100 px-3 py-1 rounded-md shadow-sm">
-                                ₹@person.PaidAmount?.ToString("F2")
+                        <div class=mt-2>
+                            <p class="font-semibold text-sm text-red-800 bg-red-100 px-3 py-2 rounded-full shadow-sm">
+                               Paid: ₹@person.PaidAmount?.ToString("F2")
                             </p>
                         </div>
                     }
@@ -60,9 +59,8 @@
                     @if (person.ReceivedAmount > 0)
                     {
                         <div class="mt-2">
-                            <p class="text-sm text-gray-600 font-medium mb-1">Received</p>
-                            <p class="font-semibold text-green-600 bg-green-100 px-3 py-1 rounded-md shadow-sm">
-                                ₹@person.ReceivedAmount?.ToString("F2")
+                            <p class="font-semibold text-sm text-green-600 bg-green-100 px-3 py-2 rounded-full shadow-sm">
+                                Received: ₹@person.ReceivedAmount?.ToString("F2")
                             </p>
                         </div>
                     }
@@ -116,7 +114,7 @@
                                 <th class="py-2 pr-2 text-left" style="width: 50%;">Item</th>
                                 <th class="py-2 pr-2 text-left" style="width: 20%;">Amount</th>
                                 <th class="py-2 text-left" style="width: 20%;">Date</th>
-                                @if (User.Identity?.IsAuthenticated == true && User.Identity.Name == person.MemberName)
+                                @if (User.Identity?.IsAuthenticated == true && User.Identity.Name == person.MemberName && (person.IsOwed || person.IsOwing))
                                 {
                                     <th class="py-2 text-right" style="width: 10%;">Action</th>
                                 }
@@ -129,7 +127,7 @@
                                     <td class="py-2 pr-2 text-white-700" style="width: 50%;">@expense.Item</td>
                                     <td class="py-2 pr-2 text-white-700" style="width: 20%;">₹@expense.Amount.ToString("F2")</td>
                                     <td class="py-2 text-white-500 whitespace-nowrap" style="width: 20%;">@expense.Date.ToString("MMM dd")</td>
-                                    @if (User.Identity?.IsAuthenticated == true && User.Identity.Name == person.MemberName)
+                                    @if (User.Identity?.IsAuthenticated == true && User.Identity.Name == person.MemberName && (person.IsOwed || person.IsOwing))
                                     {
                                         <td class="text-right" style="width: 10%;">
                                             <button class="edit-expense-btn flex items-center gap-1 px-2 py-1.5 rounded-full bg-indigo-50 text-indigo-600 hover:bg-indigo-100 text-sm font-medium transition"
@@ -158,9 +156,7 @@
     }
 </div>
 <!-- Edit Expense Modal -->
-<div id="editExpenseModal" tabindex="-1" aria-hidden="true"
-     class="fixed hidden inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center"
-     style="margin-top: 0rem;">
+<div id="editExpenseModal" tabindex="-1" aria-hidden="true" class="fixed hidden inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center" style="margin-top: 0rem;">
     <div class="relative w-full max-w-md p-4">
         <div class="bg-white/10 backdrop-blur-lg p-6 rounded-xl border border-white/20 shadow-lg">
             <div class="flex justify-between items-center p-4 border-b">
@@ -226,7 +222,7 @@
 </div>
 
 <script>
-    $(function () {
+    $(document).ready(function () {
         // Cached selectors
         const $body = $('body');
         const $editExpenseModal = $('#editExpenseModal');
@@ -239,9 +235,8 @@
         $('.edit-expense-btn').on('click', function () {
             const $btn = $(this);
 
-            $editExpenseModal.removeClass('hidden');
-            $body.addClass('overflow-hidden');
-
+           $('#editExpenseModal').removeClass('hidden');
+            $('body').addClass('overflow-hidden');
             // Populate fields
             $('#expenseId').val($btn.data('expense-id'));
             $('#item').val($btn.data('item'));
