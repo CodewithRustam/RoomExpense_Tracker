@@ -175,11 +175,11 @@ namespace RoomExpenseTracker.Controllers
                     Items = memberExpenses,
                     IsOwed = effectiveDifference > 0,
                     IsOwing = effectiveDifference < 0,
-                    BadgeText = effectiveDifference > 0 ? "You're owed"
-                              : effectiveDifference < 0 ? "You owe"
+                    BadgeText = effectiveDifference > 0 ? "Owed"
+                              : effectiveDifference < 0 ? "Owe"
                               : "Settled up",
                     BadgeAmount = effectiveDifference != 0 ? Math.Abs(effectiveDifference) : 0m,
-                    RawDifference = effectiveDifference // for possible JS use
+                    RawDifference = effectiveDifference 
                 };
                 summaries.Add(summary);
             }
