@@ -104,14 +104,17 @@
     <partial name="_ValidationScriptsPartial" />
 
     <script>
-        var roomId = @room.RoomId
+        var roomId = @room.RoomId;
+        var isFromSettled = @Model.IsFromSettled.ToString().ToLower();
 
         function loadExpenses(month) {
             $('#expenseGrid').html(`
                 <div class="text-center text-indigo-400 animate-pulse py-8 text-sm">
                     Loading expenses...
-                </div>`);
-            $.get('/Expenses/DisplayExpenses', { roomId: roomId, month: month }, function (html) {
+                </div>`
+            );
+
+            $.get('/Expenses/DisplayExpenses', { roomId: roomId, month: month, isFromSettled: isFromSettled }, function (html) {
                 $('#expenseGrid').html(html);
             });
         }

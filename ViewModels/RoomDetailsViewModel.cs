@@ -9,6 +9,7 @@ namespace RoomExpenseTracker.ViewModels
         public Room Room { get; set; }
         public List<string> AvailableMonths { get; set; } = new();
         public string? SelectedMonth { get; set; }
+        public bool IsFromSettled { get; set; }
 
         public bool HasExpenses => Room?.Expenses?.Any() ?? false;
         public IEnumerable<SelectListItem> Months =>

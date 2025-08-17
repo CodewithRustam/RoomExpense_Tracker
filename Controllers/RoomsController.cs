@@ -84,7 +84,7 @@ namespace ExpenseTracker.Controllers
             return RedirectToAction(nameof(Index));
         }
         [HttpGet]
-        public async Task<IActionResult> Details(int id, string? month)
+        public async Task<IActionResult> Details(int id, string? month, bool isFromSettled = false)
         {
             var userId = _userManager.GetUserId(User);
             var room = await _context.Rooms
@@ -101,7 +101,8 @@ namespace ExpenseTracker.Controllers
             {
                 Room = room,
                 AvailableMonths = months,
-                SelectedMonth = month ?? months.FirstOrDefault()
+                SelectedMonth = month ?? months.FirstOrDefault(),
+                IsFromSettled = isFromSettled
             };
 
             return View(vm);
