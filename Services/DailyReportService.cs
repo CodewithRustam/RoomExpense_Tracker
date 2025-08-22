@@ -28,7 +28,7 @@ namespace RoomExpenseTracker.Services
                 var utcNow = DateTime.UtcNow;
                 var indiaNow = TimeZoneInfo.ConvertTimeFromUtc(utcNow, indiaTimeZone);
 
-                var todayTargetTime = indiaNow.Date.AddHours(0).AddMinutes(45);
+                var todayTargetTime = indiaNow.Date.AddHours(22).AddMinutes(30);
                 DateTime nextRun;
 
                 if (indiaNow < todayTargetTime)
@@ -86,7 +86,6 @@ namespace RoomExpenseTracker.Services
                 await GenerateAndSendReportsAsync(stoppingToken);
             }
         }
-
 
         private async Task GenerateAndSendReportsAsync(CancellationToken stoppingToken)
         {
@@ -155,7 +154,7 @@ namespace RoomExpenseTracker.Services
             var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
             var expensesByRoom = context.Expenses
-                                .Where(e => e.Member.ApplicationUserId == user.Id && e.IsDeleted == false &&
+                                .Where(e => e.Member.ApplicationUserId == user.Id && (e.IsDeleted == false || e.IsDeleted == null) &&
                                             e.Date.Year == referenceDate.Year &&
                                             e.Date.Month == referenceDate.Month).Include(e => e.Room) 
                                 .ToList().GroupBy(e => new { e.RoomId, e.Room.Name }).OrderBy(g => g.Key.RoomId).ToList();
