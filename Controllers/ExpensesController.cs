@@ -67,6 +67,9 @@ namespace RoomExpenseTracker.Controllers
             {
                 _context.Add(viewModel.Expense);
                 await _context.SaveChangesAsync();
+
+                var cacheKey = GetCacheKey(viewModel.RoomId, viewModel.Expense.Date);
+                _cache.Remove(cacheKey);
             }
             catch (Exception)
             {
@@ -114,6 +117,9 @@ namespace RoomExpenseTracker.Controllers
 
                 _context.Update(expense);
                 await _context.SaveChangesAsync();
+
+                var cacheKey = GetCacheKey(viewModel.RoomId, viewModel.Expense.Date);
+                _cache.Remove(cacheKey);
             }
             catch (DbUpdateException)
             {
@@ -125,7 +131,7 @@ namespace RoomExpenseTracker.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> DisplayExpenses(int roomId, string month,bool isFromSettled)
+        public async Task<IActionResult> DisplayExpenses(int roomId, string month, bool isFetchReq)
         {
             if (roomId <= 0 || !await IsValidRoomAsync(roomId))
                 return RedirectToAction("AccessDenied", "Account");
@@ -133,64 +139,29 @@ namespace RoomExpenseTracker.Controllers
             if (!DateTime.TryParseExact(month + "-01", "yyyy-MM-dd", null, DateTimeStyles.None, out var selectedMonth))
                 return BadRequest("Invalid month format.");
 
-            var now = DateTime.Now;
-            bool isCurrentMonth = selectedMonth.Year == now.Year && selectedMonth.Month == now.Month;
+            string cacheKey = GetCacheKey(roomId, selectedMonth);
 
             List<Expense> expenses;
             List<Settlement> settlements;
-            string cacheKey = $"Room_{roomId}_Month_{selectedMonth:yyyyMM}";
 
-            if (!isCurrentMonth && isFromSettled)
+            if (!_cache.TryGetValue(cacheKey, out (List<Expense> expenses, List<Settlement> settlements) cachedData))
             {
-                if (!_cache.TryGetValue(cacheKey, out (List<Expense> expenses, List<Settlement> settlements) cachedData))
-                {
-                    // Fetch and cache
-                    expenses = await _context.Expenses
-                        .Where(x => x.RoomId == roomId && (x.IsDeleted == false || x.IsDeleted == null)
-                                 && x.Date.Year == selectedMonth.Year
-                                 && x.Date.Month == selectedMonth.Month)
-                        .ToListAsync();
+                (expenses, settlements) = await GetExpenses(roomId, selectedMonth);
 
-                    settlements = await _context.Settlements
-                        .Where(x => x.RoomId == roomId
-                                 && x.SettlementForDate.Year == selectedMonth.Year
-                                 && x.SettlementForDate.Month == selectedMonth.Month)
-                        .ToListAsync();
-
-                    _cache.Set(cacheKey, (expenses, settlements), TimeSpan.FromHours(6)); // cache duration can be adjusted
-                }
-                else
-                {
-                    (expenses, settlements) = cachedData;
-                }
+                _cache.Set(cacheKey, (expenses, settlements), TimeSpan.FromDays(30));
             }
             else
             {
-                // Always fresh data for current month
-                expenses = await _context.Expenses
-                    .Where(x => x.RoomId == roomId && (x.IsDeleted == false || x.IsDeleted == null)
-                             && x.Date.Year == selectedMonth.Year
-                             && x.Date.Month == selectedMonth.Month)
-                    .ToListAsync();
-
-                settlements = await _context.Settlements
-                    .Where(x => x.RoomId == roomId
-                             && x.SettlementForDate.Year == selectedMonth.Year
-                             && x.SettlementForDate.Month == selectedMonth.Month)
-                    .ToListAsync();
+                (expenses, settlements) = cachedData;
             }
+
 
             var members = await _context.Members.Where(m => m.RoomId == roomId).ToListAsync();
             var loggedInUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            int loggedInMemberId = _context.Members
-                .Where(x => x.ApplicationUserId == loggedInUserId)
-                .Select(x => x.MemberId)
-                .FirstOrDefault();
 
-            var sortedMembers = members
-                .OrderByDescending(m => m.MemberId == loggedInMemberId)
-                .ThenBy(m => m.Name)
-                .ToList();
+            int loggedInMemberId = _context.Members.Where(x => x.ApplicationUserId == loggedInUserId).Select(x => x.MemberId).FirstOrDefault();
+
+            var sortedMembers = members.OrderByDescending(m => m.MemberId == loggedInMemberId).ThenBy(m => m.Name).ToList();
 
             var total = expenses.Sum(x => (decimal?)x.Amount) ?? 0m;
             var memberCount = members.Count;
@@ -416,7 +387,11 @@ namespace RoomExpenseTracker.Controllers
             }
 
             TempData["SuccessMessage"] = $"Successfully settled ₹{Amount} to {PaidToMemberName} for {Month}.";
-            return RedirectToAction("Details", "Rooms", new { id = RoomId, month = Month, isFromSettled=true });
+
+            var cacheKey = GetCacheKey(RoomId, settlementForMonth);
+            _cache.Remove(cacheKey);
+
+            return RedirectToAction("Details", "Rooms", new { id = RoomId, month = Month});
         }
         private bool IsValidExpenseViewModel(ExpenseViewModel viewModel)
         {
@@ -453,7 +428,25 @@ namespace RoomExpenseTracker.Controllers
                 await client.DisconnectAsync(true, stoppingToken);
             }
         }
+        private string GetCacheKey(int roomId, DateTime monthDate)
+        {
+            return $"Room_{roomId}_Month_{monthDate:yyyyMM}";
+        }
+        private async Task<(List<Expense>, List<Settlement>)> GetExpenses(int roomId, DateTime month)
+        {
+            var expenses = await _context.Expenses
+                .Where(x => x.RoomId == roomId && (x.IsDeleted == false || x.IsDeleted == null)
+                         && x.Date.Year == month.Year
+                         && x.Date.Month == month.Month)
+                .ToListAsync();
 
+            var settlements = await _context.Settlements
+                .Where(x => x.RoomId == roomId
+                         && x.SettlementForDate.Year == month.Year
+                         && x.SettlementForDate.Month == month.Month)
+                .ToListAsync();
 
+            return (expenses, settlements);
+        }
     }
 }
