@@ -131,7 +131,7 @@ namespace RoomExpenseTracker.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> DisplayExpenses(int roomId, string month, bool isFetchReq)
+        public async Task<IActionResult> DisplayExpenses(int roomId, string month)
         {
             if (roomId <= 0 || !await IsValidRoomAsync(roomId))
                 return RedirectToAction("AccessDenied", "Account");

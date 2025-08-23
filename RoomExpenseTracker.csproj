@@ -21,6 +21,7 @@
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <PackageReference Include="Microsoft.VisualStudio.Web.CodeGeneration.Design" Version="9.0.0" />
+    <PackageReference Include="QuestPDF" Version="2025.7.0" />
     <PackageReference Include="Tailwind.Extensions.AspNetCore" Version="1.0.0" />
   </ItemGroup>
 

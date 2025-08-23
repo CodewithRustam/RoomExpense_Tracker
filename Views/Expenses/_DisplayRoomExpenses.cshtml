@@ -1,5 +1,9 @@
 ﻿@model RoomExpenseTracker.ViewModels.RoomExpensesViewModel
 
+@{
+    bool isTwoMembers = false;
+}
+
 <div class="px-4 sm:px-0 mb-6">
     <div class="flex justify-start sm:justify-end items-center gap-3 text-base font-semibold flex-nowrap">
         <span class="text-indigo-600 bg-indigo-50 px-3 py-2 rounded-full shadow-sm whitespace-nowrap">
@@ -19,24 +23,46 @@
         : person.IsOwing ? "text-red-600 bg-red-50"
         : "text-blue-600 bg-blue-50";
 
-        <div class="bg-white/30 backdrop-blur-lg p-6 rounded-xl border border-white/20 shadow-lg">
+        <div class="bg-white/30 backdrop-blur-lg p-4 rounded-xl border border-white/20 shadow-lg">
             <div class="absolute -top-10 -right-10 w-32 h-32 bg-gradient-to-br from-indigo-200 to-purple-300 opacity-10 rotate-45 pointer-events-none"></div>
             <div class="flex gap-4 items-start mb-4">
-                <!-- Left Column (fixed 40%) -->
+                <!-- Left Column (40%) -->
                 <div class="w-[40%]">
                     <div class="p-4 rounded-xl shadow-md bg-gradient-to-br from-indigo-100 via-purple-100 to-pink-100 group hover:shadow-lg transition">
+                        <!-- Header with Member Name + Pills -->
                         <h3 class="font-bold text-gray-800">@person.MemberName</h3>
-                        <p class="mt-2 font-bold text-gray-900">
+
+                        <!-- Total Expense -->
+                        <p class="mt-1 font-bold text-gray-900 text-lg">
                             ₹@person.TotalExpense?.ToString("F2")
-                        </p>
+                        </p>                                        
                     </div>
                 </div>
 
-                <!-- Right Column (takes 60%, independent height) -->
-                <div class="w-[60%] flex flex-col items-end text-right">
+                <!-- Right Column (60%) -->
+                <div class="w-[60%] flex flex-col items-end text-right pe-2">
+                    <!-- Pills -->
+                    @if (isTwoMembers)
+                    {
+                        <div class="relative w-40 bg-gray-200 rounded-full flex p-1 pill-switch">
+                            <button class="tab-btn flex-1 text-sm py-2 rounded-full font-semibold relative z-10 text-white active">
+                                Split
+                            </button>
+                            <button class="tab-btn flex-1 text-sm py-2 rounded-full font-semibold relative z-10 text-gray-500">
+                                Non-Split
+                            </button>
+
+                            <div class="indicator absolute top-1 left-1 w-[calc(50%-4.5px)] h-[calc(100%-8px)]
+                                            bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500
+                                            rounded-full shadow-md transition-all duration-300 z-0">
+                            </div>
+                        </div>
+                    }
+
                     <!-- Badge -->
-                    <div>
-                        <span style="padding: 8px 10px 8px 10px;" class="@amountClass inline-block text-sm font-semibold rounded-full shadow">
+                    <div class="mt-2">
+                        <span style="padding: 8px 10px 8px 10px;"
+                              class="@amountClass inline-block text-sm font-semibold rounded-full shadow">
                             @person.BadgeText
                             @if (person.BadgeAmount != 0)
                             {
@@ -48,9 +74,9 @@
                     <!-- Paid -->
                     @if (person.PaidAmount > 0)
                     {
-                        <div class=mt-2>
+                        <div class="mt-2">
                             <p class="font-semibold text-sm text-red-800 bg-red-100 px-3 py-2 rounded-full shadow-sm">
-                               Paid: ₹@person.PaidAmount?.ToString("F2")
+                                Paid: ₹@person.PaidAmount?.ToString("F2")
                             </p>
                         </div>
                     }
@@ -70,8 +96,8 @@
                     {
                         <div class="mt-3">
                             <button class="settle-btn flex items-center gap-2 px-3 py-2 rounded-full text-white text-sm font-bold
-                            bg-gradient-to-r from-teal-500 to-green-500 hover:from-teal-600 hover:to-green-600
-                            shadow-md hover:shadow-lg transition transform hover:scale-105"
+                        bg-gradient-to-r from-teal-500 to-green-500 hover:from-teal-600 hover:to-green-600
+                        shadow-md hover:shadow-lg transition transform hover:scale-105"
                                     data-member-name="@person.MemberName"
                                     data-amount="@person.BadgeAmount"
                                     data-room-id="@Model.Expense?.RoomId"
@@ -82,11 +108,11 @@
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                               d="M12 8c-1.657 0-3 .895-3 2s1.343 2
-                                              3 2 3 .895 3 2-1.343 2-3 2
-                                              m0-8c1.11 0 2.08.402 2.599 1
-                                              M12 8V7m0 1v8m0 0v1m0-1
-                                              c-1.11 0-2.08-.402-2.599-1
-                                              M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                          3 2 3 .895 3 2-1.343 2-3 2
+                                          m0-8c1.11 0 2.08.402 2.599 1
+                                          M12 8V7m0 1v8m0 0v1m0-1
+                                          c-1.11 0-2.08-.402-2.599-1
+                                          M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                     </svg>
                                 </span>
                                 <span>Settle Up</span>
@@ -220,92 +246,4 @@
         </div>
     </div>
 </div>
-
-<script>
-    $(document).ready(function () {
-        // Cached selectors
-        const $body = $('body');
-        const $editExpenseModal = $('#editExpenseModal');
-        const $settleModal = $('#settleModal');
-        const $form = $('#editExpenseForm');
-        const $saveBtn = $form.find('button[type="submit"]');
-        let original = {};
-
-        /** ---------- Edit Expense Modal ---------- **/
-        $('.edit-expense-btn').on('click', function () {
-            const $btn = $(this);
-
-           $('#editExpenseModal').removeClass('hidden');
-            $('body').addClass('overflow-hidden');
-            // Populate fields
-            $('#expenseId').val($btn.data('expense-id'));
-            $('#item').val($btn.data('item'));
-            $('#amount').val($btn.data('amount'));
-            $('#date').val($btn.data('date'));
-            $('#roomId').val($btn.data('room-id'));
-
-            // Store original values for change detection
-            original = {
-                item: $btn.data('item'),
-                amount: parseFloat($btn.data('amount')),
-                date: $btn.data('date')
-            };
-
-            $saveBtn.prop('disabled', true);
-        });
-
-        // Enable Save only if fields changed
-        $('#item, #amount, #date').on('input change', function () {
-            const changed =
-                $('#item').val() !== original.item ||
-                parseFloat($('#amount').val() || 0) !== original.amount ||
-                $('#date').val() !== original.date;
-
-            $saveBtn.prop('disabled', !changed);
-        });
-
-        /** ---------- Settle Up Modal ---------- **/
-        $('.settle-btn').on('click', function () {
-            const $btn = $(this);
-
-            $settleModal.removeClass('hidden');
-            $body.addClass('overflow-hidden');
-
-            $('#settleRoomId').val($btn.data('room-id'));
-            $('#settleMemberName').val($btn.data('member-name'));
-            $('#settleMemberDisplay').text($btn.data('member-name'));
-            $('#settleMonth').val($('#monthSelect').val());
-
-            // Reset settlement fields
-            $('#settleAmount, #paidToMemberName').val('');
-            $('#settleAmountDisplay, #paidToMemberDisplay').text('');
-            $('#confirmSettleBtn').prop('disabled', true);
-        });
-
-        $('#paidToMemberName').on('change', function () {
-            const $selected = $(this).find('option:selected');
-            const settlementMember = $selected.val();
-            const owedAmount = parseFloat($selected.data('owed-amount') || 0);
-            const oweAmount = parseFloat($('.settle-btn').data('amount') || 0);
-
-            if (settlementMember) {
-                const settlementAmount = Math.min(Math.abs(oweAmount), Math.abs(owedAmount)).toFixed(2);
-                $('#settleAmount').val(settlementAmount);
-                $('#settleAmountDisplay').text('₹' + settlementAmount);
-                $('#paidToMemberDisplay').text(settlementMember);
-                $('#confirmSettleBtn').prop('disabled', false);
-            } else {
-                $('#settleAmount, #paidToMemberName').val('');
-                $('#settleAmountDisplay, #paidToMemberDisplay').text('');
-                $('#confirmSettleBtn').prop('disabled', true);
-            }
-        });
-
-        /** ---------- Close Modals ---------- **/
-        $('[data-modal-hide]').on('click', function () {
-            $(`#${$(this).data('modal-hide')}`).addClass('hidden');
-            $body.removeClass('overflow-hidden');
-        });
-    });
-</script>
-
+<script src="~/js/displayexpenses.js"></script>

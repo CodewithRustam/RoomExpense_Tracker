@@ -1,89 +1,91 @@
-﻿using Microsoft.AspNetCore.Routing.Tree;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using MimeKit;
+using QuestPDF.Fluent;
+using QuestPDF.Helpers;
 using RoomExpenseTracker.Data;
 using RoomExpenseTracker.Models;
 using RoomExpenseTracker.Models.AppUser;
-using System.Text;
+using LicenseType = QuestPDF.Infrastructure.LicenseType;
 
 namespace RoomExpenseTracker.Services
 {
-    public class DailyReportService : BackgroundService
+    public class DailyReportService : IHostedService, IDisposable
     {
         private readonly IServiceProvider _serviceProvider;
         private readonly IConfiguration _configuration;
+        private Timer _timer;
 
         public DailyReportService(IServiceProvider serviceProvider, IConfiguration configuration)
         {
             _serviceProvider = serviceProvider;
             _configuration = configuration;
+
+            // Required for QuestPDF
+            QuestPDF.Settings.License = LicenseType.Community;
         }
 
-        protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+        public Task StartAsync(CancellationToken cancellationToken)
+        {
+            ScheduleNextRun();
+            //RunJobAsync();
+            return Task.CompletedTask;
+        }
+
+        private void ScheduleNextRun()
         {
             var indiaTimeZone = TimeZoneInfo.FindSystemTimeZoneById("India Standard Time");
+            var utcNow = DateTime.UtcNow;
+            var indiaNow = TimeZoneInfo.ConvertTimeFromUtc(utcNow, indiaTimeZone);
 
-            while (!stoppingToken.IsCancellationRequested)
+            var todayTargetTime = indiaNow.Date.AddHours(22).AddMinutes(50);
+            DateTime nextRun = indiaNow < todayTargetTime ? todayTargetTime : todayTargetTime.AddDays(1);
+
+            var delay = nextRun - indiaNow;
+
+            _timer = new Timer(async _ =>
             {
-                var utcNow = DateTime.UtcNow;
-                var indiaNow = TimeZoneInfo.ConvertTimeFromUtc(utcNow, indiaTimeZone);
+                await RunJobAsync();
+                ScheduleNextRun();
+            }, null, delay, Timeout.InfiniteTimeSpan);
+        }
 
-                var todayTargetTime = indiaNow.Date.AddHours(22).AddMinutes(30);
-                DateTime nextRun;
+        private async Task RunJobAsync()
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-                if (indiaNow < todayTargetTime)
+            try
+            {
+                context.DailyReportLogs.Add(new DailyReportLog
                 {
-                    nextRun = todayTargetTime;
-                }
-                else
+                    RunDate = DateTime.UtcNow,
+                    ReportName = "Monthly Expense Report",
+                    Status = "Started",
+                    Message = "Report generation started"
+                });
+                await context.SaveChangesAsync();
+
+                await GenerateAndSendReportsAsync(CancellationToken.None);
+
+                context.DailyReportLogs.Add(new DailyReportLog
                 {
-                    nextRun = todayTargetTime.AddDays(1);
-                }
-
-                var delay = nextRun - indiaNow;
-
-                if (delay.TotalMilliseconds > 0)
+                    RunDate = DateTime.UtcNow,
+                    ReportName = "Monthly Expense Report",
+                    Status = "Completed",
+                    Message = "Report generation completed"
+                });
+                await context.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                context.DailyReportLogs.Add(new DailyReportLog
                 {
-                    try
-                    {
-                        using var scope = _serviceProvider.CreateScope();
-                        var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-                        context.DailyReportLogs.Add(new DailyReportLog
-                        {
-                            RunDate = indiaNow,
-                            ReportName = "Monthly Expense Report",
-                            Status = $"Waiting for {delay.TotalMinutes:F1} min",
-                            Message = $"Next run scheduled at: {nextRun} IST"
-                        });
-                        await context.SaveChangesAsync(stoppingToken);
-                    }
-                    catch (Exception)
-                    {
-                        throw;
-                    }
-
-                    await Task.Delay(delay, stoppingToken);
-                }
-
-                try
-                {
-                    using var scope = _serviceProvider.CreateScope();
-                    var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-                    context.DailyReportLogs.Add(new DailyReportLog
-                    {
-                        RunDate = indiaNow,
-                        ReportName = "Monthly Expense Report",
-                        Status = "Started",
-                        Message = "Report generating and sending started."
-                    });
-                    await context.SaveChangesAsync(stoppingToken);
-                }
-                catch (Exception)
-                {
-                    throw;
-                }
-
-                await GenerateAndSendReportsAsync(stoppingToken);
+                    RunDate = DateTime.UtcNow,
+                    ReportName = "Monthly Expense Report",
+                    Status = "Failed",
+                    Message = ex.Message
+                });
+                await context.SaveChangesAsync();
             }
         }
 
@@ -96,16 +98,15 @@ namespace RoomExpenseTracker.Services
             foreach (var user in users)
             {
                 if (stoppingToken.IsCancellationRequested) break;
-
                 if (string.IsNullOrEmpty(user.Email)) continue;
 
                 try
                 {
-                    var csvContent = GenerateUserCsvReport(user, DateTime.Today);
+                    var pdfContent = GenerateUserPdfReport(user, DateTime.Today);
 
-                    if (!string.IsNullOrWhiteSpace(csvContent))
+                    if (pdfContent != null && pdfContent.Length > 0)
                     {
-                        await SendEmailToUserAsync(user, csvContent, stoppingToken);
+                        await SendEmailToUserAsync(user, pdfContent, stoppingToken);
 
                         context.DailyReportLogs.Add(new DailyReportLog
                         {
@@ -143,45 +144,94 @@ namespace RoomExpenseTracker.Services
                     });
                 }
 
-                await context.SaveChangesAsync(stoppingToken); 
+                await context.SaveChangesAsync(stoppingToken);
             }
         }
 
-        private string GenerateUserCsvReport(ApplicationUser user, DateTime referenceDate)
+        private byte[] GenerateUserPdfReport(ApplicationUser user, DateTime referenceDate)
         {
-            var sb = new StringBuilder();
             using var scope = _serviceProvider.CreateScope();
             var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
             var expensesByRoom = context.Expenses
-                                .Where(e => e.Member.ApplicationUserId == user.Id && (e.IsDeleted == false || e.IsDeleted == null) &&
-                                            e.Date.Year == referenceDate.Year &&
-                                            e.Date.Month == referenceDate.Month).Include(e => e.Room) 
-                                .ToList().GroupBy(e => new { e.RoomId, e.Room.Name }).OrderBy(g => g.Key.RoomId).ToList();
+                .Where(e => e.Member.ApplicationUserId == user.Id &&
+                            (e.IsDeleted == false || e.IsDeleted == null) &&
+                            e.Date.Year == referenceDate.Year &&
+                            e.Date.Month == referenceDate.Month)
+                .Include(e => e.Room)
+                .ToList()
+                .GroupBy(e => new { e.RoomId, e.Room.Name })
+                .OrderBy(g => g.Key.RoomId)
+                .ToList();
 
-            if (!expensesByRoom.Any()) return string.Empty;
+            if (!expensesByRoom.Any()) return Array.Empty<byte>();
 
-            bool isFirstRoom = true;
-            foreach (var roomGroup in expensesByRoom)
+            using var memoryStream = new MemoryStream();
+
+            Document.Create(container =>
             {
-                if (!isFirstRoom)
+                container.Page(page =>
                 {
-                    sb.AppendLine(); 
-                }
-                sb.AppendLine($"Room {roomGroup.Key.Name} Expenses");
-                sb.AppendLine("Item,Amount,ExpenseDate");
+                    page.Margin(40);
 
-                var sortedExpenses = roomGroup.OrderBy(e => e.Date);
-                foreach (var expense in sortedExpenses)
-                {
-                    sb.AppendLine($"\"{expense.Item}\",\"{expense.Amount}\",\"{expense.Date:yyyy-MM-dd}\"");
-                }
-                isFirstRoom = false;
+                    page.Header()
+                        .Text($"Monthly Expense Report - {referenceDate:MMMM yyyy}")
+                        .FontSize(18).Bold().AlignCenter();
+
+                    page.Content().Column(col =>
+                    {
+                        col.Spacing(10);
+
+                        col.Item().Text($"User: {user.UserName}");
+                        col.Item().Text($"Email: {user.Email}");
+
+                        foreach (var roomGroup in expensesByRoom)
+                        {
+                            col.Item().Text($"Room: {roomGroup.Key.Name}").FontSize(14).Bold();
+
+                            col.Item().Table(table =>
+                            {
+                                table.ColumnsDefinition(columns =>
+                                {
+                                    columns.RelativeColumn();
+                                    columns.ConstantColumn(100);
+                                    columns.ConstantColumn(120);
+                                });
+
+                                // header row
+                                table.Header(header =>
+                                {
+                                    header.Cell().Element(CellStyle).Text("Item").Bold();
+                                    header.Cell().Element(CellStyle).Text("Amount").Bold();
+                                    header.Cell().Element(CellStyle).Text("Expense Date").Bold();
+                                });
+
+                                // data rows
+                                foreach (var expense in roomGroup.OrderBy(e => e.Date))
+                                {
+                                    table.Cell().Element(CellStyle).Text(expense.Item);
+                                    table.Cell().Element(CellStyle).Text(expense.Amount.ToString("F2"));
+                                    table.Cell().Element(CellStyle).Text(expense.Date.ToString("yyyy-MM-dd"));
+                                }
+                            });
+                        }
+                    });
+
+                    page.Footer().AlignCenter().Text($"Generated on {DateTime.Now:dd MMM yyyy HH:mm}");
+                });
+            })
+            .GeneratePdf(memoryStream);
+
+            return memoryStream.ToArray();
+
+            // Local cell style method
+            QuestPDF.Infrastructure.IContainer CellStyle(QuestPDF.Infrastructure.IContainer container)
+            {
+                return container.Padding(5).Border(1).BorderColor(Colors.Grey.Lighten2);
             }
-
-            return sb.ToString();
         }
-        private async Task SendEmailToUserAsync(ApplicationUser user, string csvContent, CancellationToken stoppingToken)
+
+        private async Task SendEmailToUserAsync(ApplicationUser user, byte[] pdfContent, CancellationToken stoppingToken)
         {
             var emailConfig = _configuration.GetSection("EmailSettings");
 
@@ -192,11 +242,11 @@ namespace RoomExpenseTracker.Services
             message.Subject = $"Your Monthly Expense Report - {DateTime.Today:MMMM yyyy}";
             var body = new TextPart("plain") { Text = "Please find your monthly expense report attached." };
 
-            var attachment = new MimePart("text", "csv")
+            var attachment = new MimePart("application", "pdf")
             {
-                Content = new MimeContent(new MemoryStream(Encoding.UTF8.GetBytes(csvContent))),
+                Content = new MimeContent(new MemoryStream(pdfContent)),
                 ContentDisposition = new ContentDisposition(ContentDisposition.Attachment),
-                FileName = $"MonthlyReport_{user.UserName}_{DateTime.Today:yyyy-MM}.csv"
+                FileName = $"MonthlyReport_{user.UserName}_{DateTime.Today:yyyy-MM}.pdf"
             };
 
             var multipart = new Multipart("mixed") { body, attachment };
@@ -214,13 +264,25 @@ namespace RoomExpenseTracker.Services
                 await client.AuthenticateAsync(emailConfig["SmtpUsername"], emailConfig["SmtpPassword"], stoppingToken);
                 await client.SendAsync(message, stoppingToken);
             }
-            catch (Exception)
+            catch(Exception ex)
             {
+                Console.WriteLine(ex);
             }
             finally
             {
                 await client.DisconnectAsync(true, stoppingToken);
             }
+        }
+
+        public Task StopAsync(CancellationToken cancellationToken)
+        {
+            _timer?.Dispose();
+            return Task.CompletedTask;
+        }
+
+        public void Dispose()
+        {
+            _timer?.Dispose();
         }
     }
 }
