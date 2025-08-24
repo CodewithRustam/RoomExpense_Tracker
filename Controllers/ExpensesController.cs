@@ -248,7 +248,7 @@ namespace RoomExpenseTracker.Controllers
                     notes.Add($"{displayName} took: {tookFromOthers:F2} from {owedToMemberName}");
                 }
 
-                string personalNote = notes.Any() ? string.Join(" | ", notes) : "No personal transactions";
+                string personalNote = notes.Any() ? string.Join(" | ", notes) : "No non-split transactions";
 
                 summaries.Add(new ExpenseSummary
                 {

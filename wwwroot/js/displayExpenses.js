@@ -1,6 +1,4 @@
 ﻿$(function () {
-    debugger; // ✅ should hit here
-
     const $body = $('body');
     const $settleModal = $('#settleModal');
     const $form = $('#editExpenseForm');
