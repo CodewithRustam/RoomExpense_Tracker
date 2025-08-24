@@ -222,12 +222,6 @@ namespace RoomExpenseTracker.Controllers
                 var rawDifference = (totalExpense + totalPaid) - totalReceived - avgAmount;
                 var effectiveDifference = Math.Abs(rawDifference) < 0.5m ? 0m : rawDifference;
 
-                // ------------------- NON-SPLIT EXPENSES -------------------
-                var totalNonSplitAmount = expenses
-                    .Where(e => e.MemberId == member.MemberId && e.IsNonSplitExpense == true)
-                    .Sum(e => e.Amount);
-
-                // ------------------- PERSONAL GIVE/TAKE -------------------
                 var tookFromOthers = expenses
                     .Where(e => e.MemberId == member.MemberId && e.OwedToMemberId != member.MemberId && e.OwedToMemberId > 0 && e.IsNonSplitExpense == true)
                     .Sum(e => e.Amount);
@@ -236,29 +230,25 @@ namespace RoomExpenseTracker.Controllers
                     .Where(e => e.MemberId == member.MemberId && e.OweToMemberId != member.MemberId && e.OweToMemberId > 0 && e.IsNonSplitExpense == true)
                     .Sum(e => e.Amount);
 
-                // ------------------- PREPARE NOTE -------------------
                 List<string> notes = new List<string>();
 
-                // Use "You" for current user, else show their name
                 string displayName = member.MemberId == loggedInMemberId ? "You" : member.Name;
-                string oweorOwedMemberName = member.MemberId == loggedInMemberId ? "You" : member.Name;
 
                 if (gaveToOthers > 0)
                 {
                     int? memid = expenses.Where(e => e.MemberId == member.MemberId && e.OweToMemberId > 0 && e.IsNonSplitExpense).Select(x => x.OweToMemberId).FirstOrDefault();
                     string? oweMemberName = expenses.Where(e => e.MemberId == memid).Select(x => x.Member.Name).FirstOrDefault();
-                    notes.Add($"{displayName} gave: {gaveToOthers:C} to {oweMemberName}");
+                    notes.Add($"{displayName} gave: {gaveToOthers:F2} to {oweMemberName}");
                 }
 
                 if (tookFromOthers > 0)
                 {
                     int? memid = expenses.Where(e => e.MemberId == member.MemberId && e.OwedToMemberId > 0 && e.IsNonSplitExpense).Select(x=>x.OwedToMemberId).FirstOrDefault();
                     string? owedToMemberName = expenses.Where(e => e.MemberId == memid).Select(x => x.Member.Name).FirstOrDefault();
-                    notes.Add($"{displayName} took: {tookFromOthers:C} from {owedToMemberName}");
+                    notes.Add($"{displayName} took: {tookFromOthers:F2} from {owedToMemberName}");
                 }
 
                 string personalNote = notes.Any() ? string.Join(" | ", notes) : "No personal transactions";
-
 
                 summaries.Add(new ExpenseSummary
                 {
