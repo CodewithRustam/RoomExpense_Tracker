@@ -37,8 +37,29 @@ namespace RoomExpenseTracker.Services
             var utcNow = DateTime.UtcNow;
             var indiaNow = TimeZoneInfo.ConvertTimeFromUtc(utcNow, indiaTimeZone);
 
-            var todayTargetTime = indiaNow.Date.AddHours(22).AddMinutes(50);
-            DateTime nextRun = indiaNow < todayTargetTime ? todayTargetTime : todayTargetTime.AddDays(1);
+            // Target time for the job
+            var targetHour = 20;
+            var targetMinute = 30;
+
+            using var scope = _serviceProvider.CreateScope();
+            var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+            var lastRunDate = context.DailyReportLogs.Where(x=>x.Status == "Completed" && x.Message == "Report generation completed").OrderByDescending(x=>x.DailyReportLogId).Select(x=>x.CreatedAt.Date).FirstOrDefault(); 
+
+            var next3DayRun = lastRunDate.AddDays(3).Date.AddHours(targetHour).AddMinutes(targetMinute);
+            if (indiaNow > next3DayRun)
+                next3DayRun = indiaNow.Date.AddHours(targetHour).AddMinutes(targetMinute).AddDays(3);
+
+            var lastDayOfMonth = new DateTime(indiaNow.Year, indiaNow.Month, DateTime.DaysInMonth(indiaNow.Year, indiaNow.Month))
+                .AddHours(targetHour).AddMinutes(targetMinute);
+            var nextMonthEndRun = indiaNow <= lastDayOfMonth
+                ? lastDayOfMonth
+                : new DateTime(indiaNow.Year, indiaNow.Month, DateTime.DaysInMonth(indiaNow.Year, indiaNow.Month))
+                    .AddMonths(1)
+                    .AddDays(-(DateTime.DaysInMonth(indiaNow.Year, indiaNow.Month + 1)))
+                    .AddHours(targetHour).AddMinutes(targetMinute);
+
+            var nextRun = next3DayRun < nextMonthEndRun ? next3DayRun : nextMonthEndRun;
 
             var delay = nextRun - indiaNow;
 

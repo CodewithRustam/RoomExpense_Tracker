@@ -1,4 +1,3 @@
-// Models/Expense.cs
 using System.ComponentModel.DataAnnotations;
 
 namespace RoomExpenseTracker.Models
