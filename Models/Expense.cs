@@ -17,6 +17,9 @@ namespace RoomExpenseTracker.Models
         [Required]
         public int RoomId { get; set; }
         public bool? IsDeleted { get; set; }
+        public bool IsNonSplitExpense { get; set; }
+        public int? OwedToMemberId { get; set; }
+        public int? OweToMemberId { get; set; }
         public Room Room { get; set; }
         public Member Member { get; set; }
     }

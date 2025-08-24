@@ -60,20 +60,63 @@ namespace RoomExpenseTracker.Controllers
                 return RedirectToAction("Details", "Rooms", new { id = viewModel.RoomId });
             }
 
+            if (viewModel.Expense.Amount <= 0)
+            {
+                TempData["ErrorMessage"] = "Expense amount must be greater than zero.";
+                return RedirectToAction("Details", "Rooms", new { id = viewModel.RoomId });
+            }
+
             viewModel.Expense.MemberId = memberId;
             viewModel.Expense.Date = viewModel.Expense.Date.Date;
 
+            var rateLimitKey = $"AddExpense-{userId}";
+            if (_cache.TryGetValue(rateLimitKey, out int count))
+            {
+                if (count >= 3)
+                {
+                    TempData["ErrorMessage"] = "You are submitting too many expenses at once. Please wait a minute.";
+                    return RedirectToAction("Details", "Rooms", new { id = viewModel.RoomId });
+                }
+                _cache.Set(rateLimitKey, count + 1, TimeSpan.FromMinutes(1));
+            }
+            else
+            {
+                _cache.Set(rateLimitKey, 1, TimeSpan.FromMinutes(1));
+            }
+
+            bool exists = await _context.Expenses.AnyAsync(e =>
+                e.RoomId == viewModel.RoomId &&
+                e.MemberId == memberId &&
+                e.Date == viewModel.Expense.Date &&
+                e.Amount == viewModel.Expense.Amount
+            );
+
+            if (exists)
+            {
+                TempData["ErrorMessage"] = "This expense already exists.";
+                return RedirectToAction("Details", "Rooms", new { id = viewModel.RoomId });
+            }
+
+            using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
                 _context.Add(viewModel.Expense);
                 await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
 
                 var cacheKey = GetCacheKey(viewModel.RoomId, viewModel.Expense.Date);
                 _cache.Remove(cacheKey);
             }
+            catch (DbUpdateException)
+            {
+                await transaction.RollbackAsync();
+                TempData["ErrorMessage"] = "Expense could not be added due to database constraints. Please check your input.";
+                return RedirectToAction("Details", "Rooms", new { id = viewModel.RoomId });
+            }
             catch (Exception)
             {
-                TempData["ErrorMessage"] = "An error occurred while adding the expense. Please try again.";
+                await transaction.RollbackAsync();
+                TempData["ErrorMessage"] = "An unexpected error occurred while adding the expense. Please try again.";
                 return RedirectToAction("Details", "Rooms", new { id = viewModel.RoomId });
             }
 
@@ -159,23 +202,63 @@ namespace RoomExpenseTracker.Controllers
             var members = await _context.Members.Where(m => m.RoomId == roomId).ToListAsync();
             var loggedInUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
-            int loggedInMemberId = _context.Members.Where(x => x.ApplicationUserId == loggedInUserId).Select(x => x.MemberId).FirstOrDefault();
+            int loggedInMemberId = _context.Members.Where(x => x.ApplicationUserId == loggedInUserId && x.RoomId==roomId).Select(x => x.MemberId).FirstOrDefault();
 
             var sortedMembers = members.OrderByDescending(m => m.MemberId == loggedInMemberId).ThenBy(m => m.Name).ToList();
 
-            var total = expenses.Sum(x => (decimal?)x.Amount) ?? 0m;
+            var total = expenses.Where(x=>!x.IsNonSplitExpense).Sum(x => (decimal?)x.Amount) ?? 0m;
             var memberCount = members.Count;
             var avgAmount = memberCount > 0 ? Math.Round(total / memberCount, 2) : 0m;
 
             var summaries = new List<ExpenseSummary>();
+            bool isTwoMembersInRoom = sortedMembers.Count == 2;
+
             foreach (var member in sortedMembers)
             {
-                var memberExpenses = expenses.Where(e => e.MemberId == member.MemberId).OrderBy(e => e.Date).ToList();
+                var memberExpenses = expenses.Where(e => e.MemberId == member.MemberId && !e.IsNonSplitExpense).OrderBy(e => e.Date).ToList();
                 var totalExpense = memberExpenses.Sum(e => e.Amount);
                 var totalPaid = settlements.Where(s => s.MemberId == member.MemberId).Sum(s => s.Amount);
                 var totalReceived = settlements.Where(s => s.PaidToMemberId == member.MemberId).Sum(s => s.Amount);
                 var rawDifference = (totalExpense + totalPaid) - totalReceived - avgAmount;
                 var effectiveDifference = Math.Abs(rawDifference) < 0.5m ? 0m : rawDifference;
+
+                // ------------------- NON-SPLIT EXPENSES -------------------
+                var totalNonSplitAmount = expenses
+                    .Where(e => e.MemberId == member.MemberId && e.IsNonSplitExpense == true)
+                    .Sum(e => e.Amount);
+
+                // ------------------- PERSONAL GIVE/TAKE -------------------
+                var tookFromOthers = expenses
+                    .Where(e => e.MemberId == member.MemberId && e.OwedToMemberId != member.MemberId && e.OwedToMemberId > 0 && e.IsNonSplitExpense == true)
+                    .Sum(e => e.Amount);
+
+                var gaveToOthers = expenses
+                    .Where(e => e.MemberId == member.MemberId && e.OweToMemberId != member.MemberId && e.OweToMemberId > 0 && e.IsNonSplitExpense == true)
+                    .Sum(e => e.Amount);
+
+                // ------------------- PREPARE NOTE -------------------
+                List<string> notes = new List<string>();
+
+                // Use "You" for current user, else show their name
+                string displayName = member.MemberId == loggedInMemberId ? "You" : member.Name;
+                string oweorOwedMemberName = member.MemberId == loggedInMemberId ? "You" : member.Name;
+
+                if (gaveToOthers > 0)
+                {
+                    int? memid = expenses.Where(e => e.MemberId == member.MemberId && e.OweToMemberId > 0 && e.IsNonSplitExpense).Select(x => x.OweToMemberId).FirstOrDefault();
+                    string? oweMemberName = expenses.Where(e => e.MemberId == memid).Select(x => x.Member.Name).FirstOrDefault();
+                    notes.Add($"{displayName} gave: {gaveToOthers:C} to {oweMemberName}");
+                }
+
+                if (tookFromOthers > 0)
+                {
+                    int? memid = expenses.Where(e => e.MemberId == member.MemberId && e.OwedToMemberId > 0 && e.IsNonSplitExpense).Select(x=>x.OwedToMemberId).FirstOrDefault();
+                    string? owedToMemberName = expenses.Where(e => e.MemberId == memid).Select(x => x.Member.Name).FirstOrDefault();
+                    notes.Add($"{displayName} took: {tookFromOthers:C} from {owedToMemberName}");
+                }
+
+                string personalNote = notes.Any() ? string.Join(" | ", notes) : "No personal transactions";
+
 
                 summaries.Add(new ExpenseSummary
                 {
@@ -189,8 +272,10 @@ namespace RoomExpenseTracker.Controllers
                     IsOwing = effectiveDifference < 0,
                     BadgeText = effectiveDifference > 0 ? "Owed" : effectiveDifference < 0 ? "Owe" : "Settled up",
                     BadgeAmount = effectiveDifference != 0 ? Math.Abs(effectiveDifference) : 0m,
-                    RawDifference = effectiveDifference
+                    RawDifference = effectiveDifference,
+                    NonSplitText = personalNote,
                 });
+
             }
 
             var model = new RoomExpensesViewModel
@@ -198,6 +283,7 @@ namespace RoomExpenseTracker.Controllers
                 Summary = summaries,
                 TotalExpense = total,
                 AvgPerPerson = avgAmount,
+                IsTwoMembersInRoom = isTwoMembersInRoom,
                 Expense = new Expense { RoomId = roomId }
             };
 

@@ -8,6 +8,6 @@ namespace RoomExpenseTracker.ViewModels
         public decimal? TotalExpense { get; set; }
         public decimal? AvgPerPerson { get; set; }
         public Expense? Expense { get; set; } = new Expense();
-
+        public bool IsTwoMembersInRoom { get; set; }
     }
 }

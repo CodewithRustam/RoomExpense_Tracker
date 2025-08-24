@@ -76,10 +76,14 @@
         $body.removeClass('overflow-hidden');
     });
 
-    /** ---------- Tab Switch (Pills) ---------- **/
-    document.querySelectorAll(".pill-switch").forEach(container => {
+    document.querySelectorAll(".pill-switch").forEach((container) => {
         const indicator = container.querySelector(".indicator");
         const buttons = container.querySelectorAll(".tab-btn");
+
+        // find corresponding content
+        const content = container.nextElementSibling;
+        const splitContent = content.querySelector(".split-content");
+        const nonSplitContent = content.querySelector(".non-split-content");
 
         function setTab(index) {
             buttons.forEach((btn, i) => {
@@ -94,19 +98,33 @@
 
             // move indicator
             indicator.style.transform = `translateX(${index * 100}%)`;
+            indicator.style.backgroundImage =
+                index === 0
+                    ? "linear-gradient(90deg, #6366f1, #a855f7, #ec4899)"
+                    : "linear-gradient(90deg, #34d399, #14b8a6, #059669)";
 
-            // optional: change gradient per tab
+            // animate content
             if (index === 0) {
-                indicator.style.backgroundImage = "linear-gradient(90deg, #6366f1, #a855f7, #ec4899)"; // Split
+                splitContent.classList.add("opacity-100", "translate-y-0");
+                splitContent.classList.remove("opacity-0", "translate-y-4", "pointer-events-none");
+
+                nonSplitContent.classList.add("opacity-0", "translate-y-4", "pointer-events-none");
+                nonSplitContent.classList.remove("opacity-100", "translate-y-0");
             } else {
-                indicator.style.backgroundImage = "linear-gradient(90deg, #34d399, #14b8a6, #059669)"; // Non-Split
+                nonSplitContent.classList.add("opacity-100", "translate-y-0");
+                nonSplitContent.classList.remove("opacity-0", "translate-y-4", "pointer-events-none");
+
+                splitContent.classList.add("opacity-0", "translate-y-4", "pointer-events-none");
+                splitContent.classList.remove("opacity-100", "translate-y-0");
             }
         }
 
-        // attach events
-        buttons.forEach((btn, i) => btn.addEventListener("click", () => setTab(i)));
+        // attach event listeners
+        buttons.forEach((btn, i) =>
+            btn.addEventListener("click", () => setTab(i))
+        );
 
-        // default
+        // default state
         setTab(0);
     });
 });

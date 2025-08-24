@@ -14,6 +14,7 @@ namespace RoomExpenseTracker.ViewModels
         public bool IsOwing { get; set; }
         public string BadgeText { get; set; }
         public decimal BadgeAmount { get; set; }
-        public decimal RawDifference { get; set; } // for possible debugging/JS use
+        public decimal RawDifference { get; set; }
+        public string NonSplitText { get; set; }
     }
 }

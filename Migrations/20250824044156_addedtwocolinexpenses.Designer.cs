@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using RoomExpenseTracker.Data;
 
@@ -11,9 +12,11 @@ using RoomExpenseTracker.Data;
 namespace RoomExpenseTracker.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250824044156_addedtwocolinexpenses")]
+    partial class addedtwocolinexpenses
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -290,7 +293,7 @@ namespace RoomExpenseTracker.Migrations
                     b.Property<bool?>("IsDeleted")
                         .HasColumnType("bit");
 
-                    b.Property<bool>("IsNonSplitExpense")
+                    b.Property<bool>("IsSplitExpense")
                         .HasColumnType("bit");
 
                     b.Property<string>("Item")
@@ -303,10 +306,7 @@ namespace RoomExpenseTracker.Migrations
                     b.Property<int?>("MemberId1")
                         .HasColumnType("int");
 
-                    b.Property<int?>("OweToMemberId")
-                        .HasColumnType("int");
-
-                    b.Property<int?>("OwedToMemberId")
+                    b.Property<int>("OwedToMemberId")
                         .HasColumnType("int");
 
                     b.Property<int>("RoomId")
