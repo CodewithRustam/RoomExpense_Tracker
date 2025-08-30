@@ -66,6 +66,7 @@ namespace AppExpenseTracker.Controllers
             {
                 if (viewModel is not null)
                 {
+                    Roomid = viewModel.RoomId;
                    message = await expenseServices.UpdateExpenses(viewModel);
                 }
             }
