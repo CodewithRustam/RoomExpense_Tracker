@@ -1,7 +1,8 @@
+using AppExpenseTracker.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using AppExpenseTracker.ViewModels;
 using Services.Interfaces;
+using Services.ViewModels;
 
 namespace ExpenseTracker.Controllers
 {
@@ -29,44 +30,19 @@ namespace ExpenseTracker.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create(RoomViewModel viewModel)
         {
-            //if (!ModelState.IsValid) return View(viewModel);
+            if (!ModelState.IsValid) return View(viewModel);
 
-            //var userId = _userManager.GetUserId(User);
-            //var user = await _userManager.GetUserAsync(User);
+            var (success, message) = await roomServices.CreateRoomAsync(viewModel);
 
-            //var room = new Room
-            //{
-            //    CreatedByUser = user,
-            //    Name = viewModel.Name,
-            //    CreatedByUserId = userId
-            //};
-
-            //_context.Rooms.Add(room);
-            //await _context.SaveChangesAsync();
-
-            //_context.Members.Add(new Member
-            //{
-            //    Name = user.UserName,
-            //    RoomId = room.RoomId,
-            //    ApplicationUserId = userId
-            //});
-
-            //foreach (var username in viewModel.MemberUserNames.Where(u => !string.IsNullOrWhiteSpace(u)))
-            //{
-            //    var existingUser = await _userManager.FindByNameAsync(username);
-
-            //    _context.Members.Add(new Member
-            //    {
-            //        Name = username,
-            //        RoomId = room.RoomId,
-            //        ApplicationUserId = existingUser?.Id
-            //    });
-            //}
-
-            //await _context.SaveChangesAsync();
+            if (!success)
+            {
+                ModelState.AddModelError("", message);
+                return View(viewModel);
+            }
 
             return RedirectToAction(nameof(Index));
         }
+
         [HttpGet]
         public async Task<IActionResult> Details(int id, string? month, bool isFromSettled = false)
         {

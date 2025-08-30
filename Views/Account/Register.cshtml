@@ -1,41 +1,61 @@
-﻿@model AppExpenseTracker.ViewModels.RegisterViewModel
+﻿@using Services.ViewModels
+@model RegisterViewModel
 @{
     ViewData["Title"] = "Register";
 }
 
 <div class="min-h-[80vh] flex items-center justify-center">
-    <div class="bg-white/10 backdrop-blur-lg p-8 rounded-xl border border-white/20 shadow-lg text-light-700 w-full max-w-md">
-        <h2 class="text-3xl font-bold text-center text-teal-600 mb-6">📝 Create Account</h2>
+    <div class="bg-white/10 backdrop-blur-lg p-8 rounded-xl border border-white/20 shadow-lg w-full max-w-md">
+        <h2 class="text-3xl font-bold text-center text-teal-500 mb-6">📝 Create Account</h2>
 
         <form asp-action="Register" method="post" class="space-y-5">
-            <div asp-validation-summary="ModelOnly" class="text-red-500 text-sm mb-3"></div>
+            <div asp-validation-summary="ModelOnly" class="text-red-400 text-sm mb-3"></div>
 
+            <!-- Username -->
             <div>
-                <label asp-for="UserName" class="block mb-1 text-white-700">Username</label>
-                <input asp-for="UserName" style="background:#26272d" class="w-full px-4 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-teal-500" placeholder="Choose a username" />
-                <span asp-validation-for="UserName" class="text-red-500 text-sm"></span>
+                <label asp-for="UserName" class="block mb-1 text-white">Username</label>
+                <input asp-for="UserName"
+                       class="w-full px-4 py-2 border rounded bg-[#26272d] text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+                       placeholder="Choose a username" />
+                <span asp-validation-for="UserName" class="text-red-400 text-sm"></span>
             </div>
 
+            <!-- Email -->
             <div>
-                <label asp-for="Password" class="block mb-1 text-white-700">Password</label>
-                <input asp-for="Password" style="background:#26272d" type="password" class="w-full px-4 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-teal-500" placeholder="Password" />
-                <span asp-validation-for="Password" class="text-red-500 text-sm"></span>
+                <label asp-for="Email" class="block mb-1 text-white">Email</label>
+                <input asp-for="Email" type="email"
+                       class="w-full px-4 py-2 border rounded bg-[#26272d] text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+                       placeholder="Enter your email" />
+                <span asp-validation-for="Email" class="text-red-400 text-sm"></span>
             </div>
 
+            <!-- Password -->
             <div>
-                <label asp-for="ConfirmPassword" class="block mb-1 text-white-700">Confirm Password</label>
-                <input asp-for="ConfirmPassword" style="background:#26272d" type="password" class="w-full px-4 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-teal-500" placeholder="Confirm Password" />
-                <span asp-validation-for="ConfirmPassword" class="text-red-500 text-sm"></span>
+                <label asp-for="Password" class="block mb-1 text-white">Password</label>
+                <input asp-for="Password" type="password" autocomplete="new-password"
+                       class="w-full px-4 py-2 border rounded bg-[#26272d] text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+                       placeholder="Password" />
+                <span asp-validation-for="Password" class="text-red-400 text-sm"></span>
             </div>
 
+            <!-- Confirm Password -->
+            <div>
+                <label asp-for="ConfirmPassword" class="block mb-1 text-white">Confirm Password</label>
+                <input asp-for="ConfirmPassword" type="password" autocomplete="new-password"
+                       class="w-full px-4 py-2 border rounded bg-[#26272d] text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+                       placeholder="Confirm Password" />
+                <span asp-validation-for="ConfirmPassword" class="text-red-400 text-sm"></span>
+            </div>
+
+            <!-- Register Button -->
             <button type="submit"
                     class="w-full bg-teal-600 hover:bg-teal-700 text-white font-semibold py-2 rounded shadow transition">
                 Register
             </button>
 
-            <div class="text-center text-sm mt-4">
+            <div class="text-center text-sm mt-4 text-gray-300">
                 Already have an account?
-                <a asp-action="Login" class="text-teal-600 hover:underline">Login here</a>
+                <a asp-action="Login" class="text-teal-500 hover:underline">Login here</a>
             </div>
         </form>
     </div>

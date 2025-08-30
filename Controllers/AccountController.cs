@@ -1,9 +1,10 @@
-﻿using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using AppExpenseTracker.ViewModels;
+﻿using AppExpenseTracker.ViewModels;
 using Domain.AppUser;
 using Infrastructure.Data;
+using Infrastructure.Email;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
+using Services.ViewModels;
 
 namespace AppExpenseTracker.Controllers
 {
@@ -11,13 +12,15 @@ namespace AppExpenseTracker.Controllers
     {
         private readonly SignInManager<ApplicationUser> _signInManager;
         private readonly UserManager<ApplicationUser> _userManager;
+        private readonly IEmailSender emailSender;
         private readonly AppDbContext _context;
 
-        public AccountController(SignInManager<ApplicationUser> signInManager, UserManager<ApplicationUser> userManager, AppDbContext context)
+        public AccountController(SignInManager<ApplicationUser> signInManager, UserManager<ApplicationUser> userManager, AppDbContext context, IEmailSender _emailSender)
         {
             _context = context;
             _signInManager = signInManager;
             _userManager = userManager;
+            emailSender = _emailSender;
         }
 
         [HttpGet]
@@ -38,40 +41,34 @@ namespace AppExpenseTracker.Controllers
             return View(model);
         }
 
-
         [HttpGet]
         public IActionResult Register() => View();
 
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> Register(RegisterViewModel model)
         {
-            if (!ModelState.IsValid) return View(model);
-
-            var user = new ApplicationUser
+            if (ModelState.IsValid)
             {
-                UserName = model.UserName,
-                Email = $"{model.UserName}@placeholder.fake"
-            };
-
-            var result = await _userManager.CreateAsync(user, model.Password);
-
-            if (result.Succeeded)
-            {
-                var matchingMembers = await _context.Members.Where(m => m.Name == model.UserName && m.ApplicationUserId == null).ToListAsync();
-
-                foreach (var member in matchingMembers)
+                var user = new ApplicationUser
                 {
-                    member.ApplicationUserId = user.Id;
+                    UserName = model.UserName,
+                    Email = model.Email
+                };
+
+                var result = await _userManager.CreateAsync(user, model.Password);
+
+                if (result.Succeeded)
+                {
+                    await _signInManager.SignInAsync(user, isPersistent: false);
+                    return RedirectToAction("Index", "Home");
                 }
 
-                await _context.SaveChangesAsync(); 
-
-                await _signInManager.SignInAsync(user, isPersistent: false);
-                return RedirectToAction("Index", "Rooms");
+                foreach (var error in result.Errors)
+                {
+                    ModelState.AddModelError("", error.Description);
+                }
             }
-
-            foreach (var error in result.Errors)
-                ModelState.AddModelError("", error.Description);
 
             return View(model);
         }
@@ -84,5 +81,66 @@ namespace AppExpenseTracker.Controllers
         }
 
         public IActionResult AccessDenied() => View("AccessDenied");
+
+        [HttpGet]
+        public IActionResult ForgotPassword() => View();
+
+        [HttpPost]
+        public async Task<IActionResult> ForgotPassword(ForgotPasswordViewModel model)
+        {
+            if (!ModelState.IsValid) return View(model);
+
+            var user = await _userManager.FindByEmailAsync(model.Email);
+            if (user == null)
+            {
+                // Don't reveal user existence for security
+                return RedirectToAction("ForgotPasswordConfirmation");
+            }
+
+            // Generate password reset token
+            var token = await _userManager.GeneratePasswordResetTokenAsync(user);
+
+            // Create reset link
+            var resetLink = Url.Action("ResetPassword", "Account",
+                new { token, email = model.Email }, Request.Scheme);
+
+            //Send email with this resetLink
+            await emailSender.SendEmailAsync(model.Email, "Reset Password", $"Click <a href='{resetLink}'>here</a> to reset your password.");
+
+            return RedirectToAction("ForgotPasswordConfirmation");
+        }
+
+        public IActionResult ForgotPasswordConfirmation() => View();
+
+        // Step 3: Show Reset Password page
+        [HttpGet]
+        public IActionResult ResetPassword(string token, string email)
+        {
+            return View(new ResetPasswordViewModel { Token = token, Email = email });
+        }
+
+        // Step 4: Handle password reset submission
+        [HttpPost]
+        public async Task<IActionResult> ResetPassword(ResetPasswordViewModel model)
+        {
+            if (!ModelState.IsValid) return View(model);
+
+            var user = await _userManager.FindByEmailAsync(model.Email);
+            if (user == null)
+                return RedirectToAction("ResetPasswordConfirmation");
+
+            var result = await _userManager.ResetPasswordAsync(user, model.Token, model.Password);
+
+            if (result.Succeeded)
+                return RedirectToAction("ResetPasswordConfirmation");
+
+            foreach (var error in result.Errors)
+                ModelState.AddModelError("", error.Description);
+
+            return View(model);
+        }
+
+        public IActionResult ResetPasswordConfirmation() => View();
+
     }
 }
