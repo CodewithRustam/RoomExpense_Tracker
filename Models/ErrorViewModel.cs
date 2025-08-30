@@ -1,4 +1,4 @@
-namespace RoomExpenseTracker.Models;
+namespace AppExpenseTracker.Models;
 
 public class ErrorViewModel
 {

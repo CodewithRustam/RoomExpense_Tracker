@@ -1,8 +1,8 @@
 using System.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
-using RoomExpenseTracker.Models;
+using AppExpenseTracker.Models;
 
-namespace RoomExpenseTracker.Controllers;
+namespace AppExpenseTracker.Controllers;
 
 public class HomeController : Controller
 {

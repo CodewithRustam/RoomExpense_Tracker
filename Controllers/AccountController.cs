@@ -1,11 +1,11 @@
 ﻿using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using RoomExpenseTracker.Data;
-using RoomExpenseTracker.Models.AppUser;
-using RoomExpenseTracker.ViewModels;
+using AppExpenseTracker.ViewModels;
+using Domain.AppUser;
+using Infrastructure.Data;
 
-namespace RoomExpenseTracker.Controllers
+namespace AppExpenseTracker.Controllers
 {
     public class AccountController : Controller
     {

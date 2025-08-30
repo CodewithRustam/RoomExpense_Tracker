@@ -1,4 +1,5 @@
-﻿@model RoomExpenseTracker.ViewModels.RoomExpensesViewModel
+﻿@using Services.ViewModels
+@model RoomExpensesViewModel
 
 <div class="px-4 sm:px-0 mb-6">
     <div class="flex justify-start sm:justify-end items-center gap-3 text-base font-semibold flex-nowrap">
@@ -235,7 +236,7 @@
                 </button>
             </div>
             <div class="pe-4 ps-4 pb-6">
-                @await Html.PartialAsync("~/Views/Expenses/_EditExpenseModal.cshtml", new RoomExpenseTracker.Models.ExpenseViewModel())
+                @await Html.PartialAsync("~/Views/Expenses/_EditExpenseModal.cshtml", new ExpenseViewModel())
             </div>
         </div>
     </div>

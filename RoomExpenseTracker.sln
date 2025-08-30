@@ -2,7 +2,15 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.5.2.0
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RoomExpenseTracker", "RoomExpenseTracker.csproj", "{24000B52-1005-D055-6329-5319028077DF}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AppExpenseTracker", "AppExpenseTracker.csproj", "{24000B52-1005-D055-6329-5319028077DF}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Domain", "..\Domain\Domain.csproj", "{1856A5B0-67DE-4496-B7F5-F5945C46EE93}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Infrastructure", "..\Infrastructure\Infrastructure.csproj", "{378B9A28-FDFB-42F7-AEDE-851058E79B69}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Services", "..\Application\Services.csproj", "{EB8EE6AD-2DBB-486A-964A-81284BEC0A01}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ExpenseTrakcerHepler", "..\ExpenseTrakcerHepler\ExpenseTrakcerHepler.csproj", "{3B7B5A9E-8E8E-4A44-8237-B9BBE91BF17C}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -14,6 +22,22 @@ Global
 		{24000B52-1005-D055-6329-5319028077DF}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{24000B52-1005-D055-6329-5319028077DF}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{24000B52-1005-D055-6329-5319028077DF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1856A5B0-67DE-4496-B7F5-F5945C46EE93}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1856A5B0-67DE-4496-B7F5-F5945C46EE93}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1856A5B0-67DE-4496-B7F5-F5945C46EE93}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1856A5B0-67DE-4496-B7F5-F5945C46EE93}.Release|Any CPU.Build.0 = Release|Any CPU
+		{378B9A28-FDFB-42F7-AEDE-851058E79B69}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{378B9A28-FDFB-42F7-AEDE-851058E79B69}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{378B9A28-FDFB-42F7-AEDE-851058E79B69}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{378B9A28-FDFB-42F7-AEDE-851058E79B69}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EB8EE6AD-2DBB-486A-964A-81284BEC0A01}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EB8EE6AD-2DBB-486A-964A-81284BEC0A01}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EB8EE6AD-2DBB-486A-964A-81284BEC0A01}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EB8EE6AD-2DBB-486A-964A-81284BEC0A01}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3B7B5A9E-8E8E-4A44-8237-B9BBE91BF17C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3B7B5A9E-8E8E-4A44-8237-B9BBE91BF17C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3B7B5A9E-8E8E-4A44-8237-B9BBE91BF17C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3B7B5A9E-8E8E-4A44-8237-B9BBE91BF17C}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
-namespace RoomExpenseTracker.ViewModels
+namespace AppExpenseTracker.ViewModels
 {
     public class RoomViewModel
     {
