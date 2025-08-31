@@ -1,8 +1,13 @@
 ﻿using AppExpenseTracker.ViewModels;
 using Domain.AppUser;
+using Domain.Entities;
+using ExpenseTrakcerHepler;
 using Infrastructure.Email;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Services.Interfaces;
+using Services.Management;
 using Services.ViewModels;
 
 namespace AppExpenseTracker.Controllers
@@ -12,15 +17,14 @@ namespace AppExpenseTracker.Controllers
         private readonly SignInManager<ApplicationUser> _signInManager;
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly IEmailSender _emailSender;
+        private readonly IPasswordResetLinkService _passwordResetLinkService;
 
-        public AccountController(
-            SignInManager<ApplicationUser> signInManager,
-            UserManager<ApplicationUser> userManager,
-            IEmailSender emailSender)
+        public AccountController(SignInManager<ApplicationUser> signInManager,UserManager<ApplicationUser> userManager, IEmailSender emailSender, IPasswordResetLinkService passwordResetLinkService)
         {
             _signInManager = signInManager;
             _userManager = userManager;
             _emailSender = emailSender;
+            _passwordResetLinkService = passwordResetLinkService;
         }
 
         [HttpGet]
@@ -94,26 +98,34 @@ namespace AppExpenseTracker.Controllers
                 return View(model);
 
             var user = await _userManager.FindByEmailAsync(model.Email!);
+
             if (user == null || string.IsNullOrEmpty(user.Email))
                 return RedirectToAction(nameof(ForgotPasswordConfirmation));
 
-            var token = await _userManager.GeneratePasswordResetTokenAsync(user);
+            string shortCode = await _passwordResetLinkService.AddPasswordResetLink(model.Email!);
+           
+            var shortUrl = Url.Action("RedirectReset", "Account", new { code = shortCode }, Request.Scheme)!;
 
-            var resetLink = Url.Action(
-                "ResetPassword",
-                "Account",
-                new { token, email = model.Email },
-                Request.Scheme)!;
-
-            await _emailSender.SendEmailAsync(
-                model.Email,
-                "Reset Password",
-                $"Click <a href='{resetLink}'>here</a> to reset your password.");
+            var body = EmailTemplates.GetPasswordResetEmail(shortUrl);
+            await _emailSender.SendEmailAsync(model.Email!, "Reset Your Password", body);
 
             return RedirectToAction(nameof(ForgotPasswordConfirmation));
         }
 
         public IActionResult ForgotPasswordConfirmation() => View();
+        public async Task<IActionResult> RedirectReset(string code)
+        {
+            var entry = await _passwordResetLinkService.GetPasswordResetDetailsByShortCode(code);
+
+            if (entry == null)
+            {
+                return BadRequest("Invalid or expired password reset link.");
+            }
+
+            // Now redirect to real reset page with actual token + email
+            return RedirectToAction("ResetPassword", new { token = entry.Token, email = entry.Email });
+        }
+
 
         [HttpGet]
         public IActionResult ResetPassword(string token, string email) =>
@@ -142,5 +154,16 @@ namespace AppExpenseTracker.Controllers
         }
 
         public IActionResult ResetPasswordConfirmation() => View();
+
+        [HttpPost]
+        public async Task<IActionResult> CheckEmail(string email)
+        {
+            if (string.IsNullOrEmpty(email))
+                return Json(new { exists = false });
+
+            var user = await _userManager.FindByEmailAsync(email);
+            return Json(new { exists = user != null });
+        }
+
     }
 }

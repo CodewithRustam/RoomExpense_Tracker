@@ -29,12 +29,14 @@ internal class Program
         builder.Services.AddScoped<IMemberRepository, MemberRepository>();
         builder.Services.AddScoped<ISettlementRepository, SettlementRepository>();
         builder.Services.AddScoped<IExpenseSummaryReportRepository, ExpenseSummaryReportRepository>();
+        builder.Services.AddScoped<IPasswordResetLinkRepository, PasswordResetLinkRepository>();
 
         builder.Services.AddScoped<IRoomServices, RoomService>();
         builder.Services.AddScoped<IExpenseServices, ExpenseService>();
         builder.Services.AddScoped<IMemberServices, MemberService>();
         builder.Services.AddScoped<ISettlementServices, SettlementService>();
         builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
+        builder.Services.AddScoped<IPasswordResetLinkService, PasswordResetLinkService>();
 
         builder.Services.AddSingleton(resolver =>
             new SmtpEmailSender(builder.Configuration.GetSection("SmtpSettings").Get<SmtpSettings>()));
