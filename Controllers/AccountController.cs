@@ -122,7 +122,6 @@ namespace AppExpenseTracker.Controllers
                 return BadRequest("Invalid or expired password reset link.");
             }
 
-            // Now redirect to real reset page with actual token + email
             return RedirectToAction("ResetPassword", new { token = entry.Token, email = entry.Email });
         }
 
