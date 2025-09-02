@@ -42,9 +42,9 @@ internal class Program
             new SmtpEmailSender(builder.Configuration.GetSection("SmtpSettings").Get<SmtpSettings>()));
 
         builder.Services.AddScoped<IEmailSender>(sp => sp.GetRequiredService<SmtpEmailSender>());
-        builder.Services.AddHostedService<ExpenseSummaryReportService>();
 
         builder.Services.AddSingleton<IDateTimeProvider, DateTimeProvider>();
+        builder.Services.AddHostedService<ExpenseSummaryReportService>();
 
         builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
         {
