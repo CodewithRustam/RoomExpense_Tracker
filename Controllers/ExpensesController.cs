@@ -98,7 +98,7 @@ namespace AppExpenseTracker.Controllers
         {
             try
             {
-                if (!User.Identity.IsAuthenticated || User.Identity.Name != MemberName)
+                if (!User.Identity!.IsAuthenticated || User.Identity.Name != MemberName)
                     return Unauthorized("User not authorized.");
 
                 if (!DateTime.TryParseExact(Month + "-01", "yyyy-MM-dd", null, System.Globalization.DateTimeStyles.None, out var settlementForMonth))
