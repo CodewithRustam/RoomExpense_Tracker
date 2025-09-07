@@ -1,0 +1,12 @@
+D:\MyProjects\ExpenseTrakcerHepler\bin\Release\net8.0\ExpenseTrakcerHepler.deps.json
+D:\MyProjects\ExpenseTrakcerHepler\bin\Release\net8.0\ExpenseTrakcerHepler.dll
+D:\MyProjects\ExpenseTrakcerHepler\bin\Release\net8.0\ExpenseTrakcerHepler.pdb
+D:\MyProjects\ExpenseTrakcerHepler\obj\Release\net8.0\ExpenseTrakcerHepler.csproj.AssemblyReference.cache
+D:\MyProjects\ExpenseTrakcerHepler\obj\Release\net8.0\ExpenseTrakcerHepler.GeneratedMSBuildEditorConfig.editorconfig
+D:\MyProjects\ExpenseTrakcerHepler\obj\Release\net8.0\ExpenseTrakcerHepler.AssemblyInfoInputs.cache
+D:\MyProjects\ExpenseTrakcerHepler\obj\Release\net8.0\ExpenseTrakcerHepler.AssemblyInfo.cs
+D:\MyProjects\ExpenseTrakcerHepler\obj\Release\net8.0\ExpenseTrakcerHepler.csproj.CoreCompileInputs.cache
+D:\MyProjects\ExpenseTrakcerHepler\obj\Release\net8.0\ExpenseTrakcerHepler.dll
+D:\MyProjects\ExpenseTrakcerHepler\obj\Release\net8.0\refint\ExpenseTrakcerHepler.dll
+D:\MyProjects\ExpenseTrakcerHepler\obj\Release\net8.0\ExpenseTrakcerHepler.pdb
+D:\MyProjects\ExpenseTrakcerHepler\obj\Release\net8.0\ref\ExpenseTrakcerHepler.dll

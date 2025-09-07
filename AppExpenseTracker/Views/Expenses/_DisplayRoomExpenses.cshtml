@@ -1,0 +1,293 @@
+﻿@using Services.ViewModels
+@using Services.ViewModels.ApiViewModels
+@model RoomExpensesViewModel
+
+<div class="px-4 sm:px-0 mb-6">
+    <div class="flex justify-start sm:justify-end items-center gap-3 text-base font-semibold flex-nowrap">
+
+        <!-- Avg per Person -->
+        <span class="px-3 py-2 rounded-full shadow-sm whitespace-nowrap
+                     bg-gradient-to-r from-indigo-600/20 to-indigo-400/30
+                     text-indigo-300">
+            ₹@(Model.AvgPerPerson.ToString("F2") ?? "0.00") / member
+        </span>
+
+        <!-- Separator -->
+        <span class="text-gray-400">•</span>
+
+        <span class="px-3 py-2 rounded-full shadow-sm whitespace-nowrap bg-gradient-to-r from-red-600/10 to-red-800/40 text-red-500">
+            ₹@(Model.TotalExpense.ToString("F2") ?? "0.00") total
+        </span>
+
+    </div>
+</div>
+
+
+
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+    @foreach (var person in Model.Summary)
+    {
+        var amountClass = person.IsOwed ? "text-green-500 bg-green-100/20"
+        : person.IsOwing ? "text-red-400 bg-red-100/20"
+        : "text-indigo-300 bg-indigo-100/20";
+
+        <div class="relative bg-gradient-to-br from-gray-800/60 to-gray-900/60 backdrop-blur-lg p-5 rounded-2xl border border-white/10 shadow-lg hover:shadow-2xl transition-all duration-300">
+            <!-- Decorative Glow -->
+            <div class="absolute -top-8 -right-8 w-28 h-28 bg-gradient-to-br from-indigo-400 to-pink-400 opacity-20 rounded-full blur-2xl pointer-events-none"></div>
+
+            <div class="flex gap-4 items-start mb-5">
+                <!-- Left Column (Name + Expense) -->
+                <div class="p-4 rounded-xl shadow-inner bg-gradient-to-br from-gray-700/60 via-gray-800/60 to-gray-800/50">
+                    <h3 class="font-bold text-white text-lg">@person.MemberName</h3>
+                    <p class="mt-1 font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 text-xl">
+                        ₹@person.TotalExpense?.ToString("F2")
+                    </p>
+                </div>
+
+
+                <!-- Right Column -->
+                <div class="flex-1 flex flex-col items-end text-right">
+                    <!-- Split/Non-Split Toggle -->
+                    @if (Model.IsTwoMembersInRoom)
+                    {
+                        <div class="relative w-40 bg-gradient-to-br from-gray-400/40 via-gray-600/60 to-gray-500/60 rounded-full flex p-1 pill-switch mb-2">
+                            <button type="button" class="tab-btn flex-1 text-sm py-2 rounded-full font-semibold relative z-10 text-white active"
+                                    data-target="split-details">
+                                Split
+                            </button>
+                            <button type="button" class="tab-btn flex-1 text-sm py-2 rounded-full font-semibold relative z-10 text-white-600"
+                                    data-target="non-split-details">
+                                Non-Split
+                            </button>
+
+                            <!-- Indicator -->
+                            <div class="indicator absolute top-1 left-1 w-[calc(50%-4.5px)] h-[calc(100%-8px)]
+                                bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500
+                                rounded-full shadow-md transition-all duration-300 z-0"></div>
+                        </div>
+
+                        <!-- Badge + Non-split -->
+                        <div class="tab-content relative">
+                            <div class="split-content transition-all duration-500 ease-in-out opacity-100">
+                                <span class="@amountClass px-3 py-1.5 text-sm font-semibold rounded-full shadow">
+                                    @person.BadgeText
+                                    @if (person.BadgeAmount != 0)
+                                    {
+                                        <span>: ₹@person.BadgeAmount.ToString("F2")</span>
+                                    }
+                                </span>
+                                 <!-- Paid -->
+                    @if (person.PaidAmount > 0)
+                    {
+                        <p class="mt-2 inline-block text-xs font-semibold text-red-400 bg-red-200/30 px-3 py-2 rounded-full">
+                            Paid: ₹@person.PaidAmount?.ToString("F2")
+                        </p>
+                    }
+
+                    <!-- Received -->
+                    @if (person.ReceivedAmount > 0)
+                    {
+                        <p class="mt-2 inline-block text-xs font-semibold text-green-500 bg-green-200/30 px-3 py-2 rounded-full">
+                            Received: ₹@person.ReceivedAmount?.ToString("F2")
+                        </p>
+                    }
+
+                    <!-- Settle Up Button -->
+                    @if (person.IsOwing && User.Identity?.IsAuthenticated == true && User.Identity.Name == person.MemberName)
+                    {
+                        <button class="settle-btn mt-3 flex items-center gap-2 px-4 py-2 rounded-full text-white text-sm font-bold
+                            bg-gradient-to-r from-teal-500 to-green-500 hover:from-teal-600 hover:to-green-600
+                            shadow-md hover:shadow-lg transition transform hover:scale-105"
+                                data-member-name="@person.MemberName"
+                                data-amount="@person.BadgeAmount"
+                                data-room-id="@Model.Expense?.RoomId"
+                                data-avg-per-person="@Model.AvgPerPerson">
+
+                            <span class="flex items-center justify-center w-6 h-6 rounded-full bg-white/20">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                          d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2
+                                          m0-8c1.11 0 2.08.402 2.599 1
+                                          M12 8V7m0 1v8m0 0v1m0-1
+                                          c-1.11 0-2.08-.402-2.599-1
+                                          M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                            </span>
+                            <span>Settle Up</span>
+                        </button>
+                    }
+                            </div>
+                            <div class="non-split-content absolute right-0 top-0 flex items-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 border border-gray-700 rounded-lg px-3 py-1 text-xs text-white shadow-md  transition-all duration-500 ease-in-out opacity-100 translate-y-0" style="width: 10rem;">
+                                <!-- Icon indicating money received -->
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-yellow-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm0-6v2m0 16v2m10-10h-2M4 12H2m15.07-6.93l-1.41 1.41M6.34 17.66l-1.41 1.41m12.02 0l1.41-1.41M6.34 6.34L4.93 4.93" />
+                                </svg>
+
+                                <span style="text-align: -webkit-left;">
+                                    @person.NonSplitText
+                                </span>
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        <span class="@amountClass px-3 py-1.5 text-sm font-semibold rounded-full shadow">
+                            @person.BadgeText
+                            @if (person.BadgeAmount != 0)
+                            {
+                                <span>: ₹@person.BadgeAmount.ToString("F2")</span>
+                            }
+                        </span>
+                         <!-- Paid -->
+                    @if (person.PaidAmount > 0)
+                    {
+                        <p class="mt-2 inline-block text-xs font-semibold text-red-400 bg-red-200/30 px-3 py-2 rounded-full">
+                            Paid: ₹@person.PaidAmount?.ToString("F2")
+                        </p>
+                    }
+
+                    <!-- Received -->
+                    @if (person.ReceivedAmount > 0)
+                    {
+                        <p class="mt-2 inline-block text-xs font-semibold text-green-500 bg-green-200/30 px-3 py-2 rounded-full">
+                            Received: ₹@person.ReceivedAmount?.ToString("F2")
+                        </p>
+                    }
+
+                    <!-- Settle Up Button -->
+                    @if (person.IsOwing && User.Identity?.IsAuthenticated == true && User.Identity.Name == person.MemberName)
+                    {
+                        <button class="settle-btn mt-3 flex items-center gap-2 px-4 py-2 rounded-full text-white text-sm font-bold
+                            bg-gradient-to-r from-teal-500 to-green-500 hover:from-teal-600 hover:to-green-600
+                            shadow-md hover:shadow-lg transition transform hover:scale-105"
+                                data-member-name="@person.MemberName"
+                                data-amount="@person.BadgeAmount"
+                                data-room-id="@Model.Expense?.RoomId"
+                                data-avg-per-person="@Model.AvgPerPerson">
+
+                            <span class="flex items-center justify-center w-6 h-6 rounded-full bg-white/20">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                          d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2
+                                          m0-8c1.11 0 2.08.402 2.599 1
+                                          M12 8V7m0 1v8m0 0v1m0-1
+                                          c-1.11 0-2.08-.402-2.599-1
+                                          M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                            </span>
+                            <span>Settle Up</span>
+                        </button>
+                    }
+                    }                 
+                </div>
+            </div>
+
+            <!-- Expense List -->
+            @if (person.Items == null || person.Items.Count == 0)
+            {
+                <div class="py-8 text-center text-gray-400 italic">No expenses added yet.</div>
+            }
+            else
+            {
+                <div class="max-h-48 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-indigo-400 scrollbar-track-gray-700/20">
+                    <ul class="divide-y divide-gray-600/30 text-sm">
+                        @foreach (var expense in person.Items)
+                        {
+                            <li class="flex justify-between items-center py-2">
+                                <div>
+                                    <p class="font-medium text-gray-100">@expense.Item</p>
+                                    <p class="text-xs text-gray-400">@expense.Date.ToString("MMM dd")</p>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <p class="text-gray-200 font-semibold">₹@expense.Amount.ToString("F2")</p>
+                                    @if (User.Identity?.IsAuthenticated == true && User.Identity.Name == person.MemberName && (person.IsOwed || person.IsOwing))
+                                    {
+                                        <button class="edit-expense-btn p-1.5 rounded-full bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/30 transition"
+                                                data-expense-id="@expense.ExpenseId"
+                                                data-item="@expense.Item"
+                                                data-amount="@expense.Amount"
+                                                data-date="@expense.Date.ToString("yyyy-MM-dd")"
+                                                data-room-id="@expense.RoomId">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5
+                                                         m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                            </svg>
+                                        </button>
+                                    }
+                                </div>
+                            </li>
+                        }
+                    </ul>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+<!-- Edit Expense Modal -->
+<div id="editExpenseModal" tabindex="-1" aria-hidden="true" class="fixed hidden inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center" style="margin-top: 0rem;">
+    <div class="relative w-full max-w-md p-4">
+        <div class="bg-white/10 backdrop-blur-lg p-6 rounded-xl border border-white/20 shadow-lg">
+            <div class="flex justify-between items-center p-4 border-b">
+                <h3 class="text-lg font-semibold text-white-900">Edit Expense</h3>
+                <button type="button" data-modal-hide="editExpenseModal"
+                        class="w-8 h-8 text-white-500 transition rounded-full flex items-center justify-center">
+                    ✕
+                </button>
+            </div>
+            <div class="pe-4 ps-4 pb-6">
+                @await Html.PartialAsync("~/Views/Expenses/_EditExpenseModal.cshtml", new ExpenseViewModel())
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Settle Up Modal -->
+<div id="settleModal" tabindex="-1" aria-hidden="true"
+     class="fixed hidden inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center"
+     style="margin-top: 0rem;">
+    <div class="relative w-full max-w-md p-4">
+        <div class="bg-white/10 backdrop-blur-lg p-5 rounded-xl border border-white/20 shadow-lg">
+            <div class="flex justify-between items-center p-2 border-b">
+                <h3 class="text-lg font-semibold text-white-900">Settle Up</h3>
+                <button type="button" data-modal-hide="settleModal"
+                        class="w-8 h-8 text-white-500 transition rounded-full flex items-center justify-center">
+                    ✕
+                </button>
+            </div>
+            <div class="p-5">
+                <form id="settleForm" method="post" asp-action="Settle" asp-controller="Expenses">
+                    <input type="hidden" id="settleRoomId" name="RoomId" />
+                    <input type="hidden" id="settleMemberName" name="MemberName" />
+                    <input type="hidden" id="settleAmount" name="Amount" />
+                    <input type="hidden" id="settleMonth" name="Month" />
+                    <label for="paidToMemberName" class="block text-sm font-medium text-white-700 mb-2">Pay to</label>
+                    <select id="paidToMemberName" style="background:#26272d"
+                            name="PaidToMemberName"
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors">
+                        <option value="" disabled selected>Select a person to settle with</option>
+                        @foreach (var person in Model.Summary.Where(p => p.IsOwed))
+                        {
+                            <option value="@person.MemberName"
+                                    data-owed-amount="@person.BadgeAmount.ToString("F2")">
+                                @person.MemberName (Owed: ₹@person.BadgeAmount.ToString("F2"))
+                            </option>
+                        }
+                    </select>
+                    <p class="text-white-700 mb-4 mt-4">
+                        Confirm settlement of
+                        <span id="settleAmountDisplay" class="font-semibold"></span>
+                        for <span id="settleMemberDisplay" class="font-semibold"></span>
+                        to <span id="paidToMemberDisplay" class="font-semibold"></span>.
+                    </p>
+                    <div class="flex justify-end gap-3">
+                        <button type="button" data-modal-hide="settleModal" class="px-4 py-2 text-gray-600 bg-gray-100 rounded-md hover:bg-gray-200">Cancel</button>
+                        <button type="submit" id="confirmSettleBtn" class="px-4 py-2 text-white bg-indigo-600 rounded-md hover:bg-indigo-700" disabled>Confirm</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+<script src="~/js/displayexpenses.js"></script>

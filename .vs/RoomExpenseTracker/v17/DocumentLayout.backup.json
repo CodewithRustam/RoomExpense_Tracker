@@ -1,0 +1,556 @@
+{
+  "Version": 1,
+  "WorkspaceRootPath": "D:\\MyProjects\\RoomTrackerExpense\\",
+  "Documents": [
+    {
+      "AbsoluteMoniker": "D:0:0:{24000B52-1005-D055-6329-5319028077DF}|AppExpenseTracker.csproj|d:\\myprojects\\roomtrackerexpense\\controllers\\expensescontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{24000B52-1005-D055-6329-5319028077DF}|AppExpenseTracker.csproj|solutionrelative:controllers\\expensescontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{24000B52-1005-D055-6329-5319028077DF}|AppExpenseTracker.csproj|d:\\myprojects\\roomtrackerexpense\\views\\expenses\\_displayroomexpenses.cshtml||{40D31677-CBC0-4297-A9EF-89D907823A98}",
+      "RelativeMoniker": "D:0:0:{24000B52-1005-D055-6329-5319028077DF}|AppExpenseTracker.csproj|solutionrelative:views\\expenses\\_displayroomexpenses.cshtml||{40D31677-CBC0-4297-A9EF-89D907823A98}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{24000B52-1005-D055-6329-5319028077DF}|AppExpenseTracker.csproj|d:\\myprojects\\roomtrackerexpense\\controllers\\roomscontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{24000B52-1005-D055-6329-5319028077DF}|AppExpenseTracker.csproj|solutionrelative:controllers\\roomscontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{24000B52-1005-D055-6329-5319028077DF}|AppExpenseTracker.csproj|d:\\myprojects\\roomtrackerexpense\\wwwroot\\js\\displayexpenses.js||{14D17961-FE51-464D-9111-C4AF11D7D99A}",
+      "RelativeMoniker": "D:0:0:{24000B52-1005-D055-6329-5319028077DF}|AppExpenseTracker.csproj|solutionrelative:wwwroot\\js\\displayexpenses.js||{14D17961-FE51-464D-9111-C4AF11D7D99A}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{24000B52-1005-D055-6329-5319028077DF}|AppExpenseTracker.csproj|d:\\myprojects\\roomtrackerexpense\\views\\rooms\\index.cshtml||{40D31677-CBC0-4297-A9EF-89D907823A98}",
+      "RelativeMoniker": "D:0:0:{24000B52-1005-D055-6329-5319028077DF}|AppExpenseTracker.csproj|solutionrelative:views\\rooms\\index.cshtml||{40D31677-CBC0-4297-A9EF-89D907823A98}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{24000B52-1005-D055-6329-5319028077DF}|AppExpenseTracker.csproj|d:\\myprojects\\roomtrackerexpense\\views\\rooms\\details.cshtml||{40D31677-CBC0-4297-A9EF-89D907823A98}",
+      "RelativeMoniker": "D:0:0:{24000B52-1005-D055-6329-5319028077DF}|AppExpenseTracker.csproj|solutionrelative:views\\rooms\\details.cshtml||{40D31677-CBC0-4297-A9EF-89D907823A98}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{24000B52-1005-D055-6329-5319028077DF}|AppExpenseTracker.csproj|d:\\myprojects\\roomtrackerexpense\\controllers\\accountcontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{24000B52-1005-D055-6329-5319028077DF}|AppExpenseTracker.csproj|solutionrelative:controllers\\accountcontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{BA21594A-19D8-4F9E-B44A-D6FA777D2C9A}|..\\AppExpenseTrackerApi\\AppExpenseTrackerApi.csproj|d:\\myprojects\\appexpensetrackerapi\\controllers\\roomscontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{EB8EE6AD-2DBB-486A-964A-81284BEC0A01}|..\\Application\\Services.csproj|d:\\myprojects\\application\\viewmodels\\settlementrequest.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{BA21594A-19D8-4F9E-B44A-D6FA777D2C9A}|..\\AppExpenseTrackerApi\\AppExpenseTrackerApi.csproj|d:\\myprojects\\appexpensetrackerapi\\controllers\\accountcontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{EB8EE6AD-2DBB-486A-964A-81284BEC0A01}|..\\Application\\Services.csproj|d:\\myprojects\\application\\interfaces\\iexpenseservices.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{24000B52-1005-D055-6329-5319028077DF}|AppExpenseTracker.csproj|d:\\myprojects\\roomtrackerexpense\\appexpensetracker.csproj||{FA3CD31E-987B-443A-9B81-186104E8DAC1}|",
+      "RelativeMoniker": "D:0:0:{24000B52-1005-D055-6329-5319028077DF}|AppExpenseTracker.csproj|solutionrelative:appexpensetracker.csproj||{FA3CD31E-987B-443A-9B81-186104E8DAC1}|"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{EB8EE6AD-2DBB-486A-964A-81284BEC0A01}|..\\Application\\Services.csproj|d:\\myprojects\\application\\management\\roomservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{24000B52-1005-D055-6329-5319028077DF}|AppExpenseTracker.csproj|d:\\myprojects\\roomtrackerexpense\\views\\account\\login.cshtml||{40D31677-CBC0-4297-A9EF-89D907823A98}",
+      "RelativeMoniker": "D:0:0:{24000B52-1005-D055-6329-5319028077DF}|AppExpenseTracker.csproj|solutionrelative:views\\account\\login.cshtml||{40D31677-CBC0-4297-A9EF-89D907823A98}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{EB8EE6AD-2DBB-486A-964A-81284BEC0A01}|..\\Application\\Services.csproj|d:\\myprojects\\application\\management\\expenseservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{EB8EE6AD-2DBB-486A-964A-81284BEC0A01}|..\\Application\\Services.csproj|d:\\myprojects\\application\\viewmodels\\apiviewmodels\\roomexpensesviewmodel.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{EB8EE6AD-2DBB-486A-964A-81284BEC0A01}|..\\Application\\Services.csproj|d:\\myprojects\\application\\viewmodels\\apiviewmodels\\apiresponse.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{EB8EE6AD-2DBB-486A-964A-81284BEC0A01}|..\\Application\\Services.csproj|d:\\myprojects\\application\\viewmodels\\roomdetailsviewmodel.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{EB8EE6AD-2DBB-486A-964A-81284BEC0A01}|..\\Application\\Services.csproj|d:\\myprojects\\application\\interfaces\\iroomservices.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{378B9A28-FDFB-42F7-AEDE-851058E79B69}|..\\Infrastructure\\Infrastructure.csproj|d:\\myprojects\\infrastructure\\repositories\\expensesrepository.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{1856A5B0-67DE-4496-B7F5-F5945C46EE93}|..\\Domain\\Domain.csproj|d:\\myprojects\\domain\\interfaces\\iexpenserepository.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{1856A5B0-67DE-4496-B7F5-F5945C46EE93}|..\\Domain\\Domain.csproj|d:\\myprojects\\domain\\interfaces\\iroomrepository.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{378B9A28-FDFB-42F7-AEDE-851058E79B69}|..\\Infrastructure\\Infrastructure.csproj|d:\\myprojects\\infrastructure\\repositories\\roomrepository.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{EB8EE6AD-2DBB-486A-964A-81284BEC0A01}|..\\Application\\Services.csproj|d:\\myprojects\\application\\viewmodels\\expenseviewmodel.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{EB8EE6AD-2DBB-486A-964A-81284BEC0A01}|..\\Application\\Services.csproj|d:\\myprojects\\application\\viewmodels\\expensesummary.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{BA21594A-19D8-4F9E-B44A-D6FA777D2C9A}|..\\AppExpenseTrackerApi\\AppExpenseTrackerApi.csproj|d:\\myprojects\\appexpensetrackerapi\\controllers\\expensescontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{EB8EE6AD-2DBB-486A-964A-81284BEC0A01}|..\\Application\\Services.csproj|d:\\myprojects\\application\\backgroundjobs\\expensesummaryreportservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{EB8EE6AD-2DBB-486A-964A-81284BEC0A01}|..\\Application\\Services.csproj|d:\\myprojects\\application\\viewmodels\\apireponse\\roomresponse.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{EB8EE6AD-2DBB-486A-964A-81284BEC0A01}|..\\Application\\Services.csproj|d:\\myprojects\\application\\services.csproj||{FA3CD31E-987B-443A-9B81-186104E8DAC1}|"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{378B9A28-FDFB-42F7-AEDE-851058E79B69}|..\\Infrastructure\\Infrastructure.csproj|d:\\myprojects\\infrastructure\\email\\smtpemailsender.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{BA21594A-19D8-4F9E-B44A-D6FA777D2C9A}|..\\AppExpenseTrackerApi\\AppExpenseTrackerApi.csproj|d:\\myprojects\\appexpensetrackerapi\\program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{24000B52-1005-D055-6329-5319028077DF}|AppExpenseTracker.csproj|d:\\myprojects\\roomtrackerexpense\\program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{24000B52-1005-D055-6329-5319028077DF}|AppExpenseTracker.csproj|solutionrelative:program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{EB8EE6AD-2DBB-486A-964A-81284BEC0A01}|..\\Application\\Services.csproj|d:\\myprojects\\application\\viewmodels\\loginviewmodel.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{BA21594A-19D8-4F9E-B44A-D6FA777D2C9A}|..\\AppExpenseTrackerApi\\AppExpenseTrackerApi.csproj|d:\\myprojects\\appexpensetrackerapi\\controllers\\weatherforecastcontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    }
+  ],
+  "DocumentGroupContainers": [
+    {
+      "Orientation": 0,
+      "VerticalTabListWidth": 256,
+      "DocumentGroups": [
+        {
+          "DockedWidth": 200,
+          "SelectedChildIndex": 7,
+          "Children": [
+            {
+              "$type": "Bookmark",
+              "Name": "ST:129:0:{1fc202d4-d401-403c-9834-5b218574bb67}"
+            },
+            {
+              "$type": "Bookmark",
+              "Name": "ST:128:0:{116d2292-e37d-41cd-a077-ebacac4c8cc4}"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "_DisplayRoomExpenses.cshtml",
+              "DocumentMoniker": "D:\\MyProjects\\RoomTrackerExpense\\Views\\Expenses\\_DisplayRoomExpenses.cshtml",
+              "RelativeDocumentMoniker": "Views\\Expenses\\_DisplayRoomExpenses.cshtml",
+              "ToolTip": "D:\\MyProjects\\RoomTrackerExpense\\Views\\Expenses\\_DisplayRoomExpenses.cshtml",
+              "RelativeToolTip": "Views\\Expenses\\_DisplayRoomExpenses.cshtml",
+              "ViewState": "AgIAABcBAAAAAAAAAAAAACUBAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
+              "WhenOpened": "2025-09-07T14:55:13.932Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
+              "Title": "RoomsController.cs",
+              "DocumentMoniker": "D:\\MyProjects\\RoomTrackerExpense\\Controllers\\RoomsController.cs",
+              "RelativeDocumentMoniker": "Controllers\\RoomsController.cs",
+              "ToolTip": "D:\\MyProjects\\RoomTrackerExpense\\Controllers\\RoomsController.cs",
+              "RelativeToolTip": "Controllers\\RoomsController.cs",
+              "ViewState": "AgIAAAgAAAAAAAAAAAAxwBsAAAAiAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-09-07T07:30:43.975Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 8,
+              "Title": "SettlementRequest.cs",
+              "DocumentMoniker": "D:\\MyProjects\\Application\\ViewModels\\SettlementRequest.cs",
+              "RelativeDocumentMoniker": "..\\Application\\ViewModels\\SettlementRequest.cs",
+              "ToolTip": "D:\\MyProjects\\Application\\ViewModels\\SettlementRequest.cs",
+              "RelativeToolTip": "..\\Application\\ViewModels\\SettlementRequest.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-09-07T07:40:11.106Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 4,
+              "Title": "Index.cshtml",
+              "DocumentMoniker": "D:\\MyProjects\\RoomTrackerExpense\\Views\\Rooms\\Index.cshtml",
+              "RelativeDocumentMoniker": "Views\\Rooms\\Index.cshtml",
+              "ToolTip": "D:\\MyProjects\\RoomTrackerExpense\\Views\\Rooms\\Index.cshtml",
+              "RelativeToolTip": "Views\\Rooms\\Index.cshtml",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAABYAAAAUAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
+              "WhenOpened": "2025-09-07T10:20:55.492Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 7,
+              "Title": "RoomsController.cs",
+              "DocumentMoniker": "D:\\MyProjects\\AppExpenseTrackerApi\\Controllers\\RoomsController.cs",
+              "RelativeDocumentMoniker": "..\\AppExpenseTrackerApi\\Controllers\\RoomsController.cs",
+              "ToolTip": "D:\\MyProjects\\AppExpenseTrackerApi\\Controllers\\RoomsController.cs",
+              "RelativeToolTip": "..\\AppExpenseTrackerApi\\Controllers\\RoomsController.cs",
+              "ViewState": "AgIAABYAAAAAAAAAAIAwwDUAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-09-07T07:42:32.682Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "ExpensesController.cs",
+              "DocumentMoniker": "D:\\MyProjects\\RoomTrackerExpense\\Controllers\\ExpensesController.cs",
+              "RelativeDocumentMoniker": "Controllers\\ExpensesController.cs",
+              "ToolTip": "D:\\MyProjects\\RoomTrackerExpense\\Controllers\\ExpensesController.cs",
+              "RelativeToolTip": "Controllers\\ExpensesController.cs",
+              "ViewState": "AgIAAE8AAAAAAAAAAAAuwFwAAAA0AAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-09-07T07:17:27.471Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 6,
+              "Title": "AccountController.cs",
+              "DocumentMoniker": "D:\\MyProjects\\RoomTrackerExpense\\Controllers\\AccountController.cs",
+              "RelativeDocumentMoniker": "Controllers\\AccountController.cs",
+              "ToolTip": "D:\\MyProjects\\RoomTrackerExpense\\Controllers\\AccountController.cs",
+              "RelativeToolTip": "Controllers\\AccountController.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAABQAAAAnAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-09-07T07:28:30.457Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 3,
+              "Title": "displayExpenses.js",
+              "DocumentMoniker": "D:\\MyProjects\\RoomTrackerExpense\\wwwroot\\js\\displayExpenses.js",
+              "RelativeDocumentMoniker": "wwwroot\\js\\displayExpenses.js",
+              "ToolTip": "D:\\MyProjects\\RoomTrackerExpense\\wwwroot\\js\\displayExpenses.js",
+              "RelativeToolTip": "wwwroot\\js\\displayExpenses.js",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAABUAAAAjAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001646|",
+              "WhenOpened": "2025-09-07T13:47:52.158Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 9,
+              "Title": "AccountController.cs",
+              "DocumentMoniker": "D:\\MyProjects\\AppExpenseTrackerApi\\Controllers\\AccountController.cs",
+              "RelativeDocumentMoniker": "..\\AppExpenseTrackerApi\\Controllers\\AccountController.cs",
+              "ToolTip": "D:\\MyProjects\\AppExpenseTrackerApi\\Controllers\\AccountController.cs",
+              "RelativeToolTip": "..\\AppExpenseTrackerApi\\Controllers\\AccountController.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAkAAAAcAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-09-07T07:32:35.454Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 5,
+              "Title": "Details.cshtml",
+              "DocumentMoniker": "D:\\MyProjects\\RoomTrackerExpense\\Views\\Rooms\\Details.cshtml",
+              "RelativeDocumentMoniker": "Views\\Rooms\\Details.cshtml",
+              "ToolTip": "D:\\MyProjects\\RoomTrackerExpense\\Views\\Rooms\\Details.cshtml",
+              "RelativeToolTip": "Views\\Rooms\\Details.cshtml",
+              "ViewState": "AgIAAFcAAAAAAAAAAAAAABEAAAArAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
+              "WhenOpened": "2025-09-07T10:44:04.515Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 10,
+              "Title": "IExpenseServices.cs",
+              "DocumentMoniker": "D:\\MyProjects\\Application\\Interfaces\\IExpenseServices.cs",
+              "RelativeDocumentMoniker": "..\\Application\\Interfaces\\IExpenseServices.cs",
+              "ToolTip": "D:\\MyProjects\\Application\\Interfaces\\IExpenseServices.cs",
+              "RelativeToolTip": "..\\Application\\Interfaces\\IExpenseServices.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAuwA0AAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-09-07T11:29:08.302Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 13,
+              "Title": "Login.cshtml",
+              "DocumentMoniker": "D:\\MyProjects\\RoomTrackerExpense\\Views\\Account\\Login.cshtml",
+              "RelativeDocumentMoniker": "Views\\Account\\Login.cshtml",
+              "ToolTip": "D:\\MyProjects\\RoomTrackerExpense\\Views\\Account\\Login.cshtml",
+              "RelativeToolTip": "Views\\Account\\Login.cshtml",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAEAAAAQAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
+              "WhenOpened": "2025-09-07T10:43:41.441Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 11,
+              "Title": "AppExpenseTracker.csproj",
+              "DocumentMoniker": "D:\\MyProjects\\RoomTrackerExpense\\AppExpenseTracker.csproj",
+              "RelativeDocumentMoniker": "AppExpenseTracker.csproj",
+              "ToolTip": "D:\\MyProjects\\RoomTrackerExpense\\AppExpenseTracker.csproj",
+              "RelativeToolTip": "AppExpenseTracker.csproj",
+              "ViewState": "AgIAAAUAAAAAAAAAAAAswBwAAAAOAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000758|",
+              "WhenOpened": "2025-09-07T13:36:30.581Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 12,
+              "Title": "RoomService.cs",
+              "DocumentMoniker": "D:\\MyProjects\\Application\\Management\\RoomService.cs",
+              "RelativeDocumentMoniker": "..\\Application\\Management\\RoomService.cs",
+              "ToolTip": "D:\\MyProjects\\Application\\Management\\RoomService.cs",
+              "RelativeToolTip": "..\\Application\\Management\\RoomService.cs",
+              "ViewState": "AgIAAE0AAAAAAAAAAAAQwDMAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-09-07T09:53:01.057Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 14,
+              "Title": "ExpenseService.cs",
+              "DocumentMoniker": "D:\\MyProjects\\Application\\Management\\ExpenseService.cs",
+              "RelativeDocumentMoniker": "..\\Application\\Management\\ExpenseService.cs",
+              "ToolTip": "D:\\MyProjects\\Application\\Management\\ExpenseService.cs",
+              "RelativeToolTip": "..\\Application\\Management\\ExpenseService.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAoAAAAnAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-09-07T11:19:58.189Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 15,
+              "Title": "RoomExpensesViewModel.cs",
+              "DocumentMoniker": "D:\\MyProjects\\Application\\ViewModels\\ApiViewModels\\RoomExpensesViewModel.cs",
+              "RelativeDocumentMoniker": "..\\Application\\ViewModels\\ApiViewModels\\RoomExpensesViewModel.cs",
+              "ToolTip": "D:\\MyProjects\\Application\\ViewModels\\ApiViewModels\\RoomExpensesViewModel.cs",
+              "RelativeToolTip": "..\\Application\\ViewModels\\ApiViewModels\\RoomExpensesViewModel.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAuwAQAAAAKAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-09-07T11:17:46.526Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 16,
+              "Title": "ApiResponse.cs",
+              "DocumentMoniker": "D:\\MyProjects\\Application\\ViewModels\\ApiViewModels\\ApiResponse.cs",
+              "RelativeDocumentMoniker": "..\\Application\\ViewModels\\ApiViewModels\\ApiResponse.cs",
+              "ToolTip": "D:\\MyProjects\\Application\\ViewModels\\ApiViewModels\\ApiResponse.cs",
+              "RelativeToolTip": "..\\Application\\ViewModels\\ApiViewModels\\ApiResponse.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAABAAAAAoAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-09-07T07:45:13.271Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 17,
+              "Title": "RoomDetailsViewModel.cs",
+              "DocumentMoniker": "D:\\MyProjects\\Application\\ViewModels\\RoomDetailsViewModel.cs",
+              "RelativeDocumentMoniker": "..\\Application\\ViewModels\\RoomDetailsViewModel.cs",
+              "ToolTip": "D:\\MyProjects\\Application\\ViewModels\\RoomDetailsViewModel.cs",
+              "RelativeToolTip": "..\\Application\\ViewModels\\RoomDetailsViewModel.cs",
+              "ViewState": "AgIAAAEAAAAAAAAAAAAAAAcAAAAlAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-09-07T10:00:14.607Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 18,
+              "Title": "IRoomServices.cs",
+              "DocumentMoniker": "D:\\MyProjects\\Application\\Interfaces\\IRoomServices.cs",
+              "RelativeDocumentMoniker": "..\\Application\\Interfaces\\IRoomServices.cs",
+              "ToolTip": "D:\\MyProjects\\Application\\Interfaces\\IRoomServices.cs",
+              "RelativeToolTip": "..\\Application\\Interfaces\\IRoomServices.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAuwAsAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-09-07T09:55:13.275Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 22,
+              "Title": "RoomRepository.cs",
+              "DocumentMoniker": "D:\\MyProjects\\Infrastructure\\Repositories\\RoomRepository.cs",
+              "RelativeDocumentMoniker": "..\\Infrastructure\\Repositories\\RoomRepository.cs",
+              "ToolTip": "D:\\MyProjects\\Infrastructure\\Repositories\\RoomRepository.cs",
+              "RelativeToolTip": "..\\Infrastructure\\Repositories\\RoomRepository.cs",
+              "ViewState": "AgIAADEAAAAAAAAAAAAkwEIAAAAYAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-09-07T12:49:44.492Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 19,
+              "Title": "ExpensesRepository.cs",
+              "DocumentMoniker": "D:\\MyProjects\\Infrastructure\\Repositories\\ExpensesRepository.cs",
+              "RelativeDocumentMoniker": "..\\Infrastructure\\Repositories\\ExpensesRepository.cs",
+              "ToolTip": "D:\\MyProjects\\Infrastructure\\Repositories\\ExpensesRepository.cs",
+              "RelativeToolTip": "..\\Infrastructure\\Repositories\\ExpensesRepository.cs",
+              "ViewState": "AgIAAG4AAAAAAAAAAAAswIQAAABJAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-09-07T12:56:12.099Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 21,
+              "Title": "IRoomRepository.cs",
+              "DocumentMoniker": "D:\\MyProjects\\Domain\\Interfaces\\IRoomRepository.cs",
+              "RelativeDocumentMoniker": "..\\Domain\\Interfaces\\IRoomRepository.cs",
+              "ToolTip": "D:\\MyProjects\\Domain\\Interfaces\\IRoomRepository.cs",
+              "RelativeToolTip": "..\\Domain\\Interfaces\\IRoomRepository.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAwAAAAPAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-09-07T12:55:28.702Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 20,
+              "Title": "IExpenseRepository.cs",
+              "DocumentMoniker": "D:\\MyProjects\\Domain\\Interfaces\\IExpenseRepository.cs",
+              "RelativeDocumentMoniker": "..\\Domain\\Interfaces\\IExpenseRepository.cs",
+              "ToolTip": "D:\\MyProjects\\Domain\\Interfaces\\IExpenseRepository.cs",
+              "RelativeToolTip": "..\\Domain\\Interfaces\\IExpenseRepository.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAwAAAATAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-09-07T13:01:04.317Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 23,
+              "Title": "ExpenseViewModel.cs",
+              "DocumentMoniker": "D:\\MyProjects\\Application\\ViewModels\\ExpenseViewModel.cs",
+              "RelativeDocumentMoniker": "..\\Application\\ViewModels\\ExpenseViewModel.cs",
+              "ToolTip": "D:\\MyProjects\\Application\\ViewModels\\ExpenseViewModel.cs",
+              "RelativeToolTip": "..\\Application\\ViewModels\\ExpenseViewModel.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAkAAAABAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-09-07T07:35:25.717Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 24,
+              "Title": "ExpenseSummary.cs",
+              "DocumentMoniker": "D:\\MyProjects\\Application\\ViewModels\\ExpenseSummary.cs",
+              "RelativeDocumentMoniker": "..\\Application\\ViewModels\\ExpenseSummary.cs",
+              "ToolTip": "D:\\MyProjects\\Application\\ViewModels\\ExpenseSummary.cs",
+              "RelativeToolTip": "..\\Application\\ViewModels\\ExpenseSummary.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-09-07T11:20:34.014Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 25,
+              "Title": "ExpensesController.cs",
+              "DocumentMoniker": "D:\\MyProjects\\AppExpenseTrackerApi\\Controllers\\ExpensesController.cs",
+              "RelativeDocumentMoniker": "..\\AppExpenseTrackerApi\\Controllers\\ExpensesController.cs",
+              "ToolTip": "D:\\MyProjects\\AppExpenseTrackerApi\\Controllers\\ExpensesController.cs",
+              "RelativeToolTip": "..\\AppExpenseTrackerApi\\Controllers\\ExpensesController.cs",
+              "ViewState": "AgIAADIAAAAAAAAAAAAgwEIAAAA9AAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-09-07T07:38:14.754Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 27,
+              "Title": "RoomResponse.cs",
+              "DocumentMoniker": "D:\\MyProjects\\Application\\ViewModels\\ApiReponse\\RoomResponse.cs",
+              "RelativeDocumentMoniker": "..\\Application\\ViewModels\\ApiReponse\\RoomResponse.cs",
+              "ToolTip": "D:\\MyProjects\\Application\\ViewModels\\ApiReponse\\RoomResponse.cs",
+              "RelativeToolTip": "..\\Application\\ViewModels\\ApiReponse\\RoomResponse.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAABEAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-09-07T09:49:52.168Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 26,
+              "Title": "ExpenseSummaryReportService.cs",
+              "DocumentMoniker": "D:\\MyProjects\\Application\\BackgroundJobs\\ExpenseSummaryReportService.cs",
+              "RelativeDocumentMoniker": "..\\Application\\BackgroundJobs\\ExpenseSummaryReportService.cs",
+              "ToolTip": "D:\\MyProjects\\Application\\BackgroundJobs\\ExpenseSummaryReportService.cs",
+              "RelativeToolTip": "..\\Application\\BackgroundJobs\\ExpenseSummaryReportService.cs",
+              "ViewState": "AgIAAB0AAAAAAAAAAAAcwB8AAAAIAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-09-07T07:17:27.531Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 31,
+              "Title": "Program.cs",
+              "DocumentMoniker": "D:\\MyProjects\\RoomTrackerExpense\\Program.cs",
+              "RelativeDocumentMoniker": "Program.cs",
+              "ToolTip": "D:\\MyProjects\\RoomTrackerExpense\\Program.cs",
+              "RelativeToolTip": "Program.cs",
+              "ViewState": "AgIAAEIAAAAAAAAAAAAswFUAAAAZAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-09-07T07:23:09.377Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 28,
+              "Title": "Services.csproj",
+              "DocumentMoniker": "D:\\MyProjects\\Application\\Services.csproj",
+              "RelativeDocumentMoniker": "..\\Application\\Services.csproj",
+              "ToolTip": "D:\\MyProjects\\Application\\Services.csproj",
+              "RelativeToolTip": "..\\Application\\Services.csproj",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000758|",
+              "WhenOpened": "2025-09-07T09:49:17.509Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 29,
+              "Title": "SmtpEmailSender.cs",
+              "DocumentMoniker": "D:\\MyProjects\\Infrastructure\\Email\\SmtpEmailSender.cs",
+              "RelativeDocumentMoniker": "..\\Infrastructure\\Email\\SmtpEmailSender.cs",
+              "ToolTip": "D:\\MyProjects\\Infrastructure\\Email\\SmtpEmailSender.cs",
+              "RelativeToolTip": "..\\Infrastructure\\Email\\SmtpEmailSender.cs",
+              "ViewState": "AgIAAAQAAAAAAAAAAAAvwAwAAAAhAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-09-07T07:17:27.515Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 30,
+              "Title": "Program.cs",
+              "DocumentMoniker": "D:\\MyProjects\\AppExpenseTrackerApi\\Program.cs",
+              "RelativeDocumentMoniker": "..\\AppExpenseTrackerApi\\Program.cs",
+              "ToolTip": "D:\\MyProjects\\AppExpenseTrackerApi\\Program.cs",
+              "RelativeToolTip": "..\\AppExpenseTrackerApi\\Program.cs",
+              "ViewState": "AgIAAC0AAAAAAAAAAAAvwCcAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-09-07T07:17:31.237Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 32,
+              "Title": "LoginViewModel.cs",
+              "DocumentMoniker": "D:\\MyProjects\\Application\\ViewModels\\LoginViewModel.cs",
+              "RelativeDocumentMoniker": "..\\Application\\ViewModels\\LoginViewModel.cs",
+              "ToolTip": "D:\\MyProjects\\Application\\ViewModels\\LoginViewModel.cs",
+              "RelativeToolTip": "..\\Application\\ViewModels\\LoginViewModel.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAYAAAASAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-09-07T07:35:32.92Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 33,
+              "Title": "WeatherForecastController.cs",
+              "DocumentMoniker": "D:\\MyProjects\\AppExpenseTrackerApi\\Controllers\\WeatherForecastController.cs",
+              "RelativeDocumentMoniker": "..\\AppExpenseTrackerApi\\Controllers\\WeatherForecastController.cs",
+              "ToolTip": "D:\\MyProjects\\AppExpenseTrackerApi\\Controllers\\WeatherForecastController.cs",
+              "RelativeToolTip": "..\\AppExpenseTrackerApi\\Controllers\\WeatherForecastController.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAsAAAAKAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-09-07T07:16:48.898Z"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
