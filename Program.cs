@@ -19,8 +19,10 @@ internal class Program
     {
         var builder = WebApplication.CreateBuilder(args);
 
+        string? connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+
         builder.Services.AddDbContext<AppDbContext>(options =>
-            options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+            options.UseSqlServer(connectionString));
 
         builder.Services.AddDataProtection().PersistKeysToDbContext<AppDbContext>().SetApplicationName("AppExpenseTracker");
         //builder.Services.AddHostedService<DailyReportService>();
@@ -72,7 +74,7 @@ internal class Program
 
         var app = builder.Build();
 
-        if (app.Environment.IsDevelopment())
+        if (!app.Environment.IsDevelopment())
         {
             app.UseExceptionHandler("/Home/Error");
             app.UseHsts();
