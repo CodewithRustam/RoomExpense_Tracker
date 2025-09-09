@@ -1,0 +1,10 @@
+﻿################################################################################
+# This .gitignore file was automatically created by Microsoft(R) Visual Studio.
+################################################################################
+
+/.vs/AppExpenseTracker
+/AppExpenseTrackerApi/obj
+/Application/obj
+/Domain/obj
+/ExpenseTrakcerHepler/obj
+/Infrastructure/obj
