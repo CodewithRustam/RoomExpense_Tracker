@@ -33,22 +33,22 @@ namespace AppExpenseTracker.Controllers
         public async Task<IActionResult> Login([FromBody] LoginViewModel model)
         {
             if (!ModelState.IsValid)
-                return BadRequest(ApiResponse<string>.Fail("Invalid request data."));
+                return BadRequest(ApiResponse.Fail("Invalid request data."));
 
             var result = await _signInManager.PasswordSignInAsync(
                 model.UserName!, model.Password!, model.RememberMe, lockoutOnFailure: false);
 
             if (result.Succeeded)
-                return Ok(ApiResponse<object>.Ok(null, "Login successful"));
+                return Ok(ApiResponse.Ok("Login successful"));
 
-            return Unauthorized(ApiResponse<string>.Fail("Invalid login attempt."));
+            return Unauthorized(ApiResponse.Fail("Invalid login attempt."));
         }
 
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterViewModel model)
         {
             if (!ModelState.IsValid)
-                return BadRequest(ApiResponse<string>.Fail("Invalid request data."));
+                return BadRequest(ApiResponse.Fail("Invalid request data."));
 
             var user = new ApplicationUser
             {
@@ -61,29 +61,29 @@ namespace AppExpenseTracker.Controllers
             if (result.Succeeded)
             {
                 await _signInManager.SignInAsync(user, isPersistent: false);
-                return Ok(ApiResponse<object>.Ok(null, "Registration successful"));
+                return Ok(ApiResponse.Ok("Registration successful"));
             }
 
             var errors = result.Errors.Select(e => e.Description).ToList();
-            return BadRequest(ApiResponse<object>.Fail(string.Join(", ", errors)));
+            return BadRequest(ApiResponse<object>.Fail(null,string.Join(", ", errors)));
         }
 
         [HttpPost("logout")]
         public async Task<IActionResult> Logout()
         {
             await _signInManager.SignOutAsync();
-            return Ok(ApiResponse<object>.Ok(null, "Logged out successfully"));
+            return Ok(ApiResponse.Ok("Logged out successfully"));
         }
 
         [HttpPost("forgot-password")]
         public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordViewModel model)
         {
             if (!ModelState.IsValid)
-                return BadRequest(ApiResponse<string>.Fail("Invalid request data."));
+                return BadRequest(ApiResponse.Fail("Invalid request data."));
 
             var user = await _userManager.FindByEmailAsync(model.Email!);
             if (user == null || string.IsNullOrEmpty(user.Email))
-                return Ok(ApiResponse<object>.Ok(null, "Password reset link sent if email exists"));
+                return Ok(ApiResponse.Ok("Password reset link sent if email exists"));
 
             string shortCode = await _passwordResetLinkService.AddPasswordResetLink(model.Email!);
             var resetUrl = Url.Action("RedirectReset", "Account", new { code = shortCode }, Request.Scheme)!;
@@ -91,26 +91,26 @@ namespace AppExpenseTracker.Controllers
             var body = EmailTemplates.GetPasswordResetEmail(resetUrl);
             await _emailSender.SendEmailAsync(model.Email!, "Reset Your Password", body);
 
-            return Ok(ApiResponse<object>.Ok(null, "Password reset link sent"));
+            return Ok(ApiResponse.Ok("Password reset link sent"));
         }
 
         [HttpPost("reset-password")]
         public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordViewModel model)
         {
             if (!ModelState.IsValid)
-                return BadRequest(ApiResponse<string>.Fail("Invalid request data."));
+                return BadRequest(ApiResponse.Fail("Invalid request data."));
 
             var user = await _userManager.FindByEmailAsync(model.Email!);
             if (user == null)
-                return BadRequest(ApiResponse<string>.Fail("Invalid user."));
+                return BadRequest(ApiResponse.Fail("Invalid user."));
 
             var result = await _userManager.ResetPasswordAsync(user, model.Token!, model.Password!);
 
             if (result.Succeeded)
-                return Ok(ApiResponse<object>.Ok(null, "Password reset successful"));
+                return Ok(ApiResponse.Ok("Password reset successful"));
 
             var errors = result.Errors.Select(e => e.Description).ToList();
-            return BadRequest(ApiResponse<object>.Fail(string.Join(", ", errors)));
+            return BadRequest(ApiResponse<object>.Fail(null,string.Join(", ", errors)));
         }
 
         [HttpGet("check-email")]
