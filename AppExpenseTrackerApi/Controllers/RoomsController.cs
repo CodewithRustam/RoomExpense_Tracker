@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Services.Interfaces;
 using Services.ViewModels;
+using Services.ViewModels.ApiReponse;
 using Services.ViewModels.ApiViewModels;
 
 namespace ExpenseTracker.Controllers
@@ -12,7 +13,6 @@ namespace ExpenseTracker.Controllers
     public class RoomsController : ControllerBase
     {
         private readonly IRoomServices roomServices;
-
         public RoomsController(IRoomServices roomServices)
         {
             this.roomServices = roomServices;
@@ -22,7 +22,7 @@ namespace ExpenseTracker.Controllers
         public async Task<IActionResult> GetRooms()
         {
             var rooms = await roomServices.GetRoomsForCurrentUser();
-            return Ok(ApiResponse<object>.Ok(rooms, "Rooms retrieved successfully."));
+            return Ok(ApiResponse<List<RoomResponse>>.Ok(rooms, "Rooms retrieved successfully."));
         }
 
         [HttpPost("create")]
@@ -45,7 +45,7 @@ namespace ExpenseTracker.Controllers
             var roomDetails = new Object();//await roomServices.GetRoomDetails(id, month);
 
             if (roomDetails == null)
-                return NotFound(ApiResponse<string>.Fail("Room not found."));
+                return NotFound(ApiResponse.Fail("Room not found."));
 
             return Ok(ApiResponse<object>.Ok(roomDetails, "Room details retrieved successfully."));
         }

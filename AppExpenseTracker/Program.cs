@@ -1,3 +1,4 @@
+using AppExpenseTracker.Middlewares;
 using Domain.AppUser;
 using Domain.Interfaces;
 using ExpenseTrakcerHepler;
@@ -8,6 +9,7 @@ using Infrastructure.Repositories;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Serilog;
 using Services.BackgroundJobs;
 using Services.Interfaces;
 using Services.Management;
@@ -18,6 +20,10 @@ internal class Program
     private static void Main(string[] args)
     {
         var builder = WebApplication.CreateBuilder(args);
+
+        Log.Logger = new LoggerConfiguration().WriteTo.Console().WriteTo.File("logs/log-.txt", rollingInterval: RollingInterval.Day).CreateLogger();
+
+        builder.Host.UseSerilog();
 
         string? connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 
@@ -40,8 +46,7 @@ internal class Program
         builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
         builder.Services.AddScoped<IPasswordResetLinkService, PasswordResetLinkService>();
 
-        builder.Services.AddSingleton(resolver =>
-            new SmtpEmailSender(builder.Configuration.GetSection("SmtpSettings").Get<SmtpSettings>()));
+        builder.Services.AddSingleton(resolver => new SmtpEmailSender(builder.Configuration.GetSection("SmtpSettings").Get<SmtpSettings>()));
 
         builder.Services.AddScoped<IEmailSender>(sp => sp.GetRequiredService<SmtpEmailSender>());
 
@@ -79,6 +84,7 @@ internal class Program
             app.UseExceptionHandler("/Home/Error");
             app.UseHsts();
         }
+        app.UseMiddleware<ExceptionHandlingMiddleware>();
 
         app.UseHttpsRedirection();
         app.UseStaticFiles();

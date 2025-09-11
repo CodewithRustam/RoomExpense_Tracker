@@ -1,50 +1,21 @@
-﻿.toast-container {
-    position: fixed;
-    top: 57px;
-    right: 20px;
-    z-index: 9999;
+﻿/* Success toast glow */
+.toast-success {
+    background-color: #4CAF50 !important; /* green */
+    box-shadow: 0 0 10px #4CAF50, 0 0 20px #4CAF50, 0 0 30px #4CAF50;
 }
 
-.toast {
-    background: linear-gradient(135deg, #2a2a2a 0%, #3a3a3a 100%);
-    color: #fff;
-    padding: 12px 20px;
-    margin-bottom: 12px;
-    border-radius: 8px;
-    min-width: 250px;
-    text-align: center;
-    opacity: 0;
-    transition: opacity 0.5s ease-in-out, transform 0.3s ease-in-out;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    transform: translateY(20px);
+/* Error toast glow */
+.toast-error {
+    background-color: #F44336 !important; /* red */
+    box-shadow: 0 0 10px #F44336, 0 0 20px #F44336, 0 0 30px #F44336;
 }
 
-    .toast.show {
-        opacity: 1;
-        transform: translateY(0);
-    }
+/* Optional: animate glow */
+.toast-success, .toast-error {
+    animation: glow 1.5s infinite alternate;
+}
+.toast-top-right{
+    top: 72px !important;
+    right: 12px !important;
+}
 
-    .toast.success {
-        background: linear-gradient(135deg, #28a745 0%, #34ce57 50%, #218838 100%);
-        border: 1px solid rgba(40, 167, 69, 0.3);
-        box-shadow: 0 4px 15px rgba(40, 167, 69, 0.2);
-    }
-
-    .toast.error {
-        background: linear-gradient(135deg, #dc3545 0%, #e4606d 50%, #b02a37 100%);
-        border: 1px solid rgba(220, 53, 69, 0.3);
-        box-shadow: 0 4px 15px rgba(220, 53, 69, 0.2);
-    }
-
-    .toast.info {
-        background: linear-gradient(135deg, #17a2b8 0%, #1fc8db 50%, #117a8b 100%);
-        border: 1px solid rgba(23, 162, 184, 0.3);
-        box-shadow: 0 4px 15px rgba(23, 162, 184, 0.2);
-    }
-
-    .toast.warning {
-        background: linear-gradient(135deg, #ffc107 0%, #ffda6a 50%, #e0a800 100%);
-        border: 1px solid rgba(255, 193, 7, 0.3);
-        box-shadow: 0 4px 15px rgba(255, 193, 7, 0.2);
-    }
