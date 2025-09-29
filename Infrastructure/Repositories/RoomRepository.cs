@@ -17,7 +17,7 @@ namespace Infrastructure.Repositories
             try
             {
                 return await _context.Rooms.Where(r => r.Members.Any(m => m.ApplicationUserId == userId) && !r.IsDeleted)
-                                           .Include(r => r.Members).ToListAsync();
+                                           .Include(r => r.Members).Include(r => r.Expenses).ToListAsync();
             }
             catch (Exception)
             {

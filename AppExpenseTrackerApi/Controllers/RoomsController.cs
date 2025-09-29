@@ -13,16 +13,19 @@ namespace ExpenseTracker.Controllers
     public class RoomsController : ControllerBase
     {
         private readonly IRoomServices roomServices;
-        public RoomsController(IRoomServices roomServices)
+        private readonly ILogger<RoomsController> _logger;
+        public RoomsController(IRoomServices roomServices, ILogger<RoomsController> logger)
         {
             this.roomServices = roomServices;
+            _logger = logger;
         }
 
         [HttpGet("get-rooms")]
         public async Task<IActionResult> GetRooms()
         {
             var rooms = await roomServices.GetRoomsForCurrentUser();
-            return Ok(ApiResponse<List<RoomResponse>>.Ok(rooms, "Rooms retrieved successfully."));
+            var response = ApiResponse<List<RoomResponse>>.Ok(rooms, "Rooms retrieved successfully.");
+            return Ok(response);
         }
 
         [HttpPost("create")]
@@ -42,12 +45,12 @@ namespace ExpenseTracker.Controllers
         [HttpGet("details/{id}")]
         public async Task<IActionResult> Details(int id, string? month)
         {
-            var roomDetails = new Object();//await roomServices.GetRoomDetails(id, month);
+            var roomDetails = await roomServices.GetRoomDetails(id, month,false);
 
             if (roomDetails == null)
                 return NotFound(ApiResponse.Fail("Room not found."));
 
-            return Ok(ApiResponse<object>.Ok(roomDetails, "Room details retrieved successfully."));
+            return Ok(ApiResponse<RoomDetailsViewModel>.Ok(roomDetails, "Room details retrieved successfully."));
         }
     }
 }

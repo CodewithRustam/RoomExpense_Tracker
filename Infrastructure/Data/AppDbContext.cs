@@ -24,19 +24,23 @@ namespace Infrastructure.Data
         public DbSet<DataProtectionKey> DataProtectionKeys { get; set; } = null!;
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-            base.OnModelCreating(modelBuilder); // <-- required when using Identity
+            base.OnModelCreating(modelBuilder); 
 
-            modelBuilder.Entity<Expense>()
-                .HasOne(e => e.Member)
-                .WithMany()
-                .HasForeignKey(e => e.MemberId)
-                .OnDelete(DeleteBehavior.Restrict);
+            modelBuilder.Entity<Expense>(entity =>
+            {
+                entity.HasOne(e => e.Member)
+                      .WithMany()
+                      .HasForeignKey(e => e.MemberId)
+                      .OnDelete(DeleteBehavior.Restrict);
 
-            modelBuilder.Entity<Expense>()
-                .HasOne(e => e.Room)
-                .WithMany(r => r.Expenses)
-                .HasForeignKey(e => e.RoomId)
-                .OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(e => e.Room)
+                      .WithMany(r => r.Expenses)
+                      .HasForeignKey(e => e.RoomId)
+                      .OnDelete(DeleteBehavior.Restrict);
+
+                entity.Property(e => e.Amount)
+                      .HasPrecision(18, 2);
+            });
 
             modelBuilder.Entity<Member>()
                 .HasOne(m => m.Room)
@@ -50,6 +54,9 @@ namespace Infrastructure.Data
                 .HasForeignKey(r => r.CreatedByUserId)
                 .OnDelete(DeleteBehavior.Cascade);
 
+            modelBuilder.Entity<Settlement>()
+                   .Property(s => s.Amount)
+                   .HasPrecision(18, 2); 
         }
     }
 }

@@ -27,20 +27,23 @@ namespace Services.Management
         {
             try
             {
+                var currentMonth = DateTime.Now.Month;
+                var currentYear = DateTime.Now.Year;
+
                 string? userId = currentUser.UserId;
                 var rooms = await roomRepository.GetRoomsForCurrentUser(userId);
-
+          
                 return rooms.Select(r => new RoomResponse
                 {
                     RoomId = r.RoomId,
-                    Name = r.Name!,
+                    Name = r.Name ?? string.Empty,
                     CreatedByUserId = r.CreatedByUserId,
                     CreatedDate = r.CreatedDate,
-                    Members = r.Members.Select(m => new MemberResponse
-                    {
-                        MemberId = m.MemberId,
-                        Name = m.Name
-                    }).ToList()
+                    MemberNames = string.Join(", ", r.Members.Select(m => m.Name)),
+                    TotalAmount = r.Expenses.Where(e => e.Date.Month == currentMonth && e.Date.Year == currentYear).Sum(e => e.Amount),
+                    Type = "Private",
+                    IconName = string.Empty,
+                    Status = r.IsDeleted ? "Deleted" : "Active"
                 }).ToList();
             }
             catch (Exception ex)

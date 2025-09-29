@@ -48,10 +48,7 @@ namespace Infrastructure.Repositories
         {
             try
             {
-                return await GetAllAsync(x => x.RoomId == roomId && (x.IsDeleted == false || x.IsDeleted == null)
-                                                                 && x.Date.Year == selectedMonth.Year
-                                                                 && x.Date.Month == selectedMonth.Month);
-
+                return await GetAllAsync(x => x.RoomId == roomId && (x.IsDeleted == false || x.IsDeleted == null));
             }
             catch (Exception)
             {

@@ -12,14 +12,16 @@ namespace Services.Management
     {
 		private readonly IExpenseRepository expenseRepository;
 		private readonly ISettlementRepository settlementRepository;
+		private readonly IRoomRepository roomRepository;
 		private readonly IMemberRepository memberRepository;
         private readonly ICurrentUserService currentUser;
         private readonly IMemoryCache cache;
-        public ExpenseService(IExpenseRepository _expenseRepository, ISettlementRepository _settlementRepository, IMemberRepository _memberRepository, ICurrentUserService _currentUser, IMemoryCache _cache) 
+        public ExpenseService(IExpenseRepository _expenseRepository, ISettlementRepository _settlementRepository, IMemberRepository _memberRepository, IRoomRepository _roomRepository, ICurrentUserService _currentUser, IMemoryCache _cache) 
 		{
             expenseRepository = _expenseRepository;
             settlementRepository = _settlementRepository;
             memberRepository = _memberRepository;
+            roomRepository = _roomRepository;
             currentUser = _currentUser;
             cache = _cache;
         }
@@ -266,6 +268,85 @@ namespace Services.Management
                 throw;
             }
             return summaries;
+        }
+        public async Task<RoomExpenseResponse> GetRoomExpnesesForApi(int roomId, DateTime selectedMonth, bool includeRoomInfo = true)
+        {
+            string cacheKey = CacheHepler.GetCacheKey(roomId, selectedMonth);
+
+            if (!cache.TryGetValue(cacheKey, out MonthlyExpensesDataCacheVM? cachedData))
+            {
+                cachedData = new MonthlyExpensesDataCacheVM
+                {
+                    Expenses = await expenseRepository.GetMonthlyExpenses(roomId, selectedMonth),
+                    Settlements = await settlementRepository.GetMonthlySettlements(roomId, selectedMonth)
+                };
+
+                cache.Set(cacheKey, cachedData, TimeSpan.FromDays(30));
+            }
+
+            if (cachedData is null)
+                return new RoomExpenseResponse();
+
+            var expenses = cachedData.Expenses ?? new List<Expense>();
+            var settlements = cachedData.Settlements ?? new List<Settlement>();
+
+            var userId = currentUser.UserId;
+            List<Member> members = await memberRepository.GetMembersByRoomId(roomId, userId);
+            string? roomName =  roomRepository.GetRoomName(roomId);
+
+            int year, month;
+            if (selectedMonth == DateTime.MinValue && expenses.Count > 0)
+            {
+                var latestExpense = expenses.OrderByDescending(e => e.Date).First();
+                year = latestExpense.Date.Year;
+                month = latestExpense.Date.Month;
+            }
+            else
+            {
+                year = selectedMonth.Year;
+                month = selectedMonth.Month;
+            }
+
+            var filteredExpenses = expenses.Where(e => e.Date.Year == year && e.Date.Month == month).OrderBy(e => e.Date).ToList();
+
+            var totalExpense = filteredExpenses.Sum(e => e.Amount);
+
+            var availableMonths = expenses.Select(e => e.Date.ToString("yyyy-MM")).Distinct().OrderByDescending(m => m).ToList();
+
+            var response = new RoomExpenseResponse
+            {
+                TotalExpense = totalExpense,
+                Expenses = filteredExpenses.Select(e => new ExpenseDetailResponse
+                {
+                    ExpenseId = e.ExpenseId,
+                    RoomId = e.RoomId,
+                    Description = e.Item ?? string.Empty,
+                    Amount = e.Amount,
+                    Date = e.Date,
+                    PayerName = e.Member.Name,
+                    Category = e.Item ?? string.Empty,
+                    IconName = MapCategoryToIcon(e.Item ?? string.Empty),
+                    Status = ""
+                }).ToList()
+            };
+
+            if (includeRoomInfo && members.Any())
+            {
+                response.RoomId = roomId;
+                response.RoomName = roomName ?? string.Empty;
+                response.MemberNames = string.Join(", ", members.Select(m => m.Name));
+                response.AvailableMonths = availableMonths;
+            }
+            return response;
+        }
+        private string MapCategoryToIcon(string category)
+        {
+            return category switch
+            {
+                "Food" => "cart",
+                "Entertainment" => "film",
+                _ => "wallet"
+            };
         }
     }
 }

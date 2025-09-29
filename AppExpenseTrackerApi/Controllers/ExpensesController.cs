@@ -56,16 +56,25 @@ namespace AppExpenseTracker.Controllers
         }
 
         [HttpGet("display-expense")]
-        public async Task<IActionResult> DisplayExpenses(int roomId, string month)
+        public async Task<IActionResult> DisplayExpenses(int roomId)
+        {
+            if (roomId <= 0 || !await roomServices.IsValidRoomAsync(roomId))
+                return Unauthorized(ApiResponse.Fail("Invalid room."));
+
+            var result = await expenseServices.GetRoomExpnesesForApi(roomId, new DateTime());
+            return Ok(ApiResponse<RoomExpenseResponse>.Ok(result, "Monthly expenses retrieved."));
+        }
+        [HttpGet("display-filtered-expense")]
+        public async Task<IActionResult> DisplayFilteredExpenses(int roomId, string month)
         {
             if (roomId <= 0 || !await roomServices.IsValidRoomAsync(roomId))
                 return Unauthorized(ApiResponse<string>.Fail("Invalid room."));
 
             if (!DateTime.TryParseExact(month + "-01", "yyyy-MM-dd", null, DateTimeStyles.None, out var selectedMonth))
-                return BadRequest(ApiResponse<string>.Fail("Invalid month format."));
+                return BadRequest(ApiResponse.Fail("Invalid month format."));
 
-            var result = await expenseServices.GetMonthlyExpenses(roomId, selectedMonth);
-            return Ok(ApiResponse<object>.Ok(result, "Monthly expenses retrieved."));
+            var result = await expenseServices.GetRoomExpnesesForApi(roomId, selectedMonth,false);
+            return Ok(ApiResponse<List<ExpenseDetailResponse>>.Ok(result.Expenses, "Monthly expenses retrieved."));
         }
 
         [HttpPost("settle")]
