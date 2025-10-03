@@ -61,7 +61,7 @@ namespace AppExpenseTracker.Controllers
             if (roomId <= 0 || !await roomServices.IsValidRoomAsync(roomId))
                 return Unauthorized(ApiResponse.Fail("Invalid room."));
 
-            var result = await expenseServices.GetRoomExpnesesForApi(roomId, new DateTime());
+            var result = await expenseServices.GetRoomExpensesForApi(roomId, new DateTime());
             return Ok(ApiResponse<RoomExpenseResponse>.Ok(result, "Monthly expenses retrieved."));
         }
         [HttpGet("display-filtered-expense")]
@@ -73,8 +73,14 @@ namespace AppExpenseTracker.Controllers
             if (!DateTime.TryParseExact(month + "-01", "yyyy-MM-dd", null, DateTimeStyles.None, out var selectedMonth))
                 return BadRequest(ApiResponse.Fail("Invalid month format."));
 
-            var result = await expenseServices.GetRoomExpnesesForApi(roomId, selectedMonth,false);
+            var result = await expenseServices.GetRoomExpensesForApi(roomId, selectedMonth,false);
             return Ok(ApiResponse<List<ExpenseDetailResponse>>.Ok(result.Expenses, "Monthly expenses retrieved."));
+        }
+        [HttpGet("display-user-expense")]
+        public async Task<IActionResult> DisplayUserExpenses()
+        {
+            var result = await expenseServices.GetUserExpensesForApi();
+            return Ok(ApiResponse<List<UserExpenseResponse>>.Ok(result, "User expenses retrieved."));
         }
 
         [HttpPost("settle")]

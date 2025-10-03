@@ -27,28 +27,51 @@ namespace Services.Management
         {
             try
             {
-                var currentMonth = DateTime.Now.Month;
-                var currentYear = DateTime.Now.Year;
-
                 string? userId = currentUser.UserId;
                 var rooms = await roomRepository.GetRoomsForCurrentUser(userId);
-          
-                return rooms.Select(r => new RoomResponse
+
+                return rooms.Select(r =>
                 {
-                    RoomId = r.RoomId,
-                    Name = r.Name ?? string.Empty,
-                    CreatedByUserId = r.CreatedByUserId,
-                    CreatedDate = r.CreatedDate,
-                    MemberNames = string.Join(", ", r.Members.Select(m => m.Name)),
-                    TotalAmount = r.Expenses.Where(e => e.Date.Month == currentMonth && e.Date.Year == currentYear).Sum(e => e.Amount),
-                    Type = "Private",
-                    IconName = string.Empty,
-                    Status = r.IsDeleted ? "Deleted" : "Active"
+                    if (r.Expenses == null || !r.Expenses.Any())
+                    {
+                        return new RoomResponse
+                        {
+                            RoomId = r.RoomId,
+                            Name = r.Name ?? string.Empty,
+                            CreatedByUserId = r.CreatedByUserId,
+                            CreatedDate = r.CreatedDate,
+                            MemberNames = string.Join(", ", r.Members.Select(m => m.Name)),
+                            TotalAmount = 0,
+                            Type = "Private",
+                            IconName = string.Empty,
+                            Status = r.IsDeleted ? "Deleted" : "Active"
+                        };
+                    }
+
+                    var lastExpenseDate = r.Expenses.Max(e => e.Date);
+                    int targetMonth = lastExpenseDate.Month;
+                    int targetYear = lastExpenseDate.Year;
+
+                    var totalAmount = r.Expenses
+                        .Where(e => e.Date.Month == targetMonth && e.Date.Year == targetYear)
+                        .Sum(e => e.Amount);
+
+                    return new RoomResponse
+                    {
+                        RoomId = r.RoomId,
+                        Name = r.Name ?? string.Empty,
+                        CreatedByUserId = r.CreatedByUserId,
+                        CreatedDate = r.CreatedDate,
+                        MemberNames = string.Join(", ", r.Members.Select(m => m.Name)),
+                        TotalAmount = totalAmount,
+                        Type = "Private",
+                        IconName = string.Empty,
+                        Status = r.IsDeleted ? "Deleted" : "Active"
+                    };
                 }).ToList();
             }
             catch (Exception ex)
             {
-                // Log the exception instead of rethrowing blindly
                 throw new ApplicationException("Error while fetching rooms for the current user.", ex);
             }
         }

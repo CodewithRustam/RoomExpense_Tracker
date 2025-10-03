@@ -3,9 +3,13 @@ using ExpenseTrakcerHepler;
 using Infrastructure.Email;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.IdentityModel.Tokens;
 using Services.Interfaces;
 using Services.ViewModels;
 using Services.ViewModels.ApiViewModels;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
 
 namespace AppExpenseTracker.Controllers
 {
@@ -17,16 +21,17 @@ namespace AppExpenseTracker.Controllers
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly IEmailSender _emailSender;
         private readonly IPasswordResetLinkService _passwordResetLinkService;
+        private readonly IConfiguration _configuration;
 
-        public AccountController(SignInManager<ApplicationUser> signInManager,
-            UserManager<ApplicationUser> userManager,
-            IEmailSender emailSender,
-            IPasswordResetLinkService passwordResetLinkService)
+        public AccountController(SignInManager<ApplicationUser> signInManager, UserManager<ApplicationUser> userManager,
+            IEmailSender emailSender,IPasswordResetLinkService passwordResetLinkService,
+            IConfiguration configuration)
         {
             _signInManager = signInManager;
             _userManager = userManager;
             _emailSender = emailSender;
             _passwordResetLinkService = passwordResetLinkService;
+            _configuration = configuration;
         }
 
         [HttpPost("login")]
@@ -38,9 +43,32 @@ namespace AppExpenseTracker.Controllers
             var result = await _signInManager.PasswordSignInAsync(
                 model.UserName!, model.Password!, model.RememberMe, lockoutOnFailure: false);
 
-            if (result.Succeeded)
-                return Ok(ApiResponse.Ok("Login successful"));
 
+            if (result.Succeeded)
+            {
+                var tokenHandler = new JwtSecurityTokenHandler();
+                var key = Encoding.UTF8.GetBytes(_configuration["Jwt:Key"] ?? string.Empty);
+                var user = await _userManager.FindByNameAsync(model.UserName);
+
+                var tokenDescriptor = new SecurityTokenDescriptor
+                {
+                    Subject = new ClaimsIdentity(new Claim[]
+                    {
+                       new Claim(ClaimTypes.Name, model.UserName!),
+                       new Claim(ClaimTypes.NameIdentifier, user!.Id),
+                       new Claim(ClaimTypes.Email, user.Email ?? string.Empty)
+                    }),
+                    Expires = DateTime.UtcNow.AddHours(1),
+                    Issuer = _configuration["Jwt:Issuer"],
+                    Audience = _configuration["Jwt:Audience"],
+                    SigningCredentials = new SigningCredentials(
+                        new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
+                };
+                var token = tokenHandler.CreateToken(tokenDescriptor);
+                var jwtToken = tokenHandler.WriteToken(token);
+
+                return Ok(new { success = true, message = "Login successful", token = jwtToken });
+            }
             return Unauthorized(ApiResponse.Fail("Invalid login attempt."));
         }
 

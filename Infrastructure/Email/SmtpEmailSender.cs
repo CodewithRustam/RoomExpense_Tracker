@@ -43,28 +43,28 @@ namespace Infrastructure.Email
         {
             try
             {
-                using (var client = new SmtpClient(_settings.Host, _settings.Port))
-                {
-                    client.Credentials = new NetworkCredential(_settings.Username, _settings.Password);
-                    client.EnableSsl = _settings.EnableSSL;
+                //using (var client = new SmtpClient(_settings.Host, _settings.Port))
+                //{
+                //    client.Credentials = new NetworkCredential(_settings.Username, _settings.Password);
+                //    client.EnableSsl = _settings.EnableSSL;
 
-                    var mailMessage = new MailMessage
-                    {
-                        From = new MailAddress(_settings.FromEmail, _settings.FromName),
-                        Subject = subject,
-                        Body = htmlMessage,
-                        IsBodyHtml = true
-                    };
+                //    var mailMessage = new MailMessage
+                //    {
+                //        From = new MailAddress(_settings.FromEmail, _settings.FromName),
+                //        Subject = subject,
+                //        Body = htmlMessage,
+                //        IsBodyHtml = true
+                //    };
 
-                    mailMessage.To.Add(email);
+                //    mailMessage.To.Add(email);
 
-                    if (attachment != null && attachment.Length > 0)
-                    {
-                        mailMessage.Attachments.Add(new Attachment(new MemoryStream(attachment), fileName));
-                    }
+                //    if (attachment != null && attachment.Length > 0)
+                //    {
+                //        mailMessage.Attachments.Add(new Attachment(new MemoryStream(attachment), fileName));
+                //    }
 
-                    await client.SendMailAsync(mailMessage);
-                }
+                //    await client.SendMailAsync(mailMessage);
+                //}
             }
             catch (Exception)
             {

@@ -14,6 +14,9 @@ using Services.Management;
 using Services.Management.AuthService;
 using Serilog;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
 
 namespace AppExpenseTrackerApi
 {
@@ -97,6 +100,39 @@ namespace AppExpenseTrackerApi
                 .AddEntityFrameworkStores<AppDbContext>()
                 .AddDefaultTokenProviders();
 
+                builder.Services.AddCors(options =>
+                {
+                    options.AddPolicy("AllowIonic",
+                        policy =>
+                        {
+                            policy.WithOrigins("http://localhost:8100") 
+                                  .AllowAnyHeader()
+                                  .AllowAnyMethod()
+                                  .AllowCredentials(); 
+                        });
+                });
+
+                builder.Services.AddAuthentication(options =>
+                {
+                    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+                    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+                })
+                 .AddJwtBearer(options =>
+                 {
+                     options.TokenValidationParameters = new TokenValidationParameters
+                     {
+                         ValidateIssuer = true,
+                         ValidateAudience = true,
+                         ValidateLifetime = true,
+                         ValidateIssuerSigningKey = true,
+                         ValidIssuer = builder.Configuration["Jwt:Issuer"],
+                         ValidAudience = builder.Configuration["Jwt:Audience"],
+                         IssuerSigningKey = new SymmetricSecurityKey(
+                             Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"] ?? string.Empty))
+                     };
+                 });
+
+
                 var app = builder.Build();
 
                 // Configure middleware
@@ -107,6 +143,8 @@ namespace AppExpenseTrackerApi
                 }
 
                 app.UseHttpsRedirection();
+                app.UseCors("AllowIonic");
+                app.UseAuthentication(); 
                 app.UseAuthorization();
 
                 // Add Serilog request logging

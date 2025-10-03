@@ -10,6 +10,6 @@ namespace Domain.Interfaces
         Task<(bool IsUpdated, string Message)> UpdateExpenses(Expense expense);
         Task<decimal> GetTotalRoomExpenses(int roomId, DateTime start, DateTime end);
         Task<decimal> GetMemberTotalExpenses(int roomId, int memberId, DateTime start, DateTime end);
-        List<string> GetAllMonthsWithExpenses(int roomId);
+        Task<List<Expense>> GetUserExpenses(string userId, DateTime startDate, DateTime endDate);
     }
 }

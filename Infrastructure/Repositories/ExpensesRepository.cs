@@ -122,21 +122,13 @@ namespace Infrastructure.Repositories
             }
         }
 
-        public List<string> GetAllMonthsWithExpenses(int roomId)
+        public async Task<List<Expense>> GetUserExpenses(string userId, DateTime startDate, DateTime endDate)
         {
-            try
-            {
-                return _context.Expenses
-                           .Where(e => e.RoomId == roomId).AsEnumerable()
-                           .Select(e => e.Date.ToString("yyyy-MM")) // extract year-month string
-                           .Distinct()
-                           .OrderByDescending(m => m)
-                           .ToList();
-            }
-            catch (Exception)
-            {
-                throw;
-            }
+            return await _context.Expenses
+                .Include(e => e.Member).
+                Include(e=>e.Room)
+                .Where(e => e.Member.ApplicationUserId == userId && e.Date >= startDate && e.Date <= endDate).OrderByDescending(x=>x.Date)
+                .ToListAsync();
         }
     }
 }

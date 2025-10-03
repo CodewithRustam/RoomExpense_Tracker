@@ -269,7 +269,7 @@ namespace Services.Management
             }
             return summaries;
         }
-        public async Task<RoomExpenseResponse> GetRoomExpnesesForApi(int roomId, DateTime selectedMonth, bool includeRoomInfo = true)
+        public async Task<RoomExpenseResponse> GetRoomExpensesForApi(int roomId, DateTime selectedMonth, bool includeRoomInfo = true)
         {
             string cacheKey = CacheHepler.GetCacheKey(roomId, selectedMonth);
 
@@ -292,7 +292,7 @@ namespace Services.Management
 
             var userId = currentUser.UserId;
             List<Member> members = await memberRepository.GetMembersByRoomId(roomId, userId);
-            string? roomName =  roomRepository.GetRoomName(roomId);
+            string? roomName = roomRepository.GetRoomName(roomId);
 
             int year, month;
             if (selectedMonth == DateTime.MinValue && expenses.Count > 0)
@@ -307,15 +307,23 @@ namespace Services.Management
                 month = selectedMonth.Month;
             }
 
-            var filteredExpenses = expenses.Where(e => e.Date.Year == year && e.Date.Month == month).OrderBy(e => e.Date).ToList();
+            var filteredExpenses = expenses
+                .Where(e => e.Date.Year == year && e.Date.Month == month)
+                .OrderBy(e => e.Date)
+                .ToList();
 
             var totalExpense = filteredExpenses.Sum(e => e.Amount);
 
-            var availableMonths = expenses.Select(e => e.Date.ToString("yyyy-MM")).Distinct().OrderByDescending(m => m).ToList();
+            var availableMonths = expenses
+                .Select(e => e.Date.ToString("yyyy-MM"))
+                .Distinct()
+                .OrderByDescending(m => m)
+                .ToList();
 
             var response = new RoomExpenseResponse
             {
                 TotalExpense = totalExpense,
+                SelectedMonth = $"{year:D4}-{month:D2}",
                 Expenses = filteredExpenses.Select(e => new ExpenseDetailResponse
                 {
                     ExpenseId = e.ExpenseId,
@@ -324,9 +332,10 @@ namespace Services.Management
                     Amount = e.Amount,
                     Date = e.Date,
                     PayerName = e.Member.Name,
+                    PayerId = e.Member.MemberId,
                     Category = e.Item ?? string.Empty,
                     IconName = MapCategoryToIcon(e.Item ?? string.Empty),
-                    Status = ""
+                    Status = "" // Fill in actual status if needed
                 }).ToList()
             };
 
@@ -334,10 +343,55 @@ namespace Services.Management
             {
                 response.RoomId = roomId;
                 response.RoomName = roomName ?? string.Empty;
-                response.MemberNames = string.Join(", ", members.Select(m => m.Name));
+                response.MembersData = members.Select(m => new MemberData
+                {
+                    MemberId = m.MemberId,
+                    MemberName = m.Name
+                }).ToList();
                 response.AvailableMonths = availableMonths;
             }
+
             return response;
+        }
+        public async Task<List<UserExpenseResponse>> GetUserExpensesForApi()
+        {
+            try
+            {
+                var userId = currentUser.UserId;
+                if (string.IsNullOrEmpty(userId))
+                {
+                    return new List<UserExpenseResponse>();
+                }
+
+                var now = DateTime.Now; 
+                var startDate = new DateTime(now.Year, now.Month, 1).AddMonths(-1); 
+                var endDate = new DateTime(now.Year, now.Month, 1).AddMonths(1).AddDays(-1);
+
+                string cacheKey = $"UserExpenses_{userId}_{startDate:yyyy-MM}_{endDate:yyyy-MM}";
+
+                if (!cache.TryGetValue(cacheKey, out List<UserExpenseResponse>? cachedData))
+                {
+                    var expenses = await expenseRepository.GetUserExpenses(userId, startDate, endDate);
+
+                    cachedData = expenses.Select(e => new UserExpenseResponse
+                    {
+                        Item = e.Item ?? string.Empty,
+                        RoomName = e.Room?.Name ?? string.Empty,
+                        Amount = e.Amount,
+                        ExpenseDate = e.Date,
+                        IconName = MapCategoryToIcon(e.Item ?? string.Empty),
+                        UserId = userId
+                    }).ToList();
+
+                    cache.Set(cacheKey, cachedData, TimeSpan.FromDays(30));
+                }
+                return cachedData ?? new List<UserExpenseResponse>();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error fetching user expenses: {ex.Message}");
+                return new List<UserExpenseResponse>();
+            }
         }
         private string MapCategoryToIcon(string category)
         {
