@@ -56,25 +56,25 @@ namespace AppExpenseTracker.Controllers
         }
 
         [HttpGet("display-expense")]
-        public async Task<IActionResult> DisplayExpenses(int roomId)
+        public async Task<IActionResult> DisplayExpenses(int roomId, string month)
         {
             if (roomId <= 0 || !await roomServices.IsValidRoomAsync(roomId))
                 return Unauthorized(ApiResponse.Fail("Invalid room."));
 
-            var result = await expenseServices.GetRoomExpensesForApi(roomId, new DateTime());
-            return Ok(ApiResponse<RoomExpenseResponse>.Ok(result, "Monthly expenses retrieved."));
-        }
-        [HttpGet("display-filtered-expense")]
-        public async Task<IActionResult> DisplayFilteredExpenses(int roomId, string month)
-        {
-            if (roomId <= 0 || !await roomServices.IsValidRoomAsync(roomId))
-                return Unauthorized(ApiResponse<string>.Fail("Invalid room."));
+            List<RoomExpenseResponse> roomExpenseRes;
+            if (string.IsNullOrEmpty(month))
+            {
+                roomExpenseRes = await expenseServices.GetRoomExpnesesForApi(roomId, new DateTime());
+            }
+            else
+            {
 
-            if (!DateTime.TryParseExact(month + "-01", "yyyy-MM-dd", null, DateTimeStyles.None, out var selectedMonth))
-                return BadRequest(ApiResponse.Fail("Invalid month format."));
+                if (!DateTime.TryParseExact(month + "-01", "yyyy-MM-dd", null, DateTimeStyles.None, out var selectedMonth))
+                    return BadRequest(ApiResponse.Fail("Invalid month format."));
 
-            var result = await expenseServices.GetRoomExpensesForApi(roomId, selectedMonth,false);
-            return Ok(ApiResponse<List<ExpenseDetailResponse>>.Ok(result.Expenses, "Monthly expenses retrieved."));
+                roomExpenseRes = await expenseServices.GetRoomExpnesesForApi(roomId, selectedMonth, false);
+            }
+            return Ok(ApiResponse<List<RoomExpenseResponse>>.Ok(roomExpenseRes, "Monthly expenses retrieved."));
         }
         [HttpGet("display-user-expense")]
         public async Task<IActionResult> DisplayUserExpenses()

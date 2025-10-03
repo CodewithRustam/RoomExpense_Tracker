@@ -125,8 +125,8 @@ namespace Infrastructure.Repositories
         public async Task<List<Expense>> GetUserExpenses(string userId, DateTime startDate, DateTime endDate)
         {
             return await _context.Expenses
-                .Include(e => e.Member).
-                Include(e=>e.Room)
+                .Include(e => e.Member)
+                .Include(e=>e.Room)
                 .Where(e => e.Member.ApplicationUserId == userId && e.Date >= startDate && e.Date <= endDate).OrderByDescending(x=>x.Date)
                 .ToListAsync();
         }

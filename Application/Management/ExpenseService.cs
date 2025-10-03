@@ -25,12 +25,12 @@ namespace Services.Management
             currentUser = _currentUser;
             cache = _cache;
         }
-        public async Task<string> AddExpenses(ExpenseViewModel viewModel)
+        public async Task<string> AddExpenses(ExpenseViewModel expenseViewModel)
         {
             string message = string.Empty;
-			try
-			{
-                var error = ValidateExpenseViewModel(viewModel);
+            try
+            {
+                var error = ValidateExpenseViewModel(expenseViewModel);
 
                 if (!string.IsNullOrEmpty(error))
                 {
@@ -54,16 +54,16 @@ namespace Services.Management
                         cache.Set(rateLimitKey, 1, TimeSpan.FromMinutes(1));
                     }
 
-                    if (viewModel is not null && viewModel.Expense is not null)
+                    if (expenseViewModel is not null)
                     {
                         Expense expense = new Expense
                         {
-                            MemberId = viewModel.Expense.MemberId,
-                            Amount = viewModel.Expense.Amount,
-                            RoomId = viewModel.Expense.RoomId,
-                            IsNonSplitExpense = viewModel.Expense.IsNonSplitExpense,
-                            Item = viewModel.Expense.Item,
-                            Date = viewModel.Expense.Date,
+                            MemberId = expenseViewModel.MemberId,
+                            Amount = expenseViewModel.Amount,
+                            RoomId = expenseViewModel.RoomId,
+                            Item = expenseViewModel.Item,
+                            Date = expenseViewModel.Date,
+                            Category = GetCategoryFromItem(expenseViewModel.Item ?? string.Empty)
                         };
 
                         bool exists = await expenseRepository.IsExpenseExist(expense);
@@ -76,7 +76,7 @@ namespace Services.Management
                         message = await expenseRepository.AddExpenses(expense);
                         if (expense is not null && expense.ExpenseId > 0)
                         {
-                            var cacheKey = CacheHepler.GetCacheKey(viewModel.RoomId, viewModel.Expense.Date);
+                            var cacheKey = CacheHepler.GetCacheKey(expenseViewModel.RoomId, expenseViewModel.Date);
                             cache.Remove(cacheKey);
                         }
                     }
@@ -86,17 +86,17 @@ namespace Services.Management
                     }
                 }
             }
-			catch (Exception)
-			{
-				throw;
-			}
+            catch (Exception)
+            {
+                throw;
+            }
             return message;
         }
-        public async Task<string> UpdateExpenses(ExpenseViewModel viewModel)
+        public async Task<string> UpdateExpenses(ExpenseViewModel expenseViewModel)
         {
             try
             {
-                var error = ValidateExpenseViewModel(viewModel);
+                var error = ValidateExpenseViewModel(expenseViewModel);
 
                 if (!string.IsNullOrEmpty(error))
                 {
@@ -104,27 +104,27 @@ namespace Services.Management
                 }
                 else
                 {
-                    if (viewModel is not null && viewModel.Expense is not null)
+                    if (expenseViewModel is not null)
                     {
                         Expense expense = new Expense
                         {
-                            ExpenseId = viewModel.Expense.ExpenseId,
-                            Item = viewModel.Expense.Item?.Trim(),
-                            Amount = viewModel.Expense.Amount,
-                            Date = viewModel.Expense.Date.Date,
-                            RoomId = viewModel.RoomId,
-                            IsNonSplitExpense = viewModel.Expense.IsNonSplitExpense
+                            ExpenseId = expenseViewModel.ExpenseId,
+                            Item = expenseViewModel.Item?.Trim(),
+                            Amount = expenseViewModel.Amount,
+                            Date = expenseViewModel.Date.Date,
+                            RoomId = expenseViewModel.RoomId,
+                            Category = GetCategoryFromItem(expenseViewModel.Item ?? string.Empty)
                         };
                         var result = await expenseRepository.UpdateExpenses(expense);
 
                         if (result.IsUpdated)
                         {
-                            var cacheKey = CacheHepler.GetCacheKey(viewModel.RoomId, viewModel.Expense.Date);
+                            var cacheKey = CacheHepler.GetCacheKey(expenseViewModel.RoomId, expenseViewModel.Date);
                             cache.Remove(cacheKey);
                         }
                         return result.Message;
                     }
-                }            
+                }
             }
             catch (Exception)
             {
@@ -187,9 +187,8 @@ namespace Services.Management
             return viewModel switch
             {
                 null => "Expense data is missing.",
-                { Expense: null } => "Expense details are required.",
-                { Expense.Item: null or "" } => "Expense item name is required.",
-                { Expense.Amount: <= 0 } => "Expense amount must be greater than zero.",
+                { Item: null or "" } => "Expense item name is required.",
+                { Amount: <= 0 } => "Expense amount must be greater than zero.",
                 { RoomId: <= 0 } => "Room ID is invalid.",
                 _ => string.Empty
             };
@@ -397,10 +396,72 @@ namespace Services.Management
         {
             return category switch
             {
-                "Food" => "cart",
-                "Entertainment" => "film",
+                "Non-Veg" => "restaurant",
+                "Dairy" => "cafe",
+                "Pulses" => "nutrition",
+                "Grains" => "rice",
+                "Cooking Essentials" => "flash",
+                "Vegetables" => "leaf",
+                "Utilities" => "water",
+                "Household Supplies" => "broom",
+                "Ready-made Food" => "fast-food",
+                "Bills" => "document-text",
+                "Other" => "wallet",
                 _ => "wallet"
             };
+        }
+        private string GetCategoryFromItem(string item)
+        {
+            if (string.IsNullOrWhiteSpace(item))
+                return "Other";
+
+            item = item.ToLower();
+
+            // Define keywords and their categories
+            var categoryKeywords = new Dictionary<string, string>()
+            {
+                { "chicken", "Non-Veg" },
+                { "beef", "Non-Veg" },
+                { "meat", "Non-Veg" },
+                { "milk", "Dairy" },
+                { "egg", "Dairy" },
+                { "curd", "Dairy" },
+                { "dahi", "Dairy" },
+                { "dal", "Pulses" },
+                { "rajma", "Pulses" },
+                { "chana", "Pulses" },
+                { "moong", "Pulses" },
+                { "arhar", "Pulses" },
+                { "rice", "Grains" },
+                { "chawal", "Grains" },
+                { "oil", "Cooking Essentials" },
+                { "ghee", "Cooking Essentials" },
+                { "vegetable", "Vegetables" },
+                { "bhindi", "Vegetables" },
+                { "aaloo", "Vegetables" },
+                { "tamatar", "Vegetables" },
+                { "kheera", "Vegetables" },
+                { "onion", "Vegetables" },
+                { "patti", "Vegetables" },
+                { "water", "Utilities" },
+                { "paani", "Utilities" },
+                { "surf", "Household Supplies" },
+                { "sabun", "Household Supplies" },
+                { "swiggy", "Ready-made Food" },
+                { "instamart", "Ready-made Food" },
+                { "snack", "Ready-made Food" },
+                { "bakery", "Ready-made Food" },
+                { "current bill", "Bills" },
+                { "electricity", "Bills" }
+            };
+
+            foreach (var kvp in categoryKeywords)
+            {
+                if (item.Contains(kvp.Key))
+                    return kvp.Value;
+            }
+
+            return "Other";
         }
     }
 }

@@ -19,6 +19,7 @@ namespace Domain.Entities
         public bool IsNonSplitExpense { get; set; }
         public int? OwedToMemberId { get; set; }
         public int? OweToMemberId { get; set; }
+        public string? Category { get; set; }
         public Room Room { get; set; }
         public Member Member { get; set; }
     }
