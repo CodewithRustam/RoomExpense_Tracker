@@ -102,7 +102,7 @@
                     </button>
                 </div>
                 <div class="pe-4 ps-4 pb-6" id="modalContent">
-                    @await Html.PartialAsync("~/Views/Expenses/_AddExpenseModal.cshtml", new ExpenseViewModel { Expense = new Expense { Date = DateTime.Today, RoomId = room.RoomId }, RoomId = room.RoomId })
+                    @await Html.PartialAsync("~/Views/Expenses/_AddExpenseModal.cshtml", new ExpenseViewModel { Date = DateTime.Today, RoomId = room.RoomId })
                 </div>
             </div>
         </div>

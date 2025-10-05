@@ -11,5 +11,6 @@ namespace Domain.Interfaces
         Task<decimal> GetTotalRoomExpenses(int roomId, DateTime start, DateTime end);
         Task<decimal> GetMemberTotalExpenses(int roomId, int memberId, DateTime start, DateTime end);
         Task<List<Expense>> GetUserExpenses(string userId, DateTime startDate, DateTime endDate);
+        List<string> GetDeviceToken(int roomId);
     }
 }

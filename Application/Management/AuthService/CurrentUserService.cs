@@ -18,5 +18,8 @@ namespace Services.Management.AuthService
 
         public string? Email =>
             _httpContextAccessor.HttpContext?.User?.FindFirstValue(ClaimTypes.Email);
+
+        public string? UserName =>
+           _httpContextAccessor.HttpContext?.User?.FindFirstValue(ClaimTypes.Name);
     }
 }

@@ -6,5 +6,6 @@ namespace Domain.AppUser
     public class ApplicationUser: IdentityUser
     {
         public ICollection<Member>? MemberRooms { get; set; }
+        public string? DeviceToken { get; set; }
     }
 }

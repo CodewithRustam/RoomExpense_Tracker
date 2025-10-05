@@ -130,5 +130,13 @@ namespace Infrastructure.Repositories
                 .Where(e => e.Member.ApplicationUserId == userId && e.Date >= startDate && e.Date <= endDate).OrderByDescending(x=>x.Date)
                 .ToListAsync();
         }
+
+        public List<string?> GetDeviceToken(int roomId)
+        {
+           return _context.Members
+                  .Where(m => m.RoomId == roomId && m.ApplicationUser!.DeviceToken != null)
+                  .Select(m => m.ApplicationUser!.DeviceToken)
+                  .ToList();
+        }
     }
 }

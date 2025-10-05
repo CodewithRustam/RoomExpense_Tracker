@@ -42,7 +42,7 @@ namespace AppExpenseTracker.Controllers
 
             var result = await _signInManager.PasswordSignInAsync(
                 model.UserName!, model.Password!, model.RememberMe, lockoutOnFailure: false);
-
+            
 
             if (result.Succeeded)
             {
@@ -58,7 +58,7 @@ namespace AppExpenseTracker.Controllers
                        new Claim(ClaimTypes.NameIdentifier, user!.Id),
                        new Claim(ClaimTypes.Email, user.Email ?? string.Empty)
                     }),
-                    Expires = DateTime.UtcNow.AddHours(1),
+                    Expires = DateTime.UtcNow.AddDays(30),
                     Issuer = _configuration["Jwt:Issuer"],
                     Audience = _configuration["Jwt:Audience"],
                     SigningCredentials = new SigningCredentials(
@@ -150,5 +150,22 @@ namespace AppExpenseTracker.Controllers
             var user = await _userManager.FindByEmailAsync(email);
             return Ok(ApiResponse<object>.Ok(new { exists = user != null }, "Email check complete"));
         }
+
+        [HttpPost("app-register")]
+        public async Task<IActionResult> RegisterDevice([FromBody] DeviceTokenModel model)
+        {
+            var user = await _userManager.FindByIdAsync(model.UserId);
+            if (user == null) return NotFound();
+
+            user.DeviceToken = model.DeviceToken;
+            await _userManager.UpdateAsync(user);
+
+            return Ok();
+        }
+    }
+    public class DeviceTokenModel
+    {
+        public string UserId { get; set; }
+        public string DeviceToken { get; set; }
     }
 }

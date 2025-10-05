@@ -1,21 +1,24 @@
 using Domain.AppUser;
 using Domain.Interfaces;
 using ExpenseTrakcerHepler;
+using FirebaseAdmin;
+using Google.Apis.Auth.OAuth2;
 using Infrastructure.Data;
 using Infrastructure.Email;
 using Infrastructure.Email.Config;
 using Infrastructure.Repositories;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Builder.Extensions;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.IdentityModel.Tokens;
+using Serilog;
 using Services.BackgroundJobs;
 using Services.Interfaces;
 using Services.Management;
 using Services.Management.AuthService;
-using Serilog;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.IdentityModel.Tokens;
 using System.Text;
 
 namespace AppExpenseTrackerApi
@@ -105,8 +108,8 @@ namespace AppExpenseTrackerApi
                     options.AddPolicy("AllowIonic",
                         policy =>
                         {
-                            policy.WithOrigins("http://localhost:8100") 
-                                  .AllowAnyHeader()
+                            policy.WithOrigins("https://localhost", "http://localhost:8100")
+                            .AllowAnyHeader()
                                   .AllowAnyMethod()
                                   .AllowCredentials(); 
                         });
@@ -132,6 +135,11 @@ namespace AppExpenseTrackerApi
                      };
                  });
 
+                var firebaseApp = FirebaseApp.Create(new AppOptions
+                {
+                    Credential = GoogleCredential.FromFile("serviceAccountKey.json"),
+                    ProjectId = "splitx-c010d"
+                });
 
                 var app = builder.Build();
 

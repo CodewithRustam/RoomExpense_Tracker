@@ -33,7 +33,7 @@ namespace AppExpenseTracker.Controllers
             int roomId = 0;
             try
             {
-                if (viewModel is not null && viewModel.Expense is not null)
+                if (viewModel is not null)
                 {
                     roomId = viewModel.RoomId;
                     var memberId = await memberServices.GetMemberId(roomId);
@@ -42,8 +42,8 @@ namespace AppExpenseTracker.Controllers
                         message = "Member not found for the current user.";
                     }
 
-                    viewModel.Expense.MemberId = memberId;
-                    viewModel.Expense.Date = viewModel.Expense.Date.Date;
+                    //viewModel.Expense.MemberId = memberId;
+                    //viewModel.Expense.Date = viewModel.Expense.Date.Date;
 
                     message = await expenseServices.AddExpenses(viewModel);
                 }

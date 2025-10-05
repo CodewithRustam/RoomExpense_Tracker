@@ -1,6 +1,9 @@
-﻿using Domain.Entities;
+﻿using Domain.AppUser;
+using Domain.Entities;
 using Domain.Interfaces;
 using ExpenseTrakcerHepler;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Services.Interfaces;
 using Services.ViewModels;
@@ -16,7 +19,9 @@ namespace Services.Management
 		private readonly IMemberRepository memberRepository;
         private readonly ICurrentUserService currentUser;
         private readonly IMemoryCache cache;
-        public ExpenseService(IExpenseRepository _expenseRepository, ISettlementRepository _settlementRepository, IMemberRepository _memberRepository, IRoomRepository _roomRepository, ICurrentUserService _currentUser, IMemoryCache _cache) 
+        private readonly UserManager<ApplicationUser> _userManager;
+
+        public ExpenseService(IExpenseRepository _expenseRepository, ISettlementRepository _settlementRepository, IMemberRepository _memberRepository, IRoomRepository _roomRepository, ICurrentUserService _currentUser, IMemoryCache _cache, UserManager<ApplicationUser> userManager) 
 		{
             expenseRepository = _expenseRepository;
             settlementRepository = _settlementRepository;
@@ -24,6 +29,7 @@ namespace Services.Management
             roomRepository = _roomRepository;
             currentUser = _currentUser;
             cache = _cache;
+            _userManager = userManager;
         }
         public async Task<string> AddExpenses(ExpenseViewModel expenseViewModel)
         {
@@ -78,6 +84,12 @@ namespace Services.Management
                         {
                             var cacheKey = CacheHepler.GetCacheKey(expenseViewModel.RoomId, expenseViewModel.Date);
                             cache.Remove(cacheKey);
+
+                            var deviceTokens = expenseRepository.GetDeviceToken(expense.RoomId);
+                            var roomName = roomRepository.GetRoomName(expenseViewModel.RoomId);
+                            var memberName = currentUser.UserName;
+
+                            await new NotificationService().SendExpenseNotificationAsync(deviceTokens, expense.Item, expense.Amount, memberName, roomName);
                         }
                     }
                     else
@@ -333,7 +345,7 @@ namespace Services.Management
                     PayerName = e.Member.Name,
                     PayerId = e.Member.MemberId,
                     Category = e.Item ?? string.Empty,
-                    IconName = MapCategoryToIcon(e.Item ?? string.Empty),
+                    IconName = MapCategoryToIcon(e.Category ?? string.Empty),
                     Status = "" // Fill in actual status if needed
                 }).ToList()
             };
@@ -406,54 +418,93 @@ namespace Services.Management
                 "Household Supplies" => "broom",
                 "Ready-made Food" => "fast-food",
                 "Bills" => "document-text",
-                "Other" => "wallet",
+                "Prepared Food" => "fast-food",
+                "Beverages" => "cafe",
+                "Gas" => "water",
+                "Miscellaneous" => "wallet",
+                "Fruits" => "nutrition",
+                "Desserts" => "ice-cream", 
                 _ => "wallet"
             };
         }
         private string GetCategoryFromItem(string item)
         {
             if (string.IsNullOrWhiteSpace(item))
-                return "Other";
+                return "Miscellaneous";
 
             item = item.ToLower();
 
-            // Define keywords and their categories
             var categoryKeywords = new Dictionary<string, string>()
-            {
-                { "chicken", "Non-Veg" },
-                { "beef", "Non-Veg" },
-                { "meat", "Non-Veg" },
-                { "milk", "Dairy" },
-                { "egg", "Dairy" },
-                { "curd", "Dairy" },
-                { "dahi", "Dairy" },
-                { "dal", "Pulses" },
-                { "rajma", "Pulses" },
-                { "chana", "Pulses" },
-                { "moong", "Pulses" },
-                { "arhar", "Pulses" },
-                { "rice", "Grains" },
-                { "chawal", "Grains" },
-                { "oil", "Cooking Essentials" },
-                { "ghee", "Cooking Essentials" },
-                { "vegetable", "Vegetables" },
-                { "bhindi", "Vegetables" },
-                { "aaloo", "Vegetables" },
-                { "tamatar", "Vegetables" },
-                { "kheera", "Vegetables" },
-                { "onion", "Vegetables" },
-                { "patti", "Vegetables" },
-                { "water", "Utilities" },
-                { "paani", "Utilities" },
-                { "surf", "Household Supplies" },
-                { "sabun", "Household Supplies" },
-                { "swiggy", "Ready-made Food" },
-                { "instamart", "Ready-made Food" },
-                { "snack", "Ready-made Food" },
-                { "bakery", "Ready-made Food" },
-                { "current bill", "Bills" },
-                { "electricity", "Bills" }
-            };
+        {
+            { "chicken", "Non-Veg" },
+            { "chick", "Non-Veg" }, 
+            { "beef", "Non-Veg" },
+            { "meat", "Non-Veg" },
+            { "milk", "Dairy" },
+            { "egg", "Dairy" },
+            { "anda", "Dairy" },
+            { "curd", "Dairy" },
+            { "dahi", "Dairy" },
+            { "dal", "Pulses" },
+            { "rajma", "Pulses" },
+            { "chana", "Pulses" },
+            { "moong", "Pulses" },
+            { "arhar", "Pulses" },
+            { "rice", "Grains" },
+            { "chawal", "Grains" },
+            { "oil", "Cooking Essentials" },
+            { "ghee", "Cooking Essentials" },
+            { "vegetable", "Vegetables" },
+            { "bhindi", "Vegetables" },
+            { "aaloo", "Vegetables" }, 
+            { "tamatar", "Vegetables" },
+            { "kheera", "Vegetables" },
+            { "onion", "Vegetables" }, 
+            { "payaz", "Vegetables" }, 
+            { "patti", "Vegetables" },
+            { "dhaniya", "Vegetables" },
+            { "adrak", "Vegetables" },
+            { "mirchi", "Vegetables" },
+            { "water", "Utilities" },
+            { "paani", "Utilities" },
+            { "pani", "Utilities" },
+            { "surf", "Household Supplies" },
+            { "sabun", "Household Supplies" },
+            { "swiggy", "Ready-made Food" },
+            { "instamart", "Ready-made Food" }, 
+            { "snack", "Ready-made Food" },
+            { "bakery", "Ready-made Food" },
+            { "current bill", "Bills" },
+            { "electricity", "Bills" }, 
+            { "electric bill", "Bills" },
+            { "aata", "Grains" },
+            { "atta", "Grains" },
+            { "biryani", "Prepared Food" },
+            { "shwarma", "Prepared Food" },
+            { "naan", "Prepared Food" },
+            { "roll", "Prepared Food" },
+            { "lunch", "Prepared Food" },
+            { "dudh", "Beverages" },
+            { "doodh", "Beverages" },
+            { "gas", "Gas" },
+            { "bulb", "Household Supplies" },
+            { "tap connector", "Household Supplies" },
+            { "gobi", "Vegetables" },
+            { "kaddu", "Vegetables" },
+            { "jeera", "Cooking Essentials" },
+            { "masala", "Cooking Essentials" },
+            { "zepto", "Ready-made Food" },
+            { "test", "Miscellaneous" },
+            { "edit", "Miscellaneous" },
+            { "gave amount", "Miscellaneous" },
+            { "took amount", "Miscellaneous" },
+            { "some amount", "Miscellaneous" },
+            { "tikhalal", "Miscellaneous" },
+            { "agar batti", "Miscellaneous" }, 
+            { "paid", "Miscellaneous" },
+            { "banana", "Fruits" }, 
+            { "ice cream", "Desserts" }
+        };
 
             foreach (var kvp in categoryKeywords)
             {
@@ -461,7 +512,7 @@ namespace Services.Management
                     return kvp.Value;
             }
 
-            return "Other";
+            return "Miscellaneous";
         }
     }
 }
