@@ -53,7 +53,7 @@ namespace Services.Management
                     int targetYear = lastExpenseDate.Year;
 
                     var totalAmount = r.Expenses
-                        .Where(e => e.Date.Month == targetMonth && e.Date.Year == targetYear)
+                        .Where(e => e.Date.Month == targetMonth && e.Date.Year == targetYear && (e.IsDeleted == false || e.IsDeleted == null))
                         .Sum(e => e.Amount);
 
                     return new RoomResponse

@@ -127,7 +127,7 @@ namespace Infrastructure.Repositories
             return await _context.Expenses
                 .Include(e => e.Member)
                 .Include(e=>e.Room)
-                .Where(e => e.Member.ApplicationUserId == userId && e.Date >= startDate && e.Date <= endDate).OrderByDescending(x=>x.Date)
+                .Where(e => e.Member.ApplicationUserId == userId && e.Date >= startDate && e.Date <= endDate && (e.IsDeleted == false || e.IsDeleted == null)).OrderByDescending(x=>x.Date)
                 .ToListAsync();
         }
 

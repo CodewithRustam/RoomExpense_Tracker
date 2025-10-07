@@ -5,6 +5,7 @@ using ExpenseTrakcerHepler;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
+using Serilog;
 using Services.Interfaces;
 using Services.ViewModels;
 using Services.ViewModels.ApiViewModels;
@@ -85,9 +86,12 @@ namespace Services.Management
                             var cacheKey = CacheHepler.GetCacheKey(expenseViewModel.RoomId, expenseViewModel.Date);
                             cache.Remove(cacheKey);
 
+                            Log.Information($"Notification sent required prop Started.");
+
                             var deviceTokens = expenseRepository.GetDeviceToken(expense.RoomId);
                             var roomName = roomRepository.GetRoomName(expenseViewModel.RoomId);
                             var memberName = currentUser.UserName;
+                            Log.Information($"Notification sent Started.Props: {deviceTokens[0]},{expense.Item},{expense.Amount}, {memberName},{roomName}");
 
                             await new NotificationService().SendExpenseNotificationAsync(deviceTokens, expense.Item, expense.Amount, memberName, roomName);
                         }
@@ -282,6 +286,10 @@ namespace Services.Management
         }
         public async Task<RoomExpenseResponse> GetRoomExpensesForApi(int roomId, DateTime selectedMonth, bool includeRoomInfo = true)
         {
+            if (selectedMonth == DateTime.MinValue)
+            {
+                selectedMonth = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
+            }
             string cacheKey = CacheHepler.GetCacheKey(roomId, selectedMonth);
 
             if (!cache.TryGetValue(cacheKey, out MonthlyExpensesDataCacheVM? cachedData))
@@ -320,7 +328,7 @@ namespace Services.Management
 
             var filteredExpenses = expenses
                 .Where(e => e.Date.Year == year && e.Date.Month == month)
-                .OrderBy(e => e.Date)
+                .OrderByDescending(e => e.Date)
                 .ToList();
 
             var totalExpense = filteredExpenses.Sum(e => e.Amount);
@@ -378,24 +386,24 @@ namespace Services.Management
                 var startDate = new DateTime(now.Year, now.Month, 1).AddMonths(-1); 
                 var endDate = new DateTime(now.Year, now.Month, 1).AddMonths(1).AddDays(-1);
 
-                string cacheKey = $"UserExpenses_{userId}_{startDate:yyyy-MM}_{endDate:yyyy-MM}";
+                string cacheKey = $"UserExpenses_{userId}__{startDate:yyyy-MM}_{endDate:yyyy-MM}";
 
-                if (!cache.TryGetValue(cacheKey, out List<UserExpenseResponse>? cachedData))
-                {
+                //if (!cache.TryGetValue(cacheKey, out List<UserExpenseResponse>? cachedData))
+                //{
                     var expenses = await expenseRepository.GetUserExpenses(userId, startDate, endDate);
 
-                    cachedData = expenses.Select(e => new UserExpenseResponse
+                   var cachedData = expenses.Select(e => new UserExpenseResponse
                     {
                         Item = e.Item ?? string.Empty,
                         RoomName = e.Room?.Name ?? string.Empty,
                         Amount = e.Amount,
                         ExpenseDate = e.Date,
-                        IconName = MapCategoryToIcon(e.Item ?? string.Empty),
+                        IconName = MapCategoryToIcon(e.Category ?? string.Empty),
                         UserId = userId
                     }).ToList();
 
                     cache.Set(cacheKey, cachedData, TimeSpan.FromDays(30));
-                }
+                //}
                 return cachedData ?? new List<UserExpenseResponse>();
             }
             catch (Exception ex)
