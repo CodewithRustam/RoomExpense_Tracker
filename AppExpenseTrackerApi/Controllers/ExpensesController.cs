@@ -87,18 +87,18 @@ namespace AppExpenseTracker.Controllers
         public async Task<IActionResult> Settle([FromBody] SettlementRequest model)
         {
             if (!User.Identity!.IsAuthenticated || User.Identity.Name != model.MemberName)
-                return Unauthorized(ApiResponse<string>.Fail("User not authorized."));
+                return Unauthorized(ApiResponse.Fail("User not authorized."));
 
             if (!DateTime.TryParseExact(model.Month + "-01", "yyyy-MM-dd", null, DateTimeStyles.None, out var settlementForMonth))
-                return BadRequest(ApiResponse<string>.Fail("Invalid month format."));
+                return BadRequest(ApiResponse.Fail("Invalid month format."));
 
             if (model.Amount <= 0)
-                return BadRequest(ApiResponse<string>.Fail("Amount must be greater than zero."));
+                return BadRequest(ApiResponse.Fail("Amount must be greater than zero."));
 
             var result = await settlementServices.SettleExpenseAsync(model.RoomId, model.MemberName, model.PaidToMemberName, model.Amount, settlementForMonth);
 
             if (!result.Success)
-                return BadRequest(ApiResponse<string>.Fail(result.Message));
+                return BadRequest(ApiResponse.Fail(result.Message));
 
             return Ok(ApiResponse<string>.Ok(null, result.Message));
         }

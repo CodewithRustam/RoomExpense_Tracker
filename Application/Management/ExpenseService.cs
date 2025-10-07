@@ -3,7 +3,6 @@ using Domain.Entities;
 using Domain.Interfaces;
 using ExpenseTrakcerHepler;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Serilog;
 using Services.Interfaces;
@@ -70,7 +69,7 @@ namespace Services.Management
                             RoomId = expenseViewModel.RoomId,
                             Item = expenseViewModel.Item,
                             Date = expenseViewModel.Date,
-                            Category = GetCategoryFromItem(expenseViewModel.Item ?? string.Empty)
+                            Category = CategoryMapper.GetCategoryFromItem(expenseViewModel.Item ?? string.Empty)
                         };
 
                         bool exists = await expenseRepository.IsExpenseExist(expense);
@@ -93,7 +92,7 @@ namespace Services.Management
                             var memberName = currentUser.UserName;
                             Log.Information($"Notification sent Started.Props: {deviceTokens[0]},{expense.Item},{expense.Amount}, {memberName},{roomName}");
 
-                            await new NotificationService().SendExpenseNotificationAsync(deviceTokens, expense.Item, expense.Amount, memberName, roomName);
+                            await new NotificationService().SendExpenseNotificationAsync(deviceTokens, expense.Item, expense.Amount, memberName!, roomName);
                         }
                     }
                     else
@@ -129,7 +128,7 @@ namespace Services.Management
                             Amount = expenseViewModel.Amount,
                             Date = expenseViewModel.Date.Date,
                             RoomId = expenseViewModel.RoomId,
-                            Category = GetCategoryFromItem(expenseViewModel.Item ?? string.Empty)
+                            Category = CategoryMapper.GetCategoryFromItem(expenseViewModel.Item ?? string.Empty)
                         };
                         var result = await expenseRepository.UpdateExpenses(expense);
 
@@ -154,42 +153,31 @@ namespace Services.Management
             RoomExpensesViewModel roomExpensesViewModel = new RoomExpensesViewModel();
             try
             {
-                string cacheKey = CacheHepler.GetCacheKey(roomId, selectedMonth);
+                List<Expense>? expenses = await expenseRepository.GetMonthlyExpenses(roomId, selectedMonth);
+                List<Settlement>? settlements = await settlementRepository.GetMonthlySettlements(roomId, selectedMonth);
 
-                if (!cache.TryGetValue(cacheKey, out MonthlyExpensesDataCacheVM? cachedData))
+                if (expenses is null || settlements is null)
                 {
-                    cachedData = new MonthlyExpensesDataCacheVM
-                    {
-                        Expenses = await expenseRepository.GetMonthlyExpenses(roomId, selectedMonth),
-                        Settlements = await settlementRepository.GetMonthlySettlements(roomId, selectedMonth)
-                    };
-
-                    cache.Set(cacheKey, cachedData, TimeSpan.FromDays(30));
+                    expenses = new List<Expense>();
+                    settlements = new List<Settlement>();
                 }
+                var userId = currentUser.UserId;
+                List<Member> members = await memberRepository.GetMembersByRoomId(roomId, userId);
 
-                if (cachedData is not null)
+                var total = expenses.Where(x => !x.IsNonSplitExpense).Sum(x => (decimal?)x.Amount) ?? 0m;
+                var memberCount = members.Count;
+                var avgAmount = memberCount > 0 ? Math.Round(total / memberCount, 2) : 0m;
+
+                List<ExpenseSummary> summaries = GetExpenseSummary(expenses, settlements, members);
+
+                roomExpensesViewModel = new RoomExpensesViewModel
                 {
-                    List<Expense>? expenses = cachedData.Expenses;
-                    List<Settlement>? settlements = cachedData.Settlements;
-
-                    var userId = currentUser.UserId;
-                    List<Member> members = await memberRepository.GetMembersByRoomId(roomId,userId);
-
-                    var total = expenses.Where(x => !x.IsNonSplitExpense).Sum(x => (decimal?)x.Amount) ?? 0m;
-                    var memberCount = members.Count;
-                    var avgAmount = memberCount > 0 ? Math.Round(total / memberCount, 2) : 0m;
-
-                    List<ExpenseSummary> summaries = GetExpenseSummary(expenses, settlements, members);
-
-                    roomExpensesViewModel = new RoomExpensesViewModel
-                    {
-                        Summary = summaries,
-                        TotalExpense = total,
-                        AvgPerPerson = avgAmount,
-                        IsTwoMembersInRoom = members.Count == 2,
-                        Expense = new Expense { RoomId = roomId }
-                    };
-                }
+                    Summary = summaries,
+                    TotalExpense = total,
+                    AvgPerPerson = avgAmount,
+                    IsTwoMembersInRoom = members.Count == 2,
+                    Expense = new Expense { RoomId = roomId }
+                };
             }
             catch (Exception)
             {
@@ -290,24 +278,14 @@ namespace Services.Management
             {
                 selectedMonth = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
             }
-            string cacheKey = CacheHepler.GetCacheKey(roomId, selectedMonth);
+            List<Expense>? expenses = await expenseRepository.GetMonthlyExpenses(roomId, selectedMonth);
+            List<Settlement>? settlements = await settlementRepository.GetMonthlySettlements(roomId, selectedMonth);
 
-            if (!cache.TryGetValue(cacheKey, out MonthlyExpensesDataCacheVM? cachedData))
+            if (expenses is null || settlements is null)
             {
-                cachedData = new MonthlyExpensesDataCacheVM
-                {
-                    Expenses = await expenseRepository.GetMonthlyExpenses(roomId, selectedMonth),
-                    Settlements = await settlementRepository.GetMonthlySettlements(roomId, selectedMonth)
-                };
-
-                cache.Set(cacheKey, cachedData, TimeSpan.FromDays(30));
+                expenses = new List<Expense>();
+                settlements = new List<Settlement>();
             }
-
-            if (cachedData is null)
-                return new RoomExpenseResponse();
-
-            var expenses = cachedData.Expenses ?? new List<Expense>();
-            var settlements = cachedData.Settlements ?? new List<Settlement>();
 
             var userId = currentUser.UserId;
             List<Member> members = await memberRepository.GetMembersByRoomId(roomId, userId);
@@ -326,22 +304,18 @@ namespace Services.Management
                 month = selectedMonth.Month;
             }
 
-            var filteredExpenses = expenses
-                .Where(e => e.Date.Year == year && e.Date.Month == month)
-                .OrderByDescending(e => e.Date)
-                .ToList();
+            var filteredExpenses = expenses.Where(e => e.Date.Year == year && e.Date.Month == month)
+                                           .OrderByDescending(e => e.Date).ToList();
+
+            var filteredSettlements = settlements.Where(x => x.SettlementForDate.Year == year && x.SettlementForDate.Month == month)
+                                                 .OrderByDescending(x => x.SettlementId).ToList();
 
             var totalExpense = filteredExpenses.Sum(e => e.Amount);
 
-            var availableMonths = expenses
-                .Select(e => e.Date.ToString("yyyy-MM"))
-                .Distinct()
-                .OrderByDescending(m => m)
-                .ToList();
-
             var response = new RoomExpenseResponse
             {
-                TotalExpense = totalExpense,
+                RoomId = roomId,
+                TotalMontlyExpense = totalExpense,
                 SelectedMonth = $"{year:D4}-{month:D2}",
                 Expenses = filteredExpenses.Select(e => new ExpenseDetailResponse
                 {
@@ -352,26 +326,74 @@ namespace Services.Management
                     Date = e.Date,
                     PayerName = e.Member.Name,
                     PayerId = e.Member.MemberId,
-                    Category = e.Item ?? string.Empty,
-                    IconName = MapCategoryToIcon(e.Category ?? string.Empty),
-                    Status = "" // Fill in actual status if needed
+                    Category = e.Category ?? string.Empty,
+                    IconName = CategoryMapper.GetIconForCategory(e.Category ?? string.Empty),
+                    Status = "" 
                 }).ToList()
             };
+            response.MembersSummary = CalculateMemberExpenseSummary(filteredExpenses, filteredSettlements, members);
 
-            if (includeRoomInfo && members.Any())
+            if (includeRoomInfo && members.Count > 0)
             {
-                response.RoomId = roomId;
                 response.RoomName = roomName ?? string.Empty;
-                response.MembersData = members.Select(m => new MemberData
-                {
-                    MemberId = m.MemberId,
-                    MemberName = m.Name
-                }).ToList();
-                response.AvailableMonths = availableMonths;
+                response.AvailableMonths = expenses.Select(e => e.Date.ToString("yyyy-MM")).Distinct().OrderByDescending(m => m).ToList();
             }
-
             return response;
         }
+        private List<MemberExpenseSummary> CalculateMemberExpenseSummary(List<Expense> expenses,List<Settlement> settlements,List<Member> members)
+        {
+            var summaries = new List<MemberExpenseSummary>();
+
+            if (members == null || !members.Any())
+                return summaries;
+
+            var totalExpenses = expenses.Where(e => !e.IsNonSplitExpense).Sum(e => e.Amount);
+            var memberCount = members.Count;
+            var avgShare = memberCount > 0 ? Math.Round(totalExpenses / memberCount, 2) : 0m;
+
+            foreach (var member in members)
+            {
+                var totalMemebrExpense = expenses.Where(e => e.MemberId == member.MemberId && !e.IsNonSplitExpense).Sum(e => e.Amount);
+
+                var amountPaid = settlements.Where(s => s.MemberId == member.MemberId).Sum(s => s.Amount);
+
+                var amountReceived = settlements.Where(s => s.PaidToMemberId == member.MemberId).Sum(s => s.Amount);
+
+                decimal netBalance = (totalMemebrExpense + amountPaid) - amountReceived - avgShare;
+
+                string badgeText;
+                decimal badgeAmount = Math.Abs(netBalance);
+
+                if (Math.Abs(netBalance) < 0.5m)
+                {
+                    badgeText = "Settled up";
+                    badgeAmount = 0;
+                    netBalance = 0;
+                }
+                else if (netBalance > 0)
+                {
+                    badgeText = "Owed";
+                }
+                else
+                {
+                    badgeText = "Owe";
+                }
+
+                summaries.Add(new MemberExpenseSummary
+                {
+                    MemberId = member.MemberId,
+                    MemberName = member.Name,
+                    TotalMemberExpense = totalMemebrExpense,
+                    AmountPaid = amountPaid,
+                    AmountReceived = amountReceived,
+                    NetBalance = netBalance,
+                    BadgeText = badgeText,
+                    BadgeAmount = badgeAmount
+                });
+            }
+            return summaries;
+        }
+
         public async Task<List<UserExpenseResponse>> GetUserExpensesForApi()
         {
             try
@@ -398,7 +420,7 @@ namespace Services.Management
                         RoomName = e.Room?.Name ?? string.Empty,
                         Amount = e.Amount,
                         ExpenseDate = e.Date,
-                        IconName = MapCategoryToIcon(e.Category ?? string.Empty),
+                        IconName = CategoryMapper.GetIconForCategory(e.Category ?? string.Empty),
                         UserId = userId
                     }).ToList();
 
@@ -411,116 +433,6 @@ namespace Services.Management
                 Console.WriteLine($"Error fetching user expenses: {ex.Message}");
                 return new List<UserExpenseResponse>();
             }
-        }
-        private string MapCategoryToIcon(string category)
-        {
-            return category switch
-            {
-                "Non-Veg" => "restaurant",
-                "Dairy" => "cafe",
-                "Pulses" => "nutrition",
-                "Grains" => "rice",
-                "Cooking Essentials" => "flash",
-                "Vegetables" => "leaf",
-                "Utilities" => "water",
-                "Household Supplies" => "broom",
-                "Ready-made Food" => "fast-food",
-                "Bills" => "document-text",
-                "Prepared Food" => "fast-food",
-                "Beverages" => "cafe",
-                "Gas" => "water",
-                "Miscellaneous" => "wallet",
-                "Fruits" => "nutrition",
-                "Desserts" => "ice-cream", 
-                _ => "wallet"
-            };
-        }
-        private string GetCategoryFromItem(string item)
-        {
-            if (string.IsNullOrWhiteSpace(item))
-                return "Miscellaneous";
-
-            item = item.ToLower();
-
-            var categoryKeywords = new Dictionary<string, string>()
-        {
-            { "chicken", "Non-Veg" },
-            { "chick", "Non-Veg" }, 
-            { "beef", "Non-Veg" },
-            { "meat", "Non-Veg" },
-            { "milk", "Dairy" },
-            { "egg", "Dairy" },
-            { "anda", "Dairy" },
-            { "curd", "Dairy" },
-            { "dahi", "Dairy" },
-            { "dal", "Pulses" },
-            { "rajma", "Pulses" },
-            { "chana", "Pulses" },
-            { "moong", "Pulses" },
-            { "arhar", "Pulses" },
-            { "rice", "Grains" },
-            { "chawal", "Grains" },
-            { "oil", "Cooking Essentials" },
-            { "ghee", "Cooking Essentials" },
-            { "vegetable", "Vegetables" },
-            { "bhindi", "Vegetables" },
-            { "aaloo", "Vegetables" }, 
-            { "tamatar", "Vegetables" },
-            { "kheera", "Vegetables" },
-            { "onion", "Vegetables" }, 
-            { "payaz", "Vegetables" }, 
-            { "patti", "Vegetables" },
-            { "dhaniya", "Vegetables" },
-            { "adrak", "Vegetables" },
-            { "mirchi", "Vegetables" },
-            { "water", "Utilities" },
-            { "paani", "Utilities" },
-            { "pani", "Utilities" },
-            { "surf", "Household Supplies" },
-            { "sabun", "Household Supplies" },
-            { "swiggy", "Ready-made Food" },
-            { "instamart", "Ready-made Food" }, 
-            { "snack", "Ready-made Food" },
-            { "bakery", "Ready-made Food" },
-            { "current bill", "Bills" },
-            { "electricity", "Bills" }, 
-            { "electric bill", "Bills" },
-            { "aata", "Grains" },
-            { "atta", "Grains" },
-            { "biryani", "Prepared Food" },
-            { "shwarma", "Prepared Food" },
-            { "naan", "Prepared Food" },
-            { "roll", "Prepared Food" },
-            { "lunch", "Prepared Food" },
-            { "dudh", "Beverages" },
-            { "doodh", "Beverages" },
-            { "gas", "Gas" },
-            { "bulb", "Household Supplies" },
-            { "tap connector", "Household Supplies" },
-            { "gobi", "Vegetables" },
-            { "kaddu", "Vegetables" },
-            { "jeera", "Cooking Essentials" },
-            { "masala", "Cooking Essentials" },
-            { "zepto", "Ready-made Food" },
-            { "test", "Miscellaneous" },
-            { "edit", "Miscellaneous" },
-            { "gave amount", "Miscellaneous" },
-            { "took amount", "Miscellaneous" },
-            { "some amount", "Miscellaneous" },
-            { "tikhalal", "Miscellaneous" },
-            { "agar batti", "Miscellaneous" }, 
-            { "paid", "Miscellaneous" },
-            { "banana", "Fruits" }, 
-            { "ice cream", "Desserts" }
-        };
-
-            foreach (var kvp in categoryKeywords)
-            {
-                if (item.Contains(kvp.Key))
-                    return kvp.Value;
-            }
-
-            return "Miscellaneous";
         }
     }
 }

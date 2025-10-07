@@ -1,17 +1,21 @@
 ﻿using Domain.Entities;
 using Domain.Interfaces;
+using ExpenseTrakcerHepler;
 using Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace Infrastructure.Repositories
 {
     public class ExpensesRepository : Repository<Expense>, IExpenseRepository
     {
         private readonly AppDbContext _context;
+        private readonly IMemoryCache cache;
 
-        public ExpensesRepository(AppDbContext context) : base(context)
+        public ExpensesRepository(AppDbContext context, IMemoryCache _cache) : base(context)
         {
             _context = context;
+            cache = _cache;
         }
 
         public async Task<string> AddExpenses(Expense expense)
@@ -48,7 +52,22 @@ namespace Infrastructure.Repositories
         {
             try
             {
-                return await GetAllAsync(x => x.RoomId == roomId && (x.IsDeleted == false || x.IsDeleted == null));
+
+                //var itemsToUpdate = await GetAllAsync(x=>x.IsDeleted == false || x.IsDeleted == null);
+
+                //foreach (var item in itemsToUpdate)
+                //{
+                //    item.Category = CategoryMapper.GetCategoryFromItem(item.Item);
+                //}
+                //await SaveChangesAsync();
+                string cacheKey = CacheHepler.GetCacheKey(roomId, selectedMonth);
+
+                if (!cache.TryGetValue(cacheKey, out List<Expense>? expenseDataList))
+                {
+                    expenseDataList = await GetAllAsync(x => x.RoomId == roomId && (x.IsDeleted == false || x.IsDeleted == null));
+                    cache.Set(cacheKey, expenseDataList, TimeSpan.FromDays(30));
+                }
+                return expenseDataList ?? new List<Expense>();
             }
             catch (Exception)
             {

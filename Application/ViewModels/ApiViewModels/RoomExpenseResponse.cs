@@ -4,12 +4,13 @@
     {
         public int RoomId { get; set; }
         public string RoomName { get; set; } = null!;
-        public List<MemberData> MembersData { get; set; } = null!;
         public List<string> AvailableMonths { get; set; } = new();
         public string SelectedMonth { get; set; } = null!;
-        public decimal TotalExpense { get; set; }
+        public decimal TotalMontlyExpense { get; set; }
+        public List<MemberExpenseSummary> MembersSummary { get; set; } = new();
         public List<ExpenseDetailResponse> Expenses { get; set; } = new();
     }
+
     public class ExpenseDetailResponse
     {
         public int ExpenseId { get; set; }
@@ -23,9 +24,15 @@
         public string IconName { get; set; } = null!;
         public string Status { get; set; } = null!;
     }
-    public class MemberData
+    public class MemberExpenseSummary
     {
-        public string? MemberName { get; set; }
         public int MemberId { get; set; }
+        public string MemberName { get; set; } = string.Empty;
+        public decimal TotalMemberExpense { get; set; }
+        public decimal AmountReceived { get; set; }
+        public decimal AmountPaid { get; set; }
+        public decimal NetBalance { get; set; }
+        public string BadgeText { get; set; } = string.Empty;
+        public decimal BadgeAmount { get; set; }
     }
 }

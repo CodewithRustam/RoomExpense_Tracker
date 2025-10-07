@@ -1,24 +1,34 @@
 ﻿using Domain.Entities;
 using Domain.Interfaces;
+using ExpenseTrakcerHepler;
 using Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace Infrastructure.Repositories
 {
     public class SettlementRepository : Repository<Settlement>, ISettlementRepository
     {
         private readonly AppDbContext _context;
-
-        public SettlementRepository(AppDbContext context) : base(context)
+        private readonly IMemoryCache cache;
+        public SettlementRepository(AppDbContext context, IMemoryCache _cache) : base(context)
         {
             _context = context;
+            cache = _cache;
         }
 
         public async Task<List<Settlement>> GetMonthlySettlements(int roomId, DateTime selectedMonth)
         {
             try
             {
-               return await GetAllAsync(x => x.RoomId == roomId);
+                string cacheKey = CacheHepler.GetCacheKey(roomId, selectedMonth);
+                if (!cache.TryGetValue(cacheKey, out List<Settlement>? settlementDataList))
+                {
+                    settlementDataList = await GetAllAsync(x => x.RoomId == roomId);
+                    cache.Set(cacheKey, settlementDataList, TimeSpan.FromDays(30));
+                }
+
+            return await GetAllAsync(x => x.RoomId == roomId);
             }
             catch (Exception)
             {

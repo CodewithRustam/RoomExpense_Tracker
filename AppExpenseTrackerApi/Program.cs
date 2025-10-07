@@ -20,6 +20,7 @@ using Services.Interfaces;
 using Services.Management;
 using Services.Management.AuthService;
 using System.Text;
+using Microsoft.OpenApi.Models;
 
 namespace AppExpenseTrackerApi
 {
@@ -46,10 +47,37 @@ namespace AppExpenseTrackerApi
                 // Replace default logging with Serilog
                 builder.Host.UseSerilog();
 
-                // Add services to the container.
+                // Add services
                 builder.Services.AddControllers();
+
+                // Configure Swagger with JWT Authorization
                 builder.Services.AddEndpointsApiExplorer();
-                builder.Services.AddSwaggerGen();
+                builder.Services.AddSwaggerGen(c =>
+                {
+                    c.SwaggerDoc("v1", new OpenApiInfo { Title = "ExpenseTracker API", Version = "v1" });
+
+                    // Add JWT Bearer Authorization
+                    var securityScheme = new OpenApiSecurityScheme
+                    {
+                        Name = "Authorization",
+                        Description = "Enter JWT Bearer token **only**",
+                        In = ParameterLocation.Header,
+                        Type = SecuritySchemeType.Http,
+                        Scheme = "bearer",
+                        BearerFormat = "JWT",
+                        Reference = new OpenApiReference
+                        {
+                            Type = ReferenceType.SecurityScheme,
+                            Id = "Bearer"
+                        }
+                    };
+
+                    c.AddSecurityDefinition("Bearer", securityScheme);
+                    c.AddSecurityRequirement(new OpenApiSecurityRequirement
+                    {
+                        { securityScheme, new string[] { } }
+                    });
+                });
 
                 string? connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 
@@ -103,59 +131,57 @@ namespace AppExpenseTrackerApi
                 .AddEntityFrameworkStores<AppDbContext>()
                 .AddDefaultTokenProviders();
 
+                // CORS
                 builder.Services.AddCors(options =>
                 {
                     options.AddPolicy("AllowIonic",
                         policy =>
                         {
                             policy.WithOrigins("https://localhost", "http://localhost:8100")
-                            .AllowAnyHeader()
+                                  .AllowAnyHeader()
                                   .AllowAnyMethod()
-                                  .AllowCredentials(); 
+                                  .AllowCredentials();
                         });
                 });
 
+                // JWT Authentication
                 builder.Services.AddAuthentication(options =>
                 {
                     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
                     options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
                 })
-                 .AddJwtBearer(options =>
-                 {
-                     options.TokenValidationParameters = new TokenValidationParameters
-                     {
-                         ValidateIssuer = true,
-                         ValidateAudience = true,
-                         ValidateLifetime = true,
-                         ValidateIssuerSigningKey = true,
-                         ValidIssuer = builder.Configuration["Jwt:Issuer"],
-                         ValidAudience = builder.Configuration["Jwt:Audience"],
-                         IssuerSigningKey = new SymmetricSecurityKey(
-                             Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"] ?? string.Empty))
-                     };
-                 });
-
-                var firebaseApp = FirebaseApp.Create(new AppOptions
+                .AddJwtBearer(options =>
                 {
-                    Credential = GoogleCredential.FromFile("serviceAccountKey.json"),
-                    ProjectId = "splitx-c010d"
+                    options.TokenValidationParameters = new TokenValidationParameters
+                    {
+                        ValidateIssuer = true,
+                        ValidateAudience = true,
+                        ValidateLifetime = true,
+                        ValidateIssuerSigningKey = true,
+                        ValidIssuer = builder.Configuration["Jwt:Issuer"],
+                        ValidAudience = builder.Configuration["Jwt:Audience"],
+                        IssuerSigningKey = new SymmetricSecurityKey(
+                            Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"] ?? string.Empty))
+                    };
                 });
 
                 var app = builder.Build();
 
-                // Configure middleware
+                // Middleware
                 if (app.Environment.IsDevelopment())
                 {
                     app.UseSwagger();
-                    app.UseSwaggerUI();
+                    app.UseSwaggerUI(c =>
+                    {
+                        c.SwaggerEndpoint("/swagger/v1/swagger.json", "ExpenseTracker API V1");
+                        c.RoutePrefix = "swagger"; // Now Swagger is at /swagger
+                    });
                 }
 
                 app.UseHttpsRedirection();
                 app.UseCors("AllowIonic");
-                app.UseAuthentication(); 
+                app.UseAuthentication();
                 app.UseAuthorization();
-
-                // Add Serilog request logging
                 app.UseSerilogRequestLogging();
 
                 app.MapControllers();
