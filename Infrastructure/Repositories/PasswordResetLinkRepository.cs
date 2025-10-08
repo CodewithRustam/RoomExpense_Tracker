@@ -13,28 +13,13 @@ namespace Infrastructure.Repositories
         }
         public async Task AddPasswordResetLink(PasswordResetLink passwordResetLink)
         {
-            try
-            {
-                await AddAsync(passwordResetLink);
-                await SaveChangesAsync();
-            }
-            catch (Exception)
-            {
-
-                throw;
-            }
+            await AddAsync(passwordResetLink);
+            await SaveChangesAsync();
         }
 
         public async Task<PasswordResetLink?> GetPasswordResetDetailsByShortCode(string code)
         {
-            try
-            {
-                return await FirstOrDefaultAsync(x => x.ShortCode == code && x.Expiry > DateTime.Now);
-            }
-            catch (Exception)
-            {
-                throw;
-            }
+            return await FirstOrDefaultAsync(x => x.ShortCode == code && x.Expiry > DateTime.Now);
         }
     }
 }

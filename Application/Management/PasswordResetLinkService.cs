@@ -18,40 +18,26 @@ namespace Services.Management
         }
         public async Task<string> AddPasswordResetLink(string Email)
         {
-			try
-			{
-                var user = await _userManager.FindByEmailAsync(Email);
-                var token = await _userManager.GeneratePasswordResetTokenAsync(user!);
+            var user = await _userManager.FindByEmailAsync(Email);
+            var token = await _userManager.GeneratePasswordResetTokenAsync(user!);
 
-                var shortCode = Guid.NewGuid().ToString("N").Substring(0, 8);
+            var shortCode = Guid.NewGuid().ToString("N").Substring(0, 8);
 
-                var resetLinkEntry = new PasswordResetLink
-                {
-                    ShortCode = shortCode,
-                    Token = token,
-                    Email = Email,
-                    Expiry = DateTime.Now.AddHours(1)
-                };
-                await passwordResetLinkRepository.AddPasswordResetLink(resetLinkEntry);
+            var resetLinkEntry = new PasswordResetLink
+            {
+                ShortCode = shortCode,
+                Token = token,
+                Email = Email,
+                Expiry = DateTime.Now.AddHours(1)
+            };
+            await passwordResetLinkRepository.AddPasswordResetLink(resetLinkEntry);
 
-                return shortCode;
-            }
-			catch (Exception)
-			{
-				throw;
-			}
+            return shortCode;
         }
 
         public async Task<PasswordResetLink?> GetPasswordResetDetailsByShortCode(string code)
         {
-            try
-            {
-                return await passwordResetLinkRepository.GetPasswordResetDetailsByShortCode(code);
-            }
-            catch (Exception)
-            {
-                throw;
-            }
+            return await passwordResetLinkRepository.GetPasswordResetDetailsByShortCode(code);
         }
     }
 }

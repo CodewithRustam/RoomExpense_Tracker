@@ -14,45 +14,18 @@ namespace Infrastructure.Repositories
         }
         public async Task<List<Room>> GetRoomsForCurrentUser(string? userId)
         {
-            try
-            {
-                return await _context.Rooms.Where(r => r.Members.Any(m => m.ApplicationUserId == userId) && !r.IsDeleted)
-                                           .Include(r => r.Members).Include(r => r.Expenses).ToListAsync();
-            }
-            catch (Exception)
-            {
-                throw;
-            }
+            return await _context.Rooms.Where(r => r.Members.Any(m => m.ApplicationUserId == userId) && !r.IsDeleted)
+                                       .Include(r => r.Members)
+                                       .Include(r => r.Expenses).ToListAsync();
+
         }
         public async Task<Room?> GetRoomDetails(int roomId, string? userId)
         {
-            try
-            {
-                return await _context.Rooms.Include(r => r.Members).Include(r => r.Expenses).ThenInclude(e => e.Member)
-                                      .FirstOrDefaultAsync(r => r.RoomId == roomId && r.Members.Any(m => m.ApplicationUserId == userId));
-            }
-            catch (Exception)
-            {
-                throw;
-            }
+            return await _context.Rooms.Include(r => r.Members)
+                                       .Include(r => r.Expenses)
+                                       .ThenInclude(e => e.Member)
+                                       .FirstOrDefaultAsync(r => r.RoomId == roomId && r.Members.Any(m => m.ApplicationUserId == userId));
         }
-        public async Task<bool> IsValidRoomAsync(int roomId)
-        {
-            try
-            {
-                return await AnyAsync(r => r.RoomId == roomId);
-            }
-            catch (Exception)
-            {
-                throw;
-            }
-        }
-        public async Task AddRoomAsync(Room room)
-        {
-            await AddAsync(room);
-            await SaveChangesAsync();
-        }
-
         public async Task AddMembersAsync(IEnumerable<Member> members)
         {
             await _context.Members.AddRangeAsync(members);

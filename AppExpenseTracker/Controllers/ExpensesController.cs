@@ -113,8 +113,16 @@ namespace AppExpenseTracker.Controllers
                     TempData["ErrorMessage"] = "Amount must be greater than zero.";
                     return RedirectToAction("Details", "Rooms", new { id = RoomId, month = Month });
                 }
-
-                var result = await settlementServices.SettleExpenseAsync(RoomId, MemberName, PaidToMemberName, Amount, settlementForMonth);
+                SettlementRequest settlementRequestVM = new SettlementRequest
+                {
+                    RoomId = RoomId,
+                    PayerName = MemberName,
+                    ReceiverName = PaidToMemberName,
+                    SettlementAmount = Amount,
+                    SettlementMonth = settlementForMonth,
+                    MonthLabel = Month
+                };
+                var result = await settlementServices.SettleExpenseAsync(settlementRequestVM);
 
                 if (!result.Success)
                 {

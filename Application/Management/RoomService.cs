@@ -1,9 +1,7 @@
 ﻿using Domain.AppUser;
 using Domain.Entities;
 using Domain.Interfaces;
-using Infrastructure.Repositories;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
 using Services.Interfaces;
 using Services.ViewModels;
 using Services.ViewModels.ApiReponse;
@@ -25,37 +23,13 @@ namespace Services.Management
 
         public async Task<List<RoomResponse>> GetRoomsForCurrentUser()
         {
-            try
+            string? userId = currentUser.UserId;
+            var rooms = await roomRepository.GetRoomsForCurrentUser(userId);
+
+            return rooms.Select(r =>
             {
-                string? userId = currentUser.UserId;
-                var rooms = await roomRepository.GetRoomsForCurrentUser(userId);
-
-                return rooms.Select(r =>
+                if (r.Expenses == null || !r.Expenses.Any())
                 {
-                    if (r.Expenses == null || !r.Expenses.Any())
-                    {
-                        return new RoomResponse
-                        {
-                            RoomId = r.RoomId,
-                            Name = r.Name ?? string.Empty,
-                            CreatedByUserId = r.CreatedByUserId,
-                            CreatedDate = r.CreatedDate,
-                            MemberNames = string.Join(", ", r.Members.Select(m => m.Name)),
-                            TotalAmount = 0,
-                            Type = "Private",
-                            IconName = string.Empty,
-                            Status = r.IsDeleted ? "Deleted" : "Active"
-                        };
-                    }
-
-                    var lastExpenseDate = r.Expenses.Max(e => e.Date);
-                    int targetMonth = lastExpenseDate.Month;
-                    int targetYear = lastExpenseDate.Year;
-
-                    var totalAmount = r.Expenses
-                        .Where(e => e.Date.Month == targetMonth && e.Date.Year == targetYear && (e.IsDeleted == false || e.IsDeleted == null))
-                        .Sum(e => e.Amount);
-
                     return new RoomResponse
                     {
                         RoomId = r.RoomId,
@@ -63,76 +37,75 @@ namespace Services.Management
                         CreatedByUserId = r.CreatedByUserId,
                         CreatedDate = r.CreatedDate,
                         MemberNames = string.Join(", ", r.Members.Select(m => m.Name)),
-                        TotalAmount = totalAmount,
+                        TotalAmount = 0,
                         Type = "Private",
                         IconName = string.Empty,
                         Status = r.IsDeleted ? "Deleted" : "Active"
                     };
-                }).ToList();
-            }
-            catch (Exception ex)
-            {
-                throw new ApplicationException("Error while fetching rooms for the current user.", ex);
-            }
+                }
+
+                var lastExpenseDate = r.Expenses.Max(e => e.Date);
+                int targetMonth = lastExpenseDate.Month;
+                int targetYear = lastExpenseDate.Year;
+
+                var totalAmount = r.Expenses
+                    .Where(e => e.Date.Month == targetMonth && e.Date.Year == targetYear && (e.IsDeleted == false || e.IsDeleted == null))
+                    .Sum(e => e.Amount);
+
+                return new RoomResponse
+                {
+                    RoomId = r.RoomId,
+                    Name = r.Name ?? string.Empty,
+                    CreatedByUserId = r.CreatedByUserId,
+                    CreatedDate = r.CreatedDate,
+                    MemberNames = string.Join(", ", r.Members.Select(m => m.Name)),
+                    TotalAmount = totalAmount,
+                    Type = "Private",
+                    IconName = string.Empty,
+                    Status = r.IsDeleted ? "Deleted" : "Active"
+                };
+            }).ToList();
         }
-
-
         public async Task<bool> IsValidRoomAsync(int roomId)
         {
-			try
-			{
-                return await roomRepository.IsValidRoomAsync(roomId);
-            }
-            catch (Exception)
-			{
-				throw;
-			}
+            return await roomRepository.AnyAsync(r => r.RoomId == roomId);
         }
         public async Task<RoomDetailsViewModel?> GetRoomDetails(int roomId, string? month, bool isFromSettled)
         {
-            try
+            string? userId = currentUser.UserId;
+            var room = await roomRepository.GetRoomDetails(roomId, userId);
+
+            if (room == null)
+                return null;
+
+            var months = room.Expenses.Select(e => e.Date.ToString("yyyy-MM")).Distinct().OrderByDescending(m => m).ToList();
+
+            return new RoomDetailsViewModel
             {
-                string? userId = currentUser.UserId;
-                var room = await roomRepository.GetRoomDetails(roomId, userId);
-
-                if (room == null)
-                    return null;
-
-                var months = room.Expenses.Select(e => e.Date.ToString("yyyy-MM")).Distinct().OrderByDescending(m => m).ToList();
-
-                return new RoomDetailsViewModel
-                {
-                    Room = room,
-                    AvailableMonths = months,
-                    SelectedMonth = month ?? months.FirstOrDefault(),
-                    IsFromSettled = isFromSettled
-                };
-            }
-            catch (Exception)
-            {
-                throw;
-            }
+                Room = room,
+                AvailableMonths = months,
+                SelectedMonth = month ?? months.FirstOrDefault(),
+                IsFromSettled = isFromSettled
+            };
         }
-
         public async Task<(bool success, string message)> CreateRoomAsync(RoomViewModel viewModel)
         {
-            try
+            string? userId = currentUser.UserId;
+            if (string.IsNullOrEmpty(userId)) return (false, "User not found.");
+
+            var user = await _userManager.FindByIdAsync(userId);
+            if (user == null || string.IsNullOrEmpty(user.UserName)) return (false, "Invalid user.");
+
+            var room = new Room
             {
-                string? userId = currentUser.UserId;
-                if (string.IsNullOrEmpty(userId)) return (false, "User not found.");
+                Name = viewModel.Name,
+                CreatedByUserId = userId
+            };
 
-                var user = await _userManager.FindByIdAsync(userId);
-                if (user == null || string.IsNullOrEmpty(user.UserName)) return (false, "Invalid user.");
+            await roomRepository.AddAsync(room);
+            await roomRepository.SaveChangesAsync();
 
-                var room = new Room
-                {
-                    Name = viewModel.Name,
-                    CreatedByUserId = userId
-                };
-
-                await roomRepository.AddRoomAsync(room);
-
-                var members = new List<Member>
+            var members = new List<Member>
                               {
                                   new Member
                                   {
@@ -142,31 +115,26 @@ namespace Services.Management
                                   }
                               };
 
-                foreach (var username in viewModel.MemberUserNames.Where(u => !string.IsNullOrWhiteSpace(u)))
-                {
-                    var existingUser = await _userManager.FindByNameAsync(username);
-                    if (existingUser == null)
-                        return (false, $"User {username} does not exist.");
-
-                    if (!await roomRepository.MemberExistsAsync(room.RoomId, username))
-                    {
-                        members.Add(new Member
-                        {
-                            Name = username,
-                            RoomId = room.RoomId,
-                            ApplicationUserId = existingUser.Id
-                        });
-                    }
-                }
-
-                await roomRepository.AddMembersAsync(members);
-
-                return (true, "Room created successfully.");
-            }
-            catch (Exception)
+            foreach (var username in viewModel.MemberUserNames.Where(u => !string.IsNullOrWhiteSpace(u)))
             {
-                throw;
+                var existingUser = await _userManager.FindByNameAsync(username);
+                if (existingUser == null)
+                    return (false, $"User {username} does not exist.");
+
+                if (!await roomRepository.MemberExistsAsync(room.RoomId, username))
+                {
+                    members.Add(new Member
+                    {
+                        Name = username,
+                        RoomId = room.RoomId,
+                        ApplicationUserId = existingUser.Id
+                    });
+                }
             }
+
+            await roomRepository.AddMembersAsync(members);
+
+            return (true, "Room created successfully.");
         }
     }
 }

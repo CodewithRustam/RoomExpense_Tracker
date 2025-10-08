@@ -21,6 +21,7 @@ using Services.Management;
 using Services.Management.AuthService;
 using System.Text;
 using Microsoft.OpenApi.Models;
+using AppExpenseTrackerApi.Middlewares;
 
 namespace AppExpenseTrackerApi
 {
@@ -166,7 +167,7 @@ namespace AppExpenseTrackerApi
                 });
 
                 var app = builder.Build();
-
+                app.UseMiddleware<ExceptionHandlingMiddleware>();
                 // Middleware
                 if (app.Environment.IsDevelopment())
                 {
@@ -174,7 +175,7 @@ namespace AppExpenseTrackerApi
                     app.UseSwaggerUI(c =>
                     {
                         c.SwaggerEndpoint("/swagger/v1/swagger.json", "ExpenseTracker API V1");
-                        c.RoutePrefix = "swagger"; // Now Swagger is at /swagger
+                        c.RoutePrefix = "swagger";
                     });
                 }
 

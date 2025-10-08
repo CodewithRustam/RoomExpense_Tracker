@@ -36,13 +36,13 @@ namespace AppExpenseTracker.Controllers
 
             var memberId = await memberServices.GetMemberId(expViewModel.RoomId);
             if (memberId == 0)
-                return BadRequest(ApiResponse<string>.Fail("Member not found."));
+                return BadRequest(ApiResponse.Fail("Member not found."));
 
             expViewModel.MemberId = memberId;
 
             var message = await expenseServices.AddExpenses(expViewModel);
 
-            return Ok(ApiResponse<string>.Ok(null, message));
+            return Ok(ApiResponse.Ok(message));
         }
 
         [HttpPost("edit")]
@@ -55,11 +55,11 @@ namespace AppExpenseTracker.Controllers
             return Ok(ApiResponse<string>.Ok(null, message));
         }
 
-        [HttpGet("display-expense")]
+        [HttpGet("display-room-expense")]
         public async Task<IActionResult> DisplayExpenses(int roomId, string? month)
         {
             if (roomId <= 0 || !await roomServices.IsValidRoomAsync(roomId))
-                return Unauthorized(ApiResponse.Fail("Invalid room."));
+                return Ok(ApiResponse.Fail("Invalid room."));
 
             RoomExpenseResponse roomExpenseRes;
             if (string.IsNullOrEmpty(month))
@@ -68,9 +68,8 @@ namespace AppExpenseTracker.Controllers
             }
             else
             {
-
                 if (!DateTime.TryParseExact(month + "-01", "yyyy-MM-dd", null, DateTimeStyles.None, out var selectedMonth))
-                    return BadRequest(ApiResponse.Fail("Invalid month format."));
+                    return Ok(ApiResponse.Fail("Invalid month format."));
 
                 roomExpenseRes = await expenseServices.GetRoomExpensesForApi(roomId, selectedMonth, false);
             }
@@ -80,36 +79,34 @@ namespace AppExpenseTracker.Controllers
         public async Task<IActionResult> DisplayUserExpenses()
         {
             var result = await expenseServices.GetUserExpensesForApi();
-            return Ok(ApiResponse<List<UserExpenseResponse>>.Ok(result, "User expenses retrieved."));
+            return Ok(ApiResponse<UserExpenseDetails>.Ok(result, "User expenses retrieved."));
         }
 
-        [HttpPost("settle")]
-        public async Task<IActionResult> Settle([FromBody] SettlementRequest model)
+        [HttpPost("expenses-settle")]
+        public async Task<IActionResult> Settle([FromBody] SettlementRequest settlementRequestVM)
         {
-            if (!User.Identity!.IsAuthenticated || User.Identity.Name != model.MemberName)
-                return Unauthorized(ApiResponse.Fail("User not authorized."));
+            if (!User.Identity!.IsAuthenticated || User.Identity.Name != settlementRequestVM.PayerName)
+                return Ok(ApiResponse.Fail("User not authorized."));
 
-            if (!DateTime.TryParseExact(model.Month + "-01", "yyyy-MM-dd", null, DateTimeStyles.None, out var settlementForMonth))
-                return BadRequest(ApiResponse.Fail("Invalid month format."));
+            if (!DateTime.TryParseExact(settlementRequestVM.MonthLabel + "-01", "yyyy-MM-dd", null, DateTimeStyles.None, out var settlementForMonth))
+                return Ok(ApiResponse.Fail("Invalid month format."));
 
-            if (model.Amount <= 0)
-                return BadRequest(ApiResponse.Fail("Amount must be greater than zero."));
+            if (settlementRequestVM.SettlementAmount <= 0)
+                return Ok(ApiResponse.Fail("Amount must be greater than zero."));
 
-            var result = await settlementServices.SettleExpenseAsync(model.RoomId, model.MemberName, model.PaidToMemberName, model.Amount, settlementForMonth);
+            settlementRequestVM.SettlementMonth = settlementForMonth;
+            var result = await settlementServices.SettleExpenseAsync(settlementRequestVM);
 
             if (!result.Success)
-                return BadRequest(ApiResponse.Fail(result.Message));
+                return Ok(ApiResponse.Fail(result.Message));
 
-            return Ok(ApiResponse<string>.Ok(null, result.Message));
+            return Ok(ApiResponse<string>.Ok(null,result.Message));
         }
-    }
-
-    public class SettlementRequest
-    {
-        public int RoomId { get; set; }
-        public string MemberName { get; set; } = "";
-        public string PaidToMemberName { get; set; } = "";
-        public decimal Amount { get; set; }
-        public string Month { get; set; } = "";
+        [HttpGet("expenses-trend")]
+        public async Task<IActionResult> GetMonthlyExpensesTrend()
+        {
+            var membersRecord = await expenseServices.GetMonthlyExpensesTrend();
+            return Ok(membersRecord);
+        }
     }
 }

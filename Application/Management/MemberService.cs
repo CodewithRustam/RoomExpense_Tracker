@@ -15,15 +15,8 @@ namespace Services.Management
         }
         public async Task<int> GetMemberId(int roomId)
         {
-            try
-            {
-                string? userId = currentUser.UserId;
-                return await memberRepository.GetMemberId(userId, roomId);
-            }
-            catch (Exception)
-            {
-                throw;
-            }
+            string? userId = currentUser.UserId;
+            return await memberRepository.GetMemberId(userId, roomId);
         }
     }
 }

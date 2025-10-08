@@ -3,8 +3,9 @@ using Domain.Entities;
 using Domain.Interfaces;
 using ExpenseTrakcerHepler;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
-using Serilog;
+using Microsoft.Extensions.DependencyInjection;
 using Services.Interfaces;
 using Services.ViewModels;
 using Services.ViewModels.ApiViewModels;
@@ -20,8 +21,9 @@ namespace Services.Management
         private readonly ICurrentUserService currentUser;
         private readonly IMemoryCache cache;
         private readonly UserManager<ApplicationUser> _userManager;
+        private readonly IServiceProvider _serviceProvider; 
 
-        public ExpenseService(IExpenseRepository _expenseRepository, ISettlementRepository _settlementRepository, IMemberRepository _memberRepository, IRoomRepository _roomRepository, ICurrentUserService _currentUser, IMemoryCache _cache, UserManager<ApplicationUser> userManager) 
+        public ExpenseService(IExpenseRepository _expenseRepository, ISettlementRepository _settlementRepository, IMemberRepository _memberRepository, IRoomRepository _roomRepository, ICurrentUserService _currentUser, IMemoryCache _cache, UserManager<ApplicationUser> userManager, IServiceProvider serviceProvider) 
 		{
             expenseRepository = _expenseRepository;
             settlementRepository = _settlementRepository;
@@ -30,159 +32,145 @@ namespace Services.Management
             currentUser = _currentUser;
             cache = _cache;
             _userManager = userManager;
+            _serviceProvider = serviceProvider; 
         }
         public async Task<string> AddExpenses(ExpenseViewModel expenseViewModel)
         {
             string message = string.Empty;
-            try
-            {
-                var error = ValidateExpenseViewModel(expenseViewModel);
+            var error = ValidateExpenseViewModel(expenseViewModel);
 
-                if (!string.IsNullOrEmpty(error))
+            if (!string.IsNullOrEmpty(error))
+            {
+                return message = error;
+            }
+            else
+            {
+                var userId = currentUser.UserId;
+                var rateLimitKey = $"AddExpense-{userId}";
+
+                if (cache.TryGetValue(rateLimitKey, out int count))
                 {
-                    return message = error;
+                    if (count >= 3)
+                    {
+                        return message = "You are submitting too many expenses at once. Please wait a minute.";
+                    }
+                    cache.Set(rateLimitKey, count + 1, TimeSpan.FromMinutes(1));
                 }
                 else
                 {
-                    var userId = currentUser.UserId;
-                    var rateLimitKey = $"AddExpense-{userId}";
+                    cache.Set(rateLimitKey, 1, TimeSpan.FromMinutes(1));
+                }
 
-                    if (cache.TryGetValue(rateLimitKey, out int count))
+                if (expenseViewModel is not null)
+                {
+                    Expense expense = new Expense
                     {
-                        if (count >= 3)
-                        {
-                            return message = "You are submitting too many expenses at once. Please wait a minute.";
-                        }
-                        cache.Set(rateLimitKey, count + 1, TimeSpan.FromMinutes(1));
+                        MemberId = expenseViewModel.MemberId,
+                        Amount = expenseViewModel.Amount,
+                        RoomId = expenseViewModel.RoomId,
+                        Item = expenseViewModel.Item,
+                        Date = expenseViewModel.Date,
+                        Category = CategoryMapper.GetCategoryFromItem(expenseViewModel.Item ?? string.Empty)
+                    };
+
+                    bool exists = await expenseRepository.IsExpenseExist(expense);
+
+                    if (exists)
+                    {
+                        return message = "This expense already exists.";
                     }
-                    else
+
+                    message = await expenseRepository.AddExpenses(expense);
+                    if (expense is not null && expense.ExpenseId > 0)
                     {
-                        cache.Set(rateLimitKey, 1, TimeSpan.FromMinutes(1));
-                    }
+                        var cacheKey = CacheHepler.GetCacheKey(expenseViewModel.RoomId, expenseViewModel.Date);
+                        cache.Remove(cacheKey);
 
-                    if (expenseViewModel is not null)
-                    {
-                        Expense expense = new Expense
+                        try
                         {
-                            MemberId = expenseViewModel.MemberId,
-                            Amount = expenseViewModel.Amount,
-                            RoomId = expenseViewModel.RoomId,
-                            Item = expenseViewModel.Item,
-                            Date = expenseViewModel.Date,
-                            Category = CategoryMapper.GetCategoryFromItem(expenseViewModel.Item ?? string.Empty)
-                        };
-
-                        bool exists = await expenseRepository.IsExpenseExist(expense);
-
-                        if (exists)
-                        {
-                            return message = "This expense already exists.";
-                        }
-
-                        message = await expenseRepository.AddExpenses(expense);
-                        if (expense is not null && expense.ExpenseId > 0)
-                        {
-                            var cacheKey = CacheHepler.GetCacheKey(expenseViewModel.RoomId, expenseViewModel.Date);
-                            cache.Remove(cacheKey);
-
-                            Log.Information($"Notification sent required prop Started.");
-
+                            using var scope = _serviceProvider.CreateScope();
+                            var notificationService = scope.ServiceProvider.GetRequiredService<NotificationService>();
                             var deviceTokens = expenseRepository.GetDeviceToken(expense.RoomId);
-                            var roomName = roomRepository.GetRoomName(expenseViewModel.RoomId);
-                            var memberName = currentUser.UserName;
-                            Log.Information($"Notification sent Started.Props: {deviceTokens[0]},{expense.Item},{expense.Amount}, {memberName},{roomName}");
+                            var roomName = roomRepository.GetRoomName(expense.RoomId);
+                            var memberName = currentUser.UserName ?? string.Empty;
 
-                            await new NotificationService().SendExpenseNotificationAsync(deviceTokens, expense.Item, expense.Amount, memberName!, roomName);
+                            await notificationService.SendExpenseNotificationAsync(deviceTokens!, expense.Item, expense.Amount, memberName, roomName);
                         }
-                    }
-                    else
-                    {
-                        message = "Expense data is missing.";
+                        catch
+                        {
+                            // swallow here: notifications must not break the request flow
+                        }
                     }
                 }
-            }
-            catch (Exception)
-            {
-                throw;
+                else
+                {
+                    message = "Expense data is missing.";
+                }
             }
             return message;
         }
         public async Task<string> UpdateExpenses(ExpenseViewModel expenseViewModel)
         {
-            try
-            {
-                var error = ValidateExpenseViewModel(expenseViewModel);
+            var error = ValidateExpenseViewModel(expenseViewModel);
 
-                if (!string.IsNullOrEmpty(error))
+            if (!string.IsNullOrEmpty(error))
+            {
+                return error;
+            }
+            else
+            {
+                if (expenseViewModel is not null)
                 {
-                    return error;
-                }
-                else
-                {
-                    if (expenseViewModel is not null)
+                    Expense expense = new Expense
                     {
-                        Expense expense = new Expense
-                        {
-                            ExpenseId = expenseViewModel.ExpenseId,
-                            Item = expenseViewModel.Item?.Trim(),
-                            Amount = expenseViewModel.Amount,
-                            Date = expenseViewModel.Date.Date,
-                            RoomId = expenseViewModel.RoomId,
-                            Category = CategoryMapper.GetCategoryFromItem(expenseViewModel.Item ?? string.Empty)
-                        };
-                        var result = await expenseRepository.UpdateExpenses(expense);
+                        ExpenseId = expenseViewModel.ExpenseId,
+                        Item = expenseViewModel.Item?.Trim(),
+                        Amount = expenseViewModel.Amount,
+                        Date = expenseViewModel.Date.Date,
+                        RoomId = expenseViewModel.RoomId,
+                        Category = CategoryMapper.GetCategoryFromItem(expenseViewModel.Item ?? string.Empty)
+                    };
+                    var result = await expenseRepository.UpdateExpenses(expense);
 
-                        if (result.IsUpdated)
-                        {
-                            var cacheKey = CacheHepler.GetCacheKey(expenseViewModel.RoomId, expenseViewModel.Date);
-                            cache.Remove(cacheKey);
-                        }
-                        return result.Message;
+                    if (result.IsUpdated)
+                    {
+                        var cacheKey = CacheHepler.GetCacheKey(expenseViewModel.RoomId, expenseViewModel.Date);
+                        cache.Remove(cacheKey);
                     }
+                    return result.Message;
                 }
             }
-            catch (Exception)
-            {
-                throw;
-            }
-            return "Please enter input.";
+            return string.Empty;
         }
 
         public async Task<RoomExpensesViewModel> GetMonthlyExpenses(int roomId, DateTime selectedMonth)
         {
             RoomExpensesViewModel roomExpensesViewModel = new RoomExpensesViewModel();
-            try
+            List<Expense>? expenses = await expenseRepository.GetMonthlyExpenses(roomId, selectedMonth);
+            List<Settlement>? settlements = await settlementRepository.GetMonthlySettlements(roomId, selectedMonth);
+
+            if (expenses is null || settlements is null)
             {
-                List<Expense>? expenses = await expenseRepository.GetMonthlyExpenses(roomId, selectedMonth);
-                List<Settlement>? settlements = await settlementRepository.GetMonthlySettlements(roomId, selectedMonth);
-
-                if (expenses is null || settlements is null)
-                {
-                    expenses = new List<Expense>();
-                    settlements = new List<Settlement>();
-                }
-                var userId = currentUser.UserId;
-                List<Member> members = await memberRepository.GetMembersByRoomId(roomId, userId);
-
-                var total = expenses.Where(x => !x.IsNonSplitExpense).Sum(x => (decimal?)x.Amount) ?? 0m;
-                var memberCount = members.Count;
-                var avgAmount = memberCount > 0 ? Math.Round(total / memberCount, 2) : 0m;
-
-                List<ExpenseSummary> summaries = GetExpenseSummary(expenses, settlements, members);
-
-                roomExpensesViewModel = new RoomExpensesViewModel
-                {
-                    Summary = summaries,
-                    TotalExpense = total,
-                    AvgPerPerson = avgAmount,
-                    IsTwoMembersInRoom = members.Count == 2,
-                    Expense = new Expense { RoomId = roomId }
-                };
+                expenses = new List<Expense>();
+                settlements = new List<Settlement>();
             }
-            catch (Exception)
+            var userId = currentUser.UserId;
+            List<Member> members = await memberRepository.GetMembersByRoomId(roomId, userId);
+
+            var total = expenses.Where(x => !x.IsNonSplitExpense).Sum(x => (decimal?)x.Amount) ?? 0m;
+            var memberCount = members.Count;
+            var avgAmount = memberCount > 0 ? Math.Round(total / memberCount, 2) : 0m;
+
+            List<ExpenseSummary> summaries = GetExpenseSummary(expenses, settlements, members);
+
+            roomExpensesViewModel = new RoomExpensesViewModel
             {
-                throw;
-            }
+                Summary = summaries,
+                TotalExpense = total,
+                AvgPerPerson = avgAmount,
+                IsTwoMembersInRoom = members.Count == 2,
+                Expense = new Expense { RoomId = roomId }
+            };
             return roomExpensesViewModel;
         }
 
@@ -200,75 +188,67 @@ namespace Services.Management
         private List<ExpenseSummary> GetExpenseSummary(List<Expense> expenses, List<Settlement> settlements, List<Member> members)
         {
             List<ExpenseSummary> summaries = new List<ExpenseSummary>();
-            try
-            {
-                var userId = currentUser.UserId;
-                var total = expenses.Where(x => !x.IsNonSplitExpense).Sum(x => (decimal?)x.Amount) ?? 0m;
-                var memberCount = members.Count;
-                var avgAmount = memberCount > 0 ? Math.Round(total / memberCount, 2) : 0m;
+            var userId = currentUser.UserId;
+            var total = expenses.Where(x => !x.IsNonSplitExpense).Sum(x => (decimal?)x.Amount) ?? 0m;
+            var memberCount = members.Count;
+            var avgAmount = memberCount > 0 ? Math.Round(total / memberCount, 2) : 0m;
 
-                foreach (var member in members)
+            foreach (var member in members)
+            {
+                var memberExpenses = expenses.Where(e => e.MemberId == member.MemberId && !e.IsNonSplitExpense).OrderBy(e => e.Date).ToList();
+                var totalExpense = memberExpenses.Sum(e => e.Amount);
+                var totalPaid = settlements.Where(s => s.MemberId == member.MemberId).Sum(s => s.Amount);
+                var totalReceived = settlements.Where(s => s.PaidToMemberId == member.MemberId).Sum(s => s.Amount);
+                var rawDifference = (totalExpense + totalPaid) - totalReceived - avgAmount;
+                var effectiveDifference = Math.Abs(rawDifference) < 0.5m ? 0m : rawDifference;
+
+                var tookFromOthers = expenses
+                    .Where(e => e.MemberId == member.MemberId && e.OwedToMemberId != member.MemberId && e.OwedToMemberId > 0 && e.IsNonSplitExpense == true)
+                    .Sum(e => e.Amount);
+
+                var gaveToOthers = expenses
+                    .Where(e => e.MemberId == member.MemberId && e.OweToMemberId != member.MemberId && e.OweToMemberId > 0 && e.IsNonSplitExpense == true)
+                    .Sum(e => e.Amount);
+
+                List<string> notes = new List<string>();
+
+                var loggedInMemberId = members.Where(x => x.ApplicationUserId == userId).Select(x => x.MemberId).FirstOrDefault();
+
+                string displayName = member.MemberId == loggedInMemberId ? "You" : member.Name;
+
+                if (gaveToOthers > 0)
                 {
-                    var memberExpenses = expenses.Where(e => e.MemberId == member.MemberId && !e.IsNonSplitExpense).OrderBy(e => e.Date).ToList();
-                    var totalExpense = memberExpenses.Sum(e => e.Amount);
-                    var totalPaid = settlements.Where(s => s.MemberId == member.MemberId).Sum(s => s.Amount);
-                    var totalReceived = settlements.Where(s => s.PaidToMemberId == member.MemberId).Sum(s => s.Amount);
-                    var rawDifference = (totalExpense + totalPaid) - totalReceived - avgAmount;
-                    var effectiveDifference = Math.Abs(rawDifference) < 0.5m ? 0m : rawDifference;
+                    int? memid = expenses.Where(e => e.MemberId == member.MemberId && e.OweToMemberId > 0 && e.IsNonSplitExpense).Select(x => x.OweToMemberId).FirstOrDefault();
 
-                    var tookFromOthers = expenses
-                        .Where(e => e.MemberId == member.MemberId && e.OwedToMemberId != member.MemberId && e.OwedToMemberId > 0 && e.IsNonSplitExpense == true)
-                        .Sum(e => e.Amount);
-
-                    var gaveToOthers = expenses
-                        .Where(e => e.MemberId == member.MemberId && e.OweToMemberId != member.MemberId && e.OweToMemberId > 0 && e.IsNonSplitExpense == true)
-                        .Sum(e => e.Amount);
-
-                    List<string> notes = new List<string>();
-
-                    var loggedInMemberId = members.Where(x => x.ApplicationUserId == userId).Select(x => x.MemberId).FirstOrDefault();
-
-                    string displayName = member.MemberId == loggedInMemberId ? "You" : member.Name;
-
-                    if (gaveToOthers > 0)
-                    {
-                        int? memid = expenses.Where(e => e.MemberId == member.MemberId && e.OweToMemberId > 0 && e.IsNonSplitExpense).Select(x => x.OweToMemberId).FirstOrDefault();
-
-                        string? oweMemberName = expenses.Where(e => e.MemberId == memid).Select(x => x.Member.Name).FirstOrDefault();
-                        notes.Add($"{displayName} gave: {gaveToOthers:F2} to {oweMemberName}");
-                    }
-
-                    if (tookFromOthers > 0)
-                    {
-                        int? memid = expenses.Where(e => e.MemberId == member.MemberId && e.OwedToMemberId > 0 && e.IsNonSplitExpense).Select(x => x.OwedToMemberId).FirstOrDefault();
-
-                        string? owedToMemberName = expenses.Where(e => e.MemberId == memid).Select(x => x.Member.Name).FirstOrDefault();
-                        notes.Add($"{displayName} took: {tookFromOthers:F2} from {owedToMemberName}");
-                    }
-
-                    string personalNote = notes.Any() ? string.Join(" | ", notes) : "No non-split transactions";
-
-                    summaries.Add(new ExpenseSummary
-                    {
-                        MemberName = member.Name,
-                        TotalExpense = totalExpense,
-                        PaidAmount = totalPaid,
-                        ReceivedAmount = totalReceived,
-                        NetBalance = totalExpense + totalPaid - totalReceived,
-                        Items = memberExpenses,
-                        IsOwed = effectiveDifference > 0,
-                        IsOwing = effectiveDifference < 0,
-                        BadgeText = effectiveDifference > 0 ? "Owed" : effectiveDifference < 0 ? "Owe" : "Settled up",
-                        BadgeAmount = effectiveDifference != 0 ? Math.Abs(effectiveDifference) : 0m,
-                        RawDifference = effectiveDifference,
-                        NonSplitText = personalNote,
-                    });
+                    string? oweMemberName = expenses.Where(e => e.MemberId == memid).Select(x => x.Member.Name).FirstOrDefault();
+                    notes.Add($"{displayName} gave: {gaveToOthers:F2} to {oweMemberName}");
                 }
-            }
-            catch (Exception)
-            {
 
-                throw;
+                if (tookFromOthers > 0)
+                {
+                    int? memid = expenses.Where(e => e.MemberId == member.MemberId && e.OwedToMemberId > 0 && e.IsNonSplitExpense).Select(x => x.OwedToMemberId).FirstOrDefault();
+
+                    string? owedToMemberName = expenses.Where(e => e.MemberId == memid).Select(x => x.Member.Name).FirstOrDefault();
+                    notes.Add($"{displayName} took: {tookFromOthers:F2} from {owedToMemberName}");
+                }
+
+                string personalNote = notes.Any() ? string.Join(" | ", notes) : "No non-split transactions";
+
+                summaries.Add(new ExpenseSummary
+                {
+                    MemberName = member.Name,
+                    TotalExpense = totalExpense,
+                    PaidAmount = totalPaid,
+                    ReceivedAmount = totalReceived,
+                    NetBalance = totalExpense + totalPaid - totalReceived,
+                    Items = memberExpenses,
+                    IsOwed = effectiveDifference > 0,
+                    IsOwing = effectiveDifference < 0,
+                    BadgeText = effectiveDifference > 0 ? "Owed" : effectiveDifference < 0 ? "Owe" : "Settled up",
+                    BadgeAmount = effectiveDifference != 0 ? Math.Abs(effectiveDifference) : 0m,
+                    RawDifference = effectiveDifference,
+                    NonSplitText = personalNote,
+                });
             }
             return summaries;
         }
@@ -394,45 +374,94 @@ namespace Services.Management
             return summaries;
         }
 
-        public async Task<List<UserExpenseResponse>> GetUserExpensesForApi()
+        public async Task<UserExpenseDetails> GetUserExpensesForApi()
         {
-            try
+            var userId = currentUser.UserId;
+            if (string.IsNullOrEmpty(userId))
             {
-                var userId = currentUser.UserId;
-                if (string.IsNullOrEmpty(userId))
+                return new UserExpenseDetails();
+            }
+
+            var now = DateTime.Now;
+            var startDate = new DateTime(now.Year, now.Month, 1).AddMonths(-1);
+            var endDate = new DateTime(now.Year, now.Month, 1).AddMonths(1).AddDays(-1);
+
+            string cacheKey = $"UserExpenses_{userId}__{startDate:yyyy-MM}_{endDate:yyyy-MM}";
+
+            //if (!cache.TryGetValue(cacheKey, out List<UserExpenseResponse>? cachedData))
+            //{
+            var expenses = await expenseRepository.GetUserExpenses(userId, startDate, endDate);
+            List<string> months = expenses.Select(e => e.Date.ToString("yyyy-MM")).Distinct().OrderByDescending(m => m).ToList();
+
+            UserExpenseDetails userExpenseDetails = new UserExpenseDetails();
+            var userExpenseRes = expenses.Select(e => new UserExpenseResponse
+            {
+                Item = e.Item ?? string.Empty,
+                RoomName = e.Room?.Name ?? string.Empty,
+                Amount = e.Amount,
+                ExpenseDate = e.Date,
+                IconName = CategoryMapper.GetIconForCategory(e.Category ?? string.Empty),
+                UserId = userId
+            }).ToList();
+
+            userExpenseDetails.UserExpenseResponse = userExpenseRes;
+            userExpenseDetails.Months = months;
+
+            //cache.Set(cacheKey, cachedData, TimeSpan.FromDays(30));
+            //}
+            return userExpenseDetails ?? new UserExpenseDetails();
+        }
+
+        public async Task<MonthlyExpensesTrendResponse> GetMonthlyExpensesTrend()
+        {
+            var userId = currentUser.UserId;
+            var members = await memberRepository.GetMembersByRoomId(1, userId);
+            var expenses = await expenseRepository.GetAllAsync();
+            var settlements = await settlementRepository.GetAllAsync();
+
+            List<string> months = expenses
+                .Select(e => new { e.Date.Year, e.Date.Month })
+                .Distinct()
+                .OrderBy(x => x.Year).ThenBy(x => x.Month)
+                .Select(x => new DateTime(x.Year, x.Month, 1).ToString("MMM"))
+                .ToList();
+
+            var response = new MonthlyExpensesTrendResponse();
+            response.Months = months;
+
+            foreach (var member in members)
+            {
+                var monthlyTotals = new List<decimal>();
+
+                foreach (var monthIndex in Enumerable.Range(0, months.Count))
                 {
-                    return new List<UserExpenseResponse>();
+                    var targetMonth = DateTime.Now.AddMonths(-(months.Count - 1 - monthIndex));
+
+                    var memberExpenses = expenses
+                        .Where(e => e.MemberId == member.MemberId && (e.IsDeleted == false || e.IsDeleted == null) && e.Date.Month == targetMonth.Month && e.Date.Year == targetMonth.Year)
+                        .Sum(e => e.Amount);
+
+                    var paidSettlements = settlements
+                        .Where(s => s.MemberId == member.MemberId && s.SettlementForDate.Month == targetMonth.Month && s.SettlementForDate.Year == targetMonth.Year)
+                        .Sum(s => s.Amount);
+
+                    var receivedSettlements = settlements
+                        .Where(s => s.PaidToMemberId == member.MemberId && s.SettlementForDate.Month == targetMonth.Month && s.SettlementForDate.Year == targetMonth.Year)
+                        .Sum(s => s.Amount);
+
+                    var netExpense = memberExpenses - paidSettlements + receivedSettlements;
+
+                    if(netExpense > 0)
+                     monthlyTotals.Add(netExpense);
                 }
 
-                var now = DateTime.Now; 
-                var startDate = new DateTime(now.Year, now.Month, 1).AddMonths(-1); 
-                var endDate = new DateTime(now.Year, now.Month, 1).AddMonths(1).AddDays(-1);
-
-                string cacheKey = $"UserExpenses_{userId}__{startDate:yyyy-MM}_{endDate:yyyy-MM}";
-
-                //if (!cache.TryGetValue(cacheKey, out List<UserExpenseResponse>? cachedData))
-                //{
-                    var expenses = await expenseRepository.GetUserExpenses(userId, startDate, endDate);
-
-                   var cachedData = expenses.Select(e => new UserExpenseResponse
-                    {
-                        Item = e.Item ?? string.Empty,
-                        RoomName = e.Room?.Name ?? string.Empty,
-                        Amount = e.Amount,
-                        ExpenseDate = e.Date,
-                        IconName = CategoryMapper.GetIconForCategory(e.Category ?? string.Empty),
-                        UserId = userId
-                    }).ToList();
-
-                    cache.Set(cacheKey, cachedData, TimeSpan.FromDays(30));
-                //}
-                return cachedData ?? new List<UserExpenseResponse>();
+                response.Members.Add(new MemberExpenses
+                {
+                    Name = member.Name,
+                    MonthlyExpenses = monthlyTotals
+                });
             }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error fetching user expenses: {ex.Message}");
-                return new List<UserExpenseResponse>();
-            }
+            return response;
         }
     }
 }

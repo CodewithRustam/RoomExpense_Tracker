@@ -42,9 +42,10 @@ namespace ExpenseTrakcerHepler
             ["Vegetables"] = new HashSet<string>
             {
                 "vegetable", "sabzi", "carrot", "gajar", "potato", "aloo", "onion", "pyaz", "tomato", "tamatar",
-                "spinach", "palak", "beans", "cabbage", "band gobi", "bhindi", "okra", "gobi", "cauliflower",
+                "spinach", "palak", "beans", "cabbage", "band gobi", "bhindi", "okra", "gobi","gobhi", "cauliflower",
                 "kaddu", "pumpkin", "mushroom", "peas", "matar", "brinjal", "baingan", "capsicum", "shimla mirch",
-                "lettuce", "zucchini", "pudina", "karela", "lauki", "tinda"
+                "lettuce", "zucchini", "pudina", "karela", "lauki", "tinda","matar", "coriander", "dhaniya","aaloo",
+                "cucumber", "kheera", "radish", "mooli", "sweet potato", "shakarkandi", "turnip","muli","mooli",
             },
 
             ["Fruits"] = new HashSet<string>
@@ -57,7 +58,8 @@ namespace ExpenseTrakcerHepler
             ["Beverages"] = new HashSet<string>
             {
                 "tea", "chai", "chaipatti", "chai patti", "tea powder", "coffee", "juice", "ras", "milkshake",
-                "cola", "soft drink", "water", "pani", "soda", "lemonade", "sharbat", "beer", "wine", "whiskey", "vodka", "rum"
+                "cola", "soft drink", "water", "pani", "soda", "lemonade", "sharbat","paani", "energy drink", "smoothie",
+                "cold drink", "beverages","coke", "pepsi", "sprite", "fanta", "thums up", "maaza", "slice", "nimbu pani",
             },
 
             ["Ready-made Food"] = new HashSet<string>
@@ -68,7 +70,7 @@ namespace ExpenseTrakcerHepler
 
             ["Prepared Food"] = new HashSet<string>
             {
-                "biryani", "shawarma", "naan", "roti", "roll", "lunch", "curry", "sabzi", "thali", "meal",
+                "biryani", "shawarma", "naan", "roti", "roll", "lunch", "curry", "sabzi", "thali", "meal","fried rice","veg pulao",
                 "dal makhani", "butter chicken", "chole bhature", "pav bhaji", "rajma chawal", "masala dosa", "idli", "vada", "pulao"
             },
 
@@ -81,7 +83,7 @@ namespace ExpenseTrakcerHepler
 
             ["Utilities"] = new HashSet<string>
             {
-                "water", "pani", "electricity", "bijli", "gas", "current bill", "electric bill", "bill",
+                "electricity", "bijli", "gas", "current bill", "electric bill", "bill",
                 "internet", "wifi", "phone", "mobile recharge", "recharge", "cylinder", "indane", "bharat gas"
             },
 
@@ -156,7 +158,7 @@ namespace ExpenseTrakcerHepler
             ["Pulses"] = "fa-solid fa-seedling",                  
             ["Grains"] = "fa-solid fa-bread-slice",               
             ["Cooking Essentials"] = "fa-solid fa-burn",          
-            ["Vegetables"] = "fa-solid fa-carrot",                
+            ["Vegetables"] = "fa-solid fa-leaf",                
             ["Fruits"] = "fa-solid fa-apple-alt",                 
             ["Beverages"] = "fa-solid fa-mug-hot",                
             ["Ready-made Food"] = "fa-solid fa-bowl-food",        

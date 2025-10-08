@@ -1,11 +1,14 @@
 ﻿using Domain.AppUser;
 using Domain.Entities;
+using Domain.Exceptions;
 using Domain.Interfaces;
 using ExpenseTrakcerHepler;
+using Infrastructure.Data;
 using Infrastructure.Email;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Caching.Memory;
 using Services.Interfaces;
+using Services.ViewModels;
 
 namespace Services.Management
 {
@@ -19,9 +22,9 @@ namespace Services.Management
         private readonly IEmailSender _emailSender;
         private readonly IMemoryCache _cache;
         private readonly UserManager<ApplicationUser> _userManager;
+        private readonly AppDbContext _context;
 
-
-        public SettlementService(IMemberRepository memberRepo, IExpenseRepository expenseRepo,ISettlementRepository settlementRepo, IRoomRepository roomRepo, IEmailSender emailSender, IMemoryCache cache, ICurrentUserService _currentUser, UserManager<ApplicationUser> userManager)
+        public SettlementService(IMemberRepository memberRepo, IExpenseRepository expenseRepo,ISettlementRepository settlementRepo, IRoomRepository roomRepo, IEmailSender emailSender, IMemoryCache cache, ICurrentUserService _currentUser, UserManager<ApplicationUser> userManager, AppDbContext context)
         {
             _memberRepo = memberRepo;
             _expenseRepo = expenseRepo;
@@ -31,108 +34,146 @@ namespace Services.Management
             _cache = cache;
             currentUser = _currentUser;
             _userManager = userManager;
+            _context = context;
         }
 
-        public async Task<(bool Success, string Message)> SettleExpenseAsync(int roomId, string memberName, string paidToMemberName, decimal amount, DateTime settlementForMonth)
+        public async Task<(bool Success, string Message)> SettleExpenseAsync(SettlementRequest request)
         {
+            await using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
+                if (request.RoomId <= 0)
+                    return (false, "Invalid room ID.");
+
+                if (string.IsNullOrWhiteSpace(request.PayerName))
+                    return (false, "Invalid payer name.");
+
+                if (string.IsNullOrWhiteSpace(request.ReceiverName))
+                    return (false, "Invalid receiver name.");
+
+                if (request.SettlementAmount <= 0)
+                    return (false, "Settlement amount must be greater than zero.");
+
                 var userId = currentUser.UserId;
-                var member = await _memberRepo.GetLoggedInMemberDetails(roomId, memberName,userId);
-                if (member == null) return (false, "Member not found.");
+                var roomId = request.RoomId;
+                var payerName = request.PayerName;
+                var receiverName = request.ReceiverName;
+                var settlementMonth = request.SettlementMonth ?? DateTime.UtcNow;
 
-                var paidToMember = await _memberRepo.GetRecipientMemberDetails(roomId, paidToMemberName);
-                if (paidToMember == null) return (false, "Recipient not found.");
+                if (!await _roomRepo.AnyAsync(r => r.RoomId == roomId))
+                    return (false, "Room not found.");
 
-                if (!await _roomRepo.IsValidRoomAsync(roomId)) return (false, "Room not found.");
+                var payer = await _memberRepo.GetLoggedInMemberDetails(roomId, payerName, userId);
+                if (payer == null)
+                    return (false, "Payer not found.");
 
-                var start = settlementForMonth;
-                var end = settlementForMonth.AddMonths(1).AddTicks(-1);
+                var receiver = await _memberRepo.GetRecipientMemberDetails(roomId, receiverName);
+                if (receiver == null)
+                    return (false, "Receiver not found.");
 
-                decimal loggedInExpenses = await _expenseRepo.GetMemberTotalExpenses(roomId, member.MemberId, start, end);
-                decimal settlementsPaid = await _settlementRepo.GetSettlementsPaid(roomId, member.MemberId, start, end);
-                decimal settlementsReceived = await _settlementRepo.GetSettlementsReceived(roomId, member.MemberId, start, end);
+                if (payer.MemberId == receiver.MemberId)
+                    return (false, "You cannot settle with yourself.");
 
-                decimal paidToExpenses = await _expenseRepo.GetMemberTotalExpenses(roomId, paidToMember.MemberId, start, end);
-                decimal paidToSettlementsPaid = await _settlementRepo.GetSettlementsPaid(roomId, paidToMember.MemberId, start, end);
-                decimal paidToSettlementsReceived = await _settlementRepo.GetSettlementsReceived(roomId, paidToMember.MemberId, start, end);
+                var monthStart = new DateTime(settlementMonth.Year, settlementMonth.Month, 1);
+                var monthEnd = monthStart.AddMonths(1).AddTicks(-1);
 
-                decimal totalRoomExpenses = await _expenseRepo.GetTotalRoomExpenses(roomId, start, end);
-                int memberCount = await _memberRepo.GetMemberCount(roomId);
+                var memberExpenses = await _expenseRepo.GetExpensesForMembers(roomId, payer.MemberId, receiver.MemberId, monthStart, monthEnd);
+                var memberSettlements = await _settlementRepo.GetSettlementsForMembers(roomId, payer.MemberId, receiver.MemberId, monthStart, monthEnd);
 
-                var avgPerPerson = memberCount > 0 ? totalRoomExpenses / memberCount : 0;
 
-                var payerBalance = loggedInExpenses + settlementsPaid + settlementsReceived;
-                var payerOwedAmount = Math.Abs(payerBalance - avgPerPerson);
+                decimal payerTotalExpenses = memberExpenses.Where(e => e.MemberId == payer.MemberId).Sum(e => e.Amount);
+                decimal payerTotalPaid = memberSettlements.Where(s => s.MemberId == payer.MemberId).Sum(s => s.Amount);
+                decimal payerTotalReceived = memberSettlements.Where(s => s.PaidToMemberId == payer.MemberId).Sum(s => s.Amount);
 
-                var recipientBalance = paidToExpenses - paidToSettlementsPaid + paidToSettlementsReceived;
-                var recipientOwedAmount = recipientBalance - avgPerPerson;
+                decimal receiverTotalExpenses = memberExpenses.Where(e => e.MemberId == receiver.MemberId).Sum(e => e.Amount);
+                decimal receiverTotalPaid = memberSettlements.Where(s => s.MemberId == receiver.MemberId).Sum(s => s.Amount);
+                decimal receiverTotalReceived = memberSettlements.Where(s => s.PaidToMemberId == receiver.MemberId).Sum(s => s.Amount);
 
-                if (payerBalance >= avgPerPerson) return (false, "You are not owing any amount.");
-                if (recipientBalance <= avgPerPerson) return (false, "Recipient is not owed any amount.");
+                decimal totalRoomExpenses = await _expenseRepo.GetTotalRoomExpenses(roomId, monthStart, monthEnd);
+                int totalMembers = await _memberRepo.GetMemberCount(roomId);
 
-                var maxSettlement = Math.Max(Math.Round(payerOwedAmount), Math.Round(recipientOwedAmount));
-                if (amount > maxSettlement) return (false, $"Settlement cannot exceed ₹{maxSettlement:F2}");
+                if (totalMembers <= 0)
+                    return (false, "No members found in this room.");
 
-                var settlement = new Settlement
+                decimal avgExpensePerMember = Math.Round(totalRoomExpenses / totalMembers,2);
+
+                // Compute balances
+                decimal payerNetBalance = payerTotalExpenses + payerTotalPaid - payerTotalReceived;
+                decimal receiverNetBalance = receiverTotalExpenses + receiverTotalPaid - receiverTotalReceived;
+
+                decimal payerOwes = Math.Round(avgExpensePerMember - payerNetBalance, 2);
+                decimal receiverIsOwed = Math.Round(receiverNetBalance - avgExpensePerMember, 2);
+
+                if (payerOwes <= 0)
+                    return (false, "You do not owe any amount.");
+
+                if (receiverIsOwed <= 0)
+                    return (false, "Receiver is not owed any amount.");
+
+                decimal allowedMaxSettlement = Math.Min(payerOwes, receiverIsOwed);
+                bool isSettlementAmountExceed = Math.Truncate(request.SettlementAmount) > Math.Truncate(allowedMaxSettlement);
+                if (isSettlementAmountExceed)
+                    return (false, $"Settlement cannot exceed ₹{allowedMaxSettlement:F2}");
+
+                var newSettlement = new Settlement
                 {
-                    MemberId = member.MemberId,
-                    PaidToMemberId = paidToMember.MemberId,
+                    MemberId = payer.MemberId,
+                    PaidToMemberId = receiver.MemberId,
                     RoomId = roomId,
-                    Amount = amount,
-                    SettlementDate = DateTime.Now,
-                    SettlementForDate = settlementForMonth
+                    Amount = request.SettlementAmount,
+                    SettlementDate = DateTime.UtcNow,
+                    SettlementForDate = settlementMonth
                 };
 
-                await _settlementRepo.AddSettlement(settlement);
+                await _settlementRepo.AddAsync(newSettlement);
+                await transaction.CommitAsync();
 
-                if (settlement.SettlementId > 0)
-                {
-                    string cacheKey = CacheHepler.GetCacheKey(roomId, settlementForMonth);
-                    _cache.Remove(cacheKey);
+                string cacheKey = CacheHepler.GetCacheKey(roomId, settlementMonth);
+                _cache.Remove(cacheKey);
 
-                    await SendSettlementEmailAsync(member, paidToMember, amount, settlementForMonth);
-                    return (true, $"Successfully settled ₹{amount} with {paidToMemberName}.");
-                }
+                _ = Task.Run(() => SendSettlementEmailAsync(payer, receiver, request.SettlementAmount, settlementMonth));
+
+                return (true, $"Successfully settled ₹{request.SettlementAmount:F2} with {receiverName}.");
             }
             catch (Exception)
             {
-                throw;
+                await transaction.RollbackAsync();
+                throw new NotFoundException("An unexpected error occurred while settling expenses. Please try again.");
             }
-            return (false, "Settlement failed.");
         }
-        public async Task SendSettlementEmailAsync(Member member, Member paidToMember, decimal amount, DateTime settlementForMonth)
+        public async Task SendSettlementEmailAsync(Member payer, Member receiver, decimal amount, DateTime settlementForMonth)
         {
-            try
+            if (payer == null || receiver == null || string.IsNullOrWhiteSpace(payer.ApplicationUserId) || string.IsNullOrWhiteSpace(receiver.ApplicationUserId))
             {
-                if (member != null && paidToMember != null && member.ApplicationUserId != null && paidToMember.ApplicationUserId != null)
-                {
-                    var payerUser = await _userManager.FindByIdAsync(member.ApplicationUserId);
-                    var receiverUser = await _userManager.FindByIdAsync(paidToMember.ApplicationUserId);
-
-                    if (receiverUser != null && receiverUser.Email != null)
-                    {
-                        await _emailSender.SendEmailAsync(
-                            receiverUser.Email,
-                            $"Settlement Received - {DateTime.Today:MMMM yyyy}",
-                            $"Hi {receiverUser.UserName},<br/><br/>{member.Name} has settled ₹{amount} with you for {settlementForMonth:MMMM yyyy}.<br/><br/>Regards,<br/>Expense Tracker"
-                        );
-                    }
-
-                    if (payerUser != null && payerUser.Email != null)
-                    {
-                        await _emailSender.SendEmailAsync(
-                            payerUser.Email,
-                            $"Settlement Paid - {DateTime.Today:MMMM yyyy}",
-                            $"Hi {payerUser.UserName},<br/><br/>You have successfully settled ₹{amount} to {paidToMember.Name} for {settlementForMonth:MMMM yyyy}.<br/><br/>Regards,<br/>Expense Tracker"
-                        );
-                    }
-                }
+                //_logger.LogWarning("SendSettlementEmailAsync skipped: payer or receiver info missing.");
+                return;
             }
-            catch (Exception)
-            {
 
-                throw;
+            var payerUser = await _userManager.FindByIdAsync(payer.ApplicationUserId);
+            var receiverUser = await _userManager.FindByIdAsync(receiver.ApplicationUserId);
+
+            if (receiverUser != null && !string.IsNullOrWhiteSpace(receiverUser.Email))
+            {
+                string receiverEmailSubject = $"Settlement Received - {settlementForMonth:MMMM yyyy}";
+                string receiverEmailBody = EmailTemplates.GetEmailTemplate(
+                    receiverUser.UserName!,
+                    $"{payer.Name} has settled ₹{amount:F2} with you for {settlementForMonth:MMMM yyyy}.",
+                    "Settlement Received"
+                );
+
+                await _emailSender.SendEmailAsync(receiverUser.Email, receiverEmailSubject, receiverEmailBody);
+            }
+
+            if (payerUser != null && !string.IsNullOrWhiteSpace(payerUser.Email))
+            {
+                string payerEmailSubject = $"Settlement Paid - {settlementForMonth:MMMM yyyy}";
+                string payerEmailBody = EmailTemplates.GetEmailTemplate(
+                    payerUser.UserName!,
+                    $"You have successfully settled ₹{amount:F2} to {receiver.Name} for {settlementForMonth:MMMM yyyy}.",
+                    "Settlement Paid"
+                );
+
+                await _emailSender.SendEmailAsync(payerUser.Email, payerEmailSubject, payerEmailBody);
             }
         }
     }

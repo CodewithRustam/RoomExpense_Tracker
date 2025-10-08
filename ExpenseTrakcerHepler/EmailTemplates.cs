@@ -31,5 +31,70 @@
         </div>
         ";
         }
+        /// <summary>
+        /// Returns a clean, professional HTML email template
+        /// </summary>
+        public static string GetEmailTemplate(string userName, string mainMessage, string heading)
+        {
+            return $@"
+                    <!DOCTYPE html>
+                    <html lang='en'>
+                    <head>
+                        <meta charset='UTF-8'>
+                        <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+                        <style>
+                            body {{
+                                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                                background-color: #f4f4f7;
+                                color: #333;
+                                margin: 0;
+                                padding: 0;
+                            }}
+                            .email-container {{
+                                max-width: 600px;
+                                margin: 30px auto;
+                                background-color: #ffffff;
+                                border-radius: 10px;
+                                padding: 20px;
+                                box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+                            }}
+                            h2 {{
+                                color: #4e54c8;
+                                text-align: center;
+                            }}
+                            p {{
+                                line-height: 1.6;
+                                font-size: 16px;
+                            }}
+                            .footer {{
+                                font-size: 14px;
+                                color: #777;
+                                text-align: center;
+                                margin-top: 20px;
+                            }}
+                            .button {{
+                                display: inline-block;
+                                padding: 10px 20px;
+                                margin-top: 20px;
+                                background: #4e54c8;
+                                color: #fff;
+                                text-decoration: none;
+                                border-radius: 5px;
+                            }}
+                        </style>
+                    </head>
+                    <body>
+                        <div class='email-container'>
+                            <h2>{heading}</h2>
+                            <p>Hi {userName},</p>
+                            <p>{mainMessage}</p>
+                            <p>Thank you for using Expense Tracker!</p>
+                            <div class='footer'>
+                                &copy; {DateTime.UtcNow.Year} Expense Tracker. All rights reserved.
+                            </div>
+                        </div>
+                    </body>
+                    </html>";
+        }
     }
 }

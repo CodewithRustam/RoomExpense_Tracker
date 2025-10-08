@@ -16,59 +16,26 @@ namespace Infrastructure.Repositories
             _context = context;
             cache = _cache;
         }
-
         public async Task<List<Settlement>> GetMonthlySettlements(int roomId, DateTime selectedMonth)
         {
-            try
+            string cacheKey = CacheHepler.GetCacheKey(roomId, selectedMonth);
+            if (!cache.TryGetValue(cacheKey, out List<Settlement>? settlementDataList))
             {
-                string cacheKey = CacheHepler.GetCacheKey(roomId, selectedMonth);
-                if (!cache.TryGetValue(cacheKey, out List<Settlement>? settlementDataList))
-                {
-                    settlementDataList = await GetAllAsync(x => x.RoomId == roomId);
-                    cache.Set(cacheKey, settlementDataList, TimeSpan.FromDays(30));
-                }
-
+                settlementDataList = await GetAllAsync(x => x.RoomId == roomId);
+                cache.Set(cacheKey, settlementDataList, TimeSpan.FromDays(30));
+            }
             return await GetAllAsync(x => x.RoomId == roomId);
-            }
-            catch (Exception)
-            {
-                throw;
-            }
         }
-        public async Task AddSettlement(Settlement settlement)
+        public async Task<List<Settlement>> GetSettlementsForMembers(int roomId, int payerMemberId, int receiverMemberId, DateTime monthStart, DateTime monthEnd)
         {
-            try
-            {
-                await AddAsync(settlement);
-                await SaveChangesAsync();
-            }
-            catch (Exception)
-            {
-                throw;
-            }
-        }
-        public async Task<decimal> GetSettlementsPaid(int roomId, int memberId, DateTime start, DateTime end)
-        {
-            try
-            {
-                 return await _context.Settlements.Where(s => s.RoomId == roomId && s.MemberId == memberId && s.SettlementForDate >= start && s.SettlementForDate <= end).SumAsync(s => s.Amount);
-            }
-            catch (Exception)
-            {
-                throw;
-            }
-        }
+            var memberIds = new[] { payerMemberId, receiverMemberId };
 
-        public async Task<decimal> GetSettlementsReceived(int roomId, int memberId, DateTime start, DateTime end)
-        {
-            try
-            {
-                return await _context.Settlements.Where(s => s.RoomId == roomId && s.PaidToMemberId == memberId && s.SettlementForDate >= start && s.SettlementForDate <= end).SumAsync(s => s.Amount);
-            }
-            catch (Exception)
-            {
-                throw;
-            }
+            return await _context.Settlements
+                .Where(s => s.RoomId == roomId
+                            && (memberIds.Contains(s.MemberId) || memberIds.Contains(s.PaidToMemberId))
+                            && s.SettlementForDate >= monthStart
+                            && s.SettlementForDate <= monthEnd)
+                .ToListAsync();
         }
     }
 }

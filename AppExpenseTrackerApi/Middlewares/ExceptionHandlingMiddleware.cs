@@ -2,7 +2,7 @@
 using Services.ViewModels.ApiViewModels;
 using System.Text.Json;
 
-namespace AppExpenseTracker.Middlewares
+namespace AppExpenseTrackerApi.Middlewares
 {
     public class ExceptionHandlingMiddleware
     {
