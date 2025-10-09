@@ -411,7 +411,6 @@ namespace Services.Management
             //}
             return userExpenseDetails ?? new UserExpenseDetails();
         }
-
         public async Task<MonthlyExpensesTrendResponse> GetMonthlyExpensesTrend()
         {
             var userId = currentUser.UserId;
@@ -422,12 +421,15 @@ namespace Services.Management
             List<string> months = expenses
                 .Select(e => new { e.Date.Year, e.Date.Month })
                 .Distinct()
-                .OrderBy(x => x.Year).ThenBy(x => x.Month)
+                .OrderBy(x => x.Year)
+                .ThenBy(x => x.Month)
                 .Select(x => new DateTime(x.Year, x.Month, 1).ToString("MMM"))
                 .ToList();
 
-            var response = new MonthlyExpensesTrendResponse();
-            response.Months = months;
+            var response = new MonthlyExpensesTrendResponse
+            {
+                Months = months
+            };
 
             foreach (var member in members)
             {
@@ -438,21 +440,26 @@ namespace Services.Management
                     var targetMonth = DateTime.Now.AddMonths(-(months.Count - 1 - monthIndex));
 
                     var memberExpenses = expenses
-                        .Where(e => e.MemberId == member.MemberId && (e.IsDeleted == false || e.IsDeleted == null) && e.Date.Month == targetMonth.Month && e.Date.Year == targetMonth.Year)
+                        .Where(e => e.MemberId == member.MemberId &&
+                                    (e.IsDeleted == false || e.IsDeleted == null) &&
+                                    e.Date.Month == targetMonth.Month &&
+                                    e.Date.Year == targetMonth.Year)
                         .Sum(e => e.Amount);
 
                     var paidSettlements = settlements
-                        .Where(s => s.MemberId == member.MemberId && s.SettlementForDate.Month == targetMonth.Month && s.SettlementForDate.Year == targetMonth.Year)
+                        .Where(s => s.MemberId == member.MemberId &&
+                                    s.SettlementForDate.Month == targetMonth.Month &&
+                                    s.SettlementForDate.Year == targetMonth.Year)
                         .Sum(s => s.Amount);
 
                     var receivedSettlements = settlements
-                        .Where(s => s.PaidToMemberId == member.MemberId && s.SettlementForDate.Month == targetMonth.Month && s.SettlementForDate.Year == targetMonth.Year)
+                        .Where(s => s.PaidToMemberId == member.MemberId &&
+                                    s.SettlementForDate.Month == targetMonth.Month &&
+                                    s.SettlementForDate.Year == targetMonth.Year)
                         .Sum(s => s.Amount);
 
                     var netExpense = memberExpenses - paidSettlements + receivedSettlements;
-
-                    if(netExpense > 0)
-                     monthlyTotals.Add(netExpense);
+                    monthlyTotals.Add(netExpense);
                 }
 
                 response.Members.Add(new MemberExpenses
@@ -461,6 +468,74 @@ namespace Services.Management
                     MonthlyExpenses = monthlyTotals
                 });
             }
+
+            var categories = expenses
+                .Where(e => e.IsDeleted == false || e.IsDeleted == null)
+                .Select(e => e.Category)
+                .Distinct()
+                .ToList();
+
+            foreach (var category in categories)
+            {
+                var monthlyTotals = new List<decimal>();
+
+                foreach (var monthIndex in Enumerable.Range(0, months.Count))
+                {
+                    var targetMonth = DateTime.Now.AddMonths(-(months.Count - 1 - monthIndex));
+
+                    var total = expenses
+                        .Where(e => e.Category == category &&
+                                    (e.IsDeleted == false || e.IsDeleted == null) &&
+                                    e.Date.Month == targetMonth.Month &&
+                                    e.Date.Year == targetMonth.Year)
+                        .Sum(e => e.Amount);
+
+                    monthlyTotals.Add(total);
+                }
+
+                response.CategoryExpenses.Add(new CategoryMonthlyExpense
+                {
+                    CategoryName = category!,
+                    MonthlyTotals = monthlyTotals,
+                    IconName = CategoryMapper.GetIconForCategory(category ?? string.Empty) // Use CategoryMapper
+                });
+            }
+
+            var topSpendCategories = expenses
+                .Where(e => e.IsDeleted == false || e.IsDeleted == null)
+                .GroupBy(e => e.Category)
+                .OrderByDescending(g => g.Sum(x => x.Amount))
+                .Take(5)
+                .Select(g => g.Key)
+                .ToList();
+
+            foreach (var category in topSpendCategories)
+            {
+                var monthlyTotals = new List<decimal>();
+
+                foreach (var monthIndex in Enumerable.Range(0, months.Count))
+                {
+                    var targetMonth = DateTime.Now.AddMonths(-(months.Count - 1 - monthIndex));
+
+                    var total = expenses
+                        .Where(e => e.Category == category &&
+                                    (e.IsDeleted == false || e.IsDeleted == null) &&
+                                    e.Date.Month == targetMonth.Month &&
+                                    e.Date.Year == targetMonth.Year)
+                        .Sum(e => e.Amount);
+
+                    monthlyTotals.Add(total);
+                }
+
+                response.TopSpends.Add(new TopSpend
+                {
+                    CategoryName = category!,
+                    MonthlyTotals = monthlyTotals,
+                    TotalAmount = monthlyTotals.Sum(),
+                    IconName = CategoryMapper.GetIconForCategory(category ?? string.Empty) // Use CategoryMapper
+                });
+            }
+
             return response;
         }
     }
