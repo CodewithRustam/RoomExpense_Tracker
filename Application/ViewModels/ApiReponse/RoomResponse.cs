@@ -11,5 +11,6 @@
         public string? Type { get; set; }
         public string? IconName { get; set; }
         public string? Status { get; set; }
+        public string? Month { get; set; }
     }
 }

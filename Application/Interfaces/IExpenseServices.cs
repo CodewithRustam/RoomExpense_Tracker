@@ -10,6 +10,7 @@ namespace Services.Interfaces
         Task<string> UpdateExpenses(ExpenseViewModel viewModel);
         Task<RoomExpenseResponse> GetRoomExpensesForApi(int roomId, DateTime selectedMonth, bool includeRoomInfo = true);
         Task<UserExpenseDetails> GetUserExpensesForApi();
-        Task<MonthlyExpensesTrendResponse> GetMonthlyExpensesTrend();
+        Task<MonthlyExpensesTrendResponse> GetMonthlyExpensesTrend(int roomId, string month);
+        Task<SettlementData> GetSettlementDetails(int roomId, int memberId, DateTime? month = null);
     }
 }

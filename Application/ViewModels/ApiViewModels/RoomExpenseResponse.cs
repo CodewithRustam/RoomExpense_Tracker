@@ -15,14 +15,14 @@
     {
         public int ExpenseId { get; set; }
         public int RoomId { get; set; }
-        public string Description { get; set; } = null!;
+        public string Item { get; set; } = null!;
         public decimal Amount { get; set; }
         public DateTime Date { get; set; }
         public string PayerName { get; set; } = null!;
         public int PayerId { get; set; }
         public string Category { get; set; } = null!;
         public string IconName { get; set; } = null!;
-        public string Status { get; set; } = null!;
+        public bool IsEditShow { get; set; }
     }
     public class MemberExpenseSummary
     {
@@ -34,5 +34,6 @@
         public decimal NetBalance { get; set; }
         public string BadgeText { get; set; } = string.Empty;
         public decimal BadgeAmount { get; set; }
+        public bool IsSettleShow { get; set; }
     }
 }

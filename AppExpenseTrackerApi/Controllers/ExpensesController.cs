@@ -1,9 +1,14 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿using Azure;
+using FirebaseAdmin.Messaging;
+using Infrastructure.Repositories;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Services.Interfaces;
+using Services.Management;
 using Services.ViewModels;
 using Services.ViewModels.ApiViewModels;
 using System.Globalization;
+using static Google.Apis.Requests.BatchRequest;
 
 namespace AppExpenseTracker.Controllers
 {
@@ -45,7 +50,7 @@ namespace AppExpenseTracker.Controllers
             return Ok(ApiResponse.Ok(message));
         }
 
-        [HttpPost("edit")]
+        [HttpPost("update-expense")]
         public async Task<IActionResult> Edit([FromBody] ExpenseViewModel viewModel)
         {
             if (viewModel is null)
@@ -86,7 +91,7 @@ namespace AppExpenseTracker.Controllers
         public async Task<IActionResult> Settle([FromBody] SettlementRequest settlementRequestVM)
         {
             if (!User.Identity!.IsAuthenticated || User.Identity.Name != settlementRequestVM.PayerName)
-                return Ok(ApiResponse.Fail("User not authorized."));
+                return Ok(ApiResponse.Fail("Unauthorized action: payer name does not match the logged-in user."));
 
             if (!DateTime.TryParseExact(settlementRequestVM.MonthLabel + "-01", "yyyy-MM-dd", null, DateTimeStyles.None, out var settlementForMonth))
                 return Ok(ApiResponse.Fail("Invalid month format."));
@@ -103,10 +108,38 @@ namespace AppExpenseTracker.Controllers
             return Ok(ApiResponse<string>.Ok(null,result.Message));
         }
         [HttpGet("expenses-trend")]
-        public async Task<IActionResult> GetMonthlyExpensesTrend()
+        public async Task<IActionResult> GetMonthlyExpensesTrend(int roomId, string month)
         {
-            var membersRecord = await expenseServices.GetMonthlyExpensesTrend();
+            var membersRecord = await expenseServices.GetMonthlyExpensesTrend(roomId, month);
             return Ok(membersRecord);
+        }
+        [HttpGet("settlements")]
+        public async Task<IActionResult> GetSettlementDetails(int roomId, int memberId, [FromQuery] string? month = null)
+        {
+            if (roomId <= 0)
+            {
+                return Ok(ApiResponse.Fail("Invalid room ID."));
+            }
+
+            if (memberId <= 0)
+            {
+                return Ok(ApiResponse.Fail("Invalid member ID."));
+            }
+
+            DateTime? targetMonth = null;
+            if (!string.IsNullOrEmpty(month))
+            {
+                if (!DateTime.TryParseExact(month, "yyyy-MM", CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsedMonth))
+                {
+                    return Ok(ApiResponse.Fail("Invalid month format. Use YYYY-MM."));
+                }
+                targetMonth = parsedMonth;
+            }
+
+            var result = await expenseServices.GetSettlementDetails(roomId, memberId, targetMonth);
+
+            return Ok(ApiResponse<SettlementData>.Ok(result));
+
         }
     }
 }

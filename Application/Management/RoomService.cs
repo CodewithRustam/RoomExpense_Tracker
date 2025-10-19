@@ -62,7 +62,8 @@ namespace Services.Management
                     TotalAmount = totalAmount,
                     Type = "Private",
                     IconName = string.Empty,
-                    Status = r.IsDeleted ? "Deleted" : "Active"
+                    Status = r.IsDeleted ? "Deleted" : "Active",
+                    Month = new DateTime(targetYear, targetMonth, 1).ToString("yyyy-MMM")
                 };
             }).ToList();
         }
