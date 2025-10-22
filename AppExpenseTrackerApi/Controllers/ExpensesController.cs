@@ -32,7 +32,12 @@ namespace AppExpenseTracker.Controllers
             this.expenseServices = expenseServices;
             this.settlementServices = settlementServices;
         }
-
+        [HttpGet("get-months")]
+        public async Task<IActionResult> GetMonths()
+        {
+            var months = await expenseServices.GetExpenseMonths();
+            return Ok(ApiResponse<List<string>>.Ok(months, "Months retrieved successfully."));
+        }
         [HttpPost("add")]
         public async Task<IActionResult> Add([FromBody] ExpenseViewModel expViewModel)
         {
@@ -81,10 +86,13 @@ namespace AppExpenseTracker.Controllers
             return Ok(ApiResponse<RoomExpenseResponse>.Ok(roomExpenseRes, "Monthly expenses retrieved."));
         }
         [HttpGet("display-user-expense")]
-        public async Task<IActionResult> DisplayUserExpenses()
+        public async Task<IActionResult> DisplayUserExpenses(string month)
         {
-            var result = await expenseServices.GetUserExpensesForApi();
-            return Ok(ApiResponse<UserExpenseDetails>.Ok(result, "User expenses retrieved."));
+            if (!DateTime.TryParseExact(month + "-01", "yyyy-MM-dd", null, DateTimeStyles.None, out var selectedMonth))
+                return Ok(ApiResponse.Fail("Invalid month format."));
+
+            var result = await expenseServices.GetUserExpensesForApi(selectedMonth);
+            return Ok(ApiResponse<List<UserExpenseResponse>>.Ok(result, "User expenses retrieved."));
         }
 
         [HttpPost("expenses-settle")]

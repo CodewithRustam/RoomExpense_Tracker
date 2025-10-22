@@ -1,10 +1,5 @@
 ﻿namespace Services.ViewModels.ApiViewModels
 {
-    public class UserExpenseDetails
-    {
-        public List<UserExpenseResponse>? UserExpenseResponse { get; set; }
-        public List<string>? Months { get; set; }
-    }
     public class UserExpenseResponse
     {
         public string? Item { get; set; }

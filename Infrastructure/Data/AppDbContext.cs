@@ -24,7 +24,8 @@ namespace Infrastructure.Data
         public DbSet<DataProtectionKey> DataProtectionKeys { get; set; } = null!;
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-            base.OnModelCreating(modelBuilder); 
+            base.OnModelCreating(modelBuilder);
+            modelBuilder.Entity<MonthlySettlementDto>().HasNoKey();
 
             modelBuilder.Entity<Expense>(entity =>
             {

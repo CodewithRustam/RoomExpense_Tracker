@@ -2,8 +2,11 @@
 using Domain.Interfaces;
 using ExpenseTrakcerHepler;
 using Infrastructure.Data;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Configuration;
+using Dapper;
 
 namespace Infrastructure.Repositories
 {
@@ -11,10 +14,12 @@ namespace Infrastructure.Repositories
     {
         private readonly AppDbContext _context;
         private readonly IMemoryCache cache;
-        public SettlementRepository(AppDbContext context, IMemoryCache _cache) : base(context)
+        private readonly string _connectionString;
+        public SettlementRepository(AppDbContext context, IMemoryCache _cache, IConfiguration configuration) : base(context)
         {
             _context = context;
             cache = _cache;
+            _connectionString = configuration.GetConnectionString("DefaultConnection") ?? string.Empty;
         }
         public async Task<List<Settlement>> GetMonthlySettlements(int roomId, DateTime selectedMonth)
         {
@@ -26,6 +31,26 @@ namespace Infrastructure.Repositories
             }
             return await GetAllAsync(x => x.RoomId == roomId);
         }
+
+        public async Task<List<MonthlySettlementDto>> GetMonthlySettlementsDetails(int roomId, DateTime? targetMonth = null)
+        {
+            using var connection = new SqlConnection(_connectionString);
+
+            var parameters = new
+            {
+                RoomId = roomId,
+                MonthDate = targetMonth ?? DateTime.Now
+            };
+
+            var result = await connection.QueryAsync<MonthlySettlementDto>(
+                "GetMonthlyMemberBalances",
+                param: parameters,
+                commandType: System.Data.CommandType.StoredProcedure
+            );
+
+            return result.ToList();
+        }
+
         public async Task<List<Settlement>> GetSettlementsForMembers(int roomId, int payerMemberId, int receiverMemberId, DateTime monthStart, DateTime monthEnd)
         {
             var memberIds = new[] { payerMemberId, receiverMemberId };

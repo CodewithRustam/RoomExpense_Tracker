@@ -40,37 +40,30 @@ namespace AppExpenseTracker.Controllers
             if (!ModelState.IsValid)
                 return BadRequest(ApiResponse.Fail("Invalid request data."));
 
-            var result = await _signInManager.PasswordSignInAsync(
-                model.UserName!, model.Password!, model.RememberMe, lockoutOnFailure: false);
-            
+            var user = await _userManager.FindByNameAsync(model.UserName!);
+            if (user == null || !await _userManager.CheckPasswordAsync(user, model.Password!))
+                return Unauthorized(ApiResponse.Fail("Invalid login attempt."));
 
-            if (result.Succeeded)
+            var key = Encoding.UTF8.GetBytes(_configuration["Jwt:Key"] ?? string.Empty);
+            var tokenHandler = new JwtSecurityTokenHandler();
+            var tokenDescriptor = new SecurityTokenDescriptor
             {
-                var tokenHandler = new JwtSecurityTokenHandler();
-                var key = Encoding.UTF8.GetBytes(_configuration["Jwt:Key"] ?? string.Empty);
-                var user = await _userManager.FindByNameAsync(model.UserName);
-
-                var tokenDescriptor = new SecurityTokenDescriptor
+                Subject = new ClaimsIdentity(new Claim[]
                 {
-                    Subject = new ClaimsIdentity(new Claim[]
-                    {
-                       new Claim(ClaimTypes.Name, model.UserName!),
-                       new Claim(ClaimTypes.NameIdentifier, user!.Id),
-                       new Claim(ClaimTypes.Email, user.Email ?? string.Empty)
-                    }),
-                    Expires = DateTime.UtcNow.AddDays(30),
-                    Issuer = _configuration["Jwt:Issuer"],
-                    Audience = _configuration["Jwt:Audience"],
-                    SigningCredentials = new SigningCredentials(
-                        new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
-                };
-                var token = tokenHandler.CreateToken(tokenDescriptor);
-                var jwtToken = tokenHandler.WriteToken(token);
+                    new Claim(ClaimTypes.Name, user.UserName!),
+                    new Claim(ClaimTypes.NameIdentifier, user.Id),
+                    new Claim(ClaimTypes.Email, user.Email ?? string.Empty)
+                }),
+                Expires = DateTime.UtcNow.AddDays(30),
+                Issuer = _configuration["Jwt:Issuer"],
+                Audience = _configuration["Jwt:Audience"],
+                SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
+            };
+            var token = tokenHandler.CreateToken(tokenDescriptor);
 
-                return Ok(new { success = true, message = "Login successful", token = jwtToken });
-            }
-            return Unauthorized(ApiResponse.Fail("Invalid login attempt."));
+            return Ok(new { success = true, message = "Login successful", token = tokenHandler.WriteToken(token) });
         }
+
 
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterViewModel model)
@@ -154,7 +147,7 @@ namespace AppExpenseTracker.Controllers
         [HttpPost("app-register")]
         public async Task<IActionResult> RegisterDevice([FromBody] DeviceTokenModel model)
         {
-            var user = await _userManager.FindByIdAsync(model.UserId);
+            var user = await _userManager.FindByIdAsync(model.UserId!);
             if (user == null) return NotFound();
 
             user.DeviceToken = model.DeviceToken;
@@ -165,7 +158,7 @@ namespace AppExpenseTracker.Controllers
     }
     public class DeviceTokenModel
     {
-        public string UserId { get; set; }
-        public string DeviceToken { get; set; }
+        public string? UserId { get; set; }
+        public string? DeviceToken { get; set; }
     }
 }

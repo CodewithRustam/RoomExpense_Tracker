@@ -2,6 +2,7 @@
 using Domain.Entities;
 using Domain.Interfaces;
 using ExpenseTrakcerHepler;
+using Infrastructure.Repositories;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
@@ -10,6 +11,7 @@ using Services.Interfaces;
 using Services.ViewModels;
 using Services.ViewModels.ApiViewModels;
 using System.Globalization;
+using static Services.Management.ExpenseService;
 
 namespace Services.Management
 {
@@ -34,6 +36,10 @@ namespace Services.Management
             cache = _cache;
             _userManager = userManager;
             _serviceProvider = serviceProvider; 
+        }
+        public async Task<List<string>?> GetExpenseMonths()
+        {
+            return await expenseRepository.GetExpenseMonths();
         }
         public async Task<string> AddExpenses(ExpenseViewModel expenseViewModel)
         {
@@ -377,254 +383,113 @@ namespace Services.Management
             return summaries;
         }
 
-        public async Task<UserExpenseDetails> GetUserExpensesForApi()
+        public async Task<List<UserExpenseResponse>> GetUserExpensesForApi(DateTime month)
         {
             var userId = currentUser.UserId;
             if (string.IsNullOrEmpty(userId))
             {
-                return new UserExpenseDetails();
+                return new List<UserExpenseResponse>();
             }
 
-            var now = DateTime.Now;
-            var startDate = new DateTime(now.Year, now.Month, 1).AddMonths(-1);
-            var endDate = new DateTime(now.Year, now.Month, 1).AddMonths(1).AddDays(-1);
+            var expenses = await expenseRepository.GetUserExpenses(userId, month);
 
-            string cacheKey = $"UserExpenses_{userId}__{startDate:yyyy-MM}_{endDate:yyyy-MM}";
-
-            //if (!cache.TryGetValue(cacheKey, out List<UserExpenseResponse>? cachedData))
-            //{
-            var expenses = await expenseRepository.GetUserExpenses(userId, startDate, endDate);
-            List<string> months = expenses.Select(e => e.Date.ToString("yyyy-MM")).Distinct().OrderByDescending(m => m).ToList();
-
-            UserExpenseDetails userExpenseDetails = new UserExpenseDetails();
             var userExpenseRes = expenses.Select(e => new UserExpenseResponse
             {
                 Item = e.Item ?? string.Empty,
-                RoomName = e.Room?.Name ?? string.Empty,
+                RoomName = e.RoomName ?? string.Empty,
                 Amount = e.Amount,
-                ExpenseDate = e.Date,
+                ExpenseDate = e.ExpenseDate,
                 IconName = CategoryMapper.GetIconForCategory(e.Category ?? string.Empty),
                 UserId = userId
             }).ToList();
-
-            userExpenseDetails.UserExpenseResponse = userExpenseRes;
-            userExpenseDetails.Months = months;
-
-            //cache.Set(cacheKey, cachedData, TimeSpan.FromDays(30));
-            //}
-            return userExpenseDetails ?? new UserExpenseDetails();
+            return userExpenseRes ?? new List<UserExpenseResponse>();
         }
         public async Task<MonthlyExpensesTrendResponse> GetMonthlyExpensesTrend(int roomId, string month)
         {
-            var userId = currentUser.UserId;
-            var members = await memberRepository.GetMembersByRoomId(roomId, userId);
-            var expenses = await expenseRepository.GetAllAsync(x => x.RoomId == roomId);
-            var settlements = await settlementRepository.GetAllAsync();
-
-            // Parse the input month (e.g., "2025-10")
             if (!DateTime.TryParseExact(month, "yyyy-MM", CultureInfo.InvariantCulture, DateTimeStyles.None, out var targetMonth))
-            {
                 throw new ArgumentException("Invalid month format. Use YYYY-MM.");
-            }
 
-            // Filter expenses and settlements for the specified month
-            expenses = expenses.Where(e => e.Date.Year == targetMonth.Year && e.Date.Month == targetMonth.Month).ToList();
-            settlements = settlements.Where(s => s.SettlementForDate.Year == targetMonth.Year && s.SettlementForDate.Month == targetMonth.Month).ToList();
-
-            // Build single-month list
-            var months = new List<string> { targetMonth.ToString("MMMM yyyy") }; // e.g., "October 2025"
+            var (memberDtos, categoryDtos, topSpendsDtos) = await expenseRepository.GetMonthlyExpensesTrendAsync(roomId, targetMonth);
 
             var response = new MonthlyExpensesTrendResponse
             {
-                Months = months,
-                Members = new List<MemberExpenses>(),
-                CategoryExpenses = new List<CategoryMonthlyExpense>(),
-                TopSpends = new List<TopSpend>()
+                Months = new List<string> { targetMonth.ToString("MMMM yyyy") },
+                Members = memberDtos.Select(m => new MemberExpenses
+                {
+                    Name = m.Name,
+                    MonthlyExpenses = new List<decimal> { m.TotalExpense }
+                }).ToList(),
+
+                CategoryExpenses = categoryDtos.Select(c => new CategoryMonthlyExpense
+                {
+                    CategoryName = c.Category,
+                    MonthlyTotals = new List<decimal> { c.TotalAmount },
+                    IconName = CategoryMapper.GetIconForCategory(c.Category)
+                }).ToList(),
+
+                TopSpends = topSpendsDtos.Select(t => new TopSpend
+                {
+                    CategoryName = t.Category,
+                    MonthlyTotals = new List<decimal> { t.TotalAmount },
+                    TotalAmount = t.TotalAmount,
+                    IconName = CategoryMapper.GetIconForCategory(t.Category)
+                }).ToList()
             };
-
-            // Member-wise monthly trend (single month)
-            foreach (var member in members)
-            {
-                var memberExpenses = expenses
-                    .Where(e => e.MemberId == member.MemberId && (e.IsDeleted == false || e.IsDeleted == null))
-                    .Sum(e => e.Amount);
-
-                var paidSettlements = settlements
-                    .Where(s => s.MemberId == member.MemberId)
-                    .Sum(s => s.Amount);
-
-                var receivedSettlements = settlements
-                    .Where(s => s.PaidToMemberId == member.MemberId)
-                    .Sum(s => s.Amount);
-
-                var netExpense = memberExpenses - paidSettlements + receivedSettlements;
-
-                response.Members.Add(new MemberExpenses
-                {
-                    Name = member.Name,
-                    MonthlyExpenses = new List<decimal> { netExpense }
-                });
-            }
-
-            // Category-wise monthly totals (single month)
-            var categories = expenses
-                .Where(e => e.IsDeleted == false || e.IsDeleted == null)
-                .Select(e => e.Category)
-                .Distinct()
-                .ToList();
-
-            foreach (var category in categories)
-            {
-                var total = expenses
-                    .Where(e => e.Category == category && (e.IsDeleted == false || e.IsDeleted == null))
-                    .Sum(e => e.Amount);
-
-                response.CategoryExpenses.Add(new CategoryMonthlyExpense
-                {
-                    CategoryName = category!,
-                    MonthlyTotals = new List<decimal> { total },
-                    IconName = CategoryMapper.GetIconForCategory(category ?? string.Empty)
-                });
-            }
-
-            // Top Spends for the month
-            var topSpendsForMonth = expenses
-                .Where(e => e.IsDeleted == false || e.IsDeleted == null)
-                .GroupBy(e => e.Category)
-                .Select(g => new
-                {
-                    Category = g.Key,
-                    TotalAmount = g.Sum(x => x.Amount)
-                })
-                .OrderByDescending(x => x.TotalAmount)
-                .Take(5)
-                .ToList();
-
-            foreach (var spend in topSpendsForMonth)
-            {
-                response.TopSpends.Add(new TopSpend
-                {
-                    CategoryName = spend.Category!,
-                    MonthlyTotals = new List<decimal> { spend.TotalAmount },
-                    TotalAmount = spend.TotalAmount,
-                    IconName = CategoryMapper.GetIconForCategory(spend.Category ?? string.Empty)
-                });
-            }
 
             return response;
         }
-        // New method for getting settlement details
         public async Task<SettlementData> GetSettlementDetails(int roomId, int memberId, DateTime? targetMonth = null)
         {
-            // Check if user is authorized to access this room
             var userId = currentUser.UserId;
             var members = await memberRepository.GetMembersByRoomId(roomId, userId);
+            var monthlyBalances = await settlementRepository.GetMonthlySettlementsDetails(roomId, targetMonth);
+            var balancesDict = new Dictionary<int, decimal>(monthlyBalances.Count);
+            decimal targetBalance = 0m;
 
-            var room = await roomRepository.GetByIdAsync(roomId);
-            
-            var targetMember = members.FirstOrDefault(m => m.MemberId == memberId);
-           
-            // Fetch expenses and settlements
-            List<Expense> expenses = targetMonth.HasValue
-                ? await expenseRepository.GetMonthlyExpenses(roomId, targetMonth.Value)
-                : await expenseRepository.GetAllAsync(x => x.RoomId == roomId && (x.IsDeleted == false || x.IsDeleted == null));
-
-            List<Settlement> settlements = targetMonth.HasValue
-                ? await settlementRepository.GetMonthlySettlements(roomId, targetMonth.Value)
-                : await settlementRepository.GetAllAsync(s => s.RoomId == roomId);
-
-            int year, month;
-            if (targetMonth == null || targetMonth == DateTime.MinValue && expenses.Count > 0)
+            foreach (var m in monthlyBalances)
             {
-                var latestExpense = expenses.OrderByDescending(e => e.Date).First();
-                year = latestExpense.Date.Year;
-                month = latestExpense.Date.Month;
-            }
-            else
-            {
-                year = targetMonth.Value.Year;
-                month = targetMonth.Value.Month;
+                balancesDict[m.MemberId] = m.NetBalance;
+                if (m.MemberId == memberId)
+                    targetBalance = m.NetBalance;
             }
 
-            var filteredExpenses = expenses.Where(e => e.Date.Year == year && e.Date.Month == month)
-                                           .OrderByDescending(e => e.Date).ToList();
+            var settlementDetails = ComputeSettlementsForMember(balancesDict, members, memberId);
 
-            var filteredSettlements = settlements.Where(x => x.SettlementForDate.Year == year && x.SettlementForDate.Month == month)
-                                                 .OrderByDescending(x => x.SettlementId).ToList();
-
-            expenses = filteredExpenses ?? new List<Expense>();
-            settlements = filteredSettlements ?? new List<Settlement>();
-
-            // Calculate net balances
-            var totalExpenses = expenses.Where(e => !e.IsNonSplitExpense).Sum(e => e.Amount);
-            var memberCount = members.Count;
-            var avgShare = memberCount > 0 ? Math.Round(totalExpenses / memberCount, 2) : 0m;
-
-            var balances = new Dictionary<int, decimal>();
-            foreach (var member in members)
+            return new SettlementData
             {
-                var totalMemberExpense = expenses
-                    .Where(e => e.MemberId == member.MemberId && !e.IsNonSplitExpense)
-                    .Sum(e => e.Amount);
-
-                var amountPaid = settlements
-                    .Where(s => s.MemberId == member.MemberId)
-                    .Sum(s => s.Amount);
-
-                var amountReceived = settlements
-                    .Where(s => s.PaidToMemberId == member.MemberId)
-                    .Sum(s => s.Amount);
-
-                var netBalance = (totalMemberExpense + amountPaid) - amountReceived - avgShare;
-                balances[member.MemberId] = Math.Abs(netBalance) < 0.5m ? 0m : netBalance;
-            }
-
-            // Compute settlements for the target member using a greedy algorithm
-            var settlementDetails = ComputeSettlementsForMember(balances, members, memberId);
-
-            var settlementData = new SettlementData
-            {
-                NetBalance = balances.ContainsKey(memberId) ? balances[memberId] : 0m,
+                NetBalance = targetBalance,
                 Settlements = settlementDetails
             };
-
-            return settlementData;
         }
-
-        private List<SettlementDetail> ComputeSettlementsForMember(Dictionary<int, decimal> balances, List<Member> members, int targetMemberId)
+        private List<SettlementDetail> ComputeSettlementsForMember(
+            Dictionary<int, decimal> balancesDict,
+            List<Member> members,
+            int targetMemberId)
         {
             var settlements = new List<SettlementDetail>();
-            var debtorBalance = balances.ContainsKey(targetMemberId) ? balances[targetMemberId] : 0m;
 
-            if (Math.Abs(debtorBalance) < 0.5m)
-            {
-                return settlements; // Already settled
-            }
+            if (!balancesDict.TryGetValue(targetMemberId, out decimal debtorBalance) || Math.Abs(debtorBalance) < 0.5m)
+                return settlements; // Already settled or zero
 
-            // Prepare creditors (positive balance) and other debtors (negative balance)
+            // Separate creditors and other debtors
             var creditors = new List<(int Id, decimal Balance, string Name)>();
             var otherDebtors = new List<(int Id, decimal Balance, string Name)>();
 
-            foreach (var member in members.Where(m => m.MemberId != targetMemberId))
+            foreach (var member in members)
             {
-                var balance = balances.ContainsKey(member.MemberId) ? balances[member.MemberId] : 0m;
-                if (balance > 0)
-                {
-                    creditors.Add((member.MemberId, balance, member.Name));
-                }
-                else if (balance < 0)
-                {
-                    otherDebtors.Add((member.MemberId, Math.Abs(balance), member.Name));
-                }
+                if (member.MemberId == targetMemberId) continue;
+
+                var balance = balancesDict[member.MemberId];
+                if (balance > 0) creditors.Add((member.MemberId, balance, member.Name));
+                else if (balance < 0) otherDebtors.Add((member.MemberId, Math.Abs(balance), member.Name));
             }
 
-            // Sort by balance (descending for creditors, debtors)
-            creditors = creditors.OrderByDescending(c => c.Balance).ToList();
-            otherDebtors = otherDebtors.OrderByDescending(d => d.Balance).ToList();
+            creditors.Sort((a, b) => b.Balance.CompareTo(a.Balance));
+            otherDebtors.Sort((a, b) => b.Balance.CompareTo(a.Balance));
 
             if (debtorBalance < 0)
             {
-                // Target member owes money
+                // Target owes money
                 var amountToPay = Math.Abs(debtorBalance);
                 foreach (var creditor in creditors)
                 {
@@ -636,12 +501,12 @@ namespace Services.Management
                         {
                             ToMemberId = creditor.Id,
                             ToMemberName = creditor.Name,
-                            Amount = Math.Round(settleAmount, 2)
+                            Amount = settleAmount
                         });
                         amountToPay -= settleAmount;
                     }
                 }
-                // If still owes, handle other debtors (unlikely in equal splits, but included for robustness)
+
                 foreach (var otherDebtor in otherDebtors)
                 {
                     if (amountToPay <= 0) break;
@@ -652,15 +517,15 @@ namespace Services.Management
                         {
                             ToMemberId = otherDebtor.Id,
                             ToMemberName = otherDebtor.Name,
-                            Amount = Math.Round(settleAmount, 2)
+                            Amount = settleAmount
                         });
                         amountToPay -= settleAmount;
                     }
                 }
             }
-            else if (debtorBalance > 0)
+            else
             {
-                // Target member is owed money
+                // Target is owed money
                 var amountToReceive = debtorBalance;
                 foreach (var otherDebtor in otherDebtors)
                 {
@@ -672,7 +537,7 @@ namespace Services.Management
                         {
                             ToMemberId = otherDebtor.Id,
                             ToMemberName = otherDebtor.Name,
-                            Amount = Math.Round(settleAmount, 2)
+                            Amount = settleAmount
                         });
                         amountToReceive -= settleAmount;
                     }
