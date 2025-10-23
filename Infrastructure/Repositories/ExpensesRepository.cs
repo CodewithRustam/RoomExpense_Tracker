@@ -11,7 +11,6 @@ using Dapper;
 using Microsoft.Extensions.Configuration;
 using System.Data.Common;
 using Domain.Entities.Dto;
-
 namespace Infrastructure.Repositories
 {
     public class ExpensesRepository : Repository<Expense>, IExpenseRepository
@@ -50,23 +49,27 @@ namespace Infrastructure.Repositories
             message = "Expense added successfully";
             return message;
         }
-        public async Task<List<Expense>> GetMonthlyExpenses(int roomId, DateTime selectedMonth)
+        public async Task<List<ExpenseRecordDto>> GetMonthlyExpenses(int roomId, DateTime selectedMonth)
         {
-            var itemsToUpdate = await GetAllAsync(x => x.IsDeleted == false || x.IsDeleted == null);
+            int year = selectedMonth.Year;
+            int month = selectedMonth.Month;
 
-            foreach (var item in itemsToUpdate)
-            {
-                item.Category = CategoryMapper.GetCategoryFromItem(item.Item!);
-            }
-            await SaveChangesAsync();
-            string cacheKey = CacheHepler.GetCacheKey(roomId, selectedMonth);
-
-            if (!cache.TryGetValue(cacheKey, out List<Expense>? expenseDataList))
-            {
-                expenseDataList = await GetAllAsync(x => x.RoomId == roomId && (x.IsDeleted == false || x.IsDeleted == null));
-                cache.Set(cacheKey, expenseDataList, TimeSpan.FromDays(30));
-            }
-            return expenseDataList ?? new List<Expense>();
+            return await (from exp in _context.Expenses
+                          join mem in _context.Members
+                          on exp.MemberId equals mem.MemberId
+                          where exp.RoomId == roomId && (exp.IsDeleted == false || exp.IsDeleted == null) && exp.Date.Month == month && exp.Date.Year == year
+                          select new ExpenseRecordDto
+                          {
+                              ApplicationUserId = mem.ApplicationUserId ?? string.Empty,
+                              PayerName = mem.Name,
+                              PayerId = mem.MemberId,
+                              ExpenseId = exp.ExpenseId,
+                              RoomId = exp.RoomId,
+                              Item = exp.Item ?? string.Empty,
+                              Amount = exp.Amount,
+                              Date = exp.Date,
+                              Category = exp.Category ?? string.Empty,
+                          }).OrderByDescending(x => x.ExpenseId).ToListAsync();
         }
 
         public async Task<bool> IsExpenseExist(Expense expense)
@@ -84,7 +87,7 @@ namespace Infrastructure.Repositories
                 (x.IsDeleted == false || x.IsDeleted == null));
 
             if (expenseData is null)
-                return (false, "Expense not found");
+                return (false, "Expense not found.");
 
             expenseData.Item = expense.Item?.Trim();
             expenseData.Amount = expense.Amount;
@@ -94,7 +97,7 @@ namespace Infrastructure.Repositories
             Update(expenseData);
             await SaveChangesAsync();
 
-            return (true, "Expense updated successfully");
+            return (true, "Expense has been updated successfully.");
         }
         public async Task<decimal> GetTotalRoomExpenses(int roomId, DateTime start, DateTime end)
         {
@@ -102,11 +105,11 @@ namespace Infrastructure.Repositories
                                                           (e.IsDeleted == false || e.IsDeleted == null) && 
                                                           e.Date >= start && e.Date <= end).SumAsync(e => e.Amount);
         }
-        public async Task<List<string>> GetExpenseMonths()
+        public async Task<List<string>> GetExpenseMonths(int roomId)
         {
             return await _context.Expenses
                 .AsNoTracking()
-                .Where(e => e.IsDeleted == false || e.IsDeleted == null)
+                .Where(e => e.RoomId == roomId && e.IsDeleted == false || e.IsDeleted == null)
                 .Select(e => new { e.Date.Year, e.Date.Month })
                 .Distinct()
                 .OrderByDescending(x => x.Year)

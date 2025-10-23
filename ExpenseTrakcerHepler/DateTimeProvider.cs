@@ -1,4 +1,6 @@
-﻿namespace ExpenseTrakcerHepler
+﻿using System.Globalization;
+
+namespace ExpenseTrakcerHepler
 {
     public class DateTimeProvider : IDateTimeProvider
     {
@@ -12,5 +14,17 @@
         DateTime NowIST { get; }
         DateTime NowUtc { get; }
     }
-
+    public class DateTimeParser
+    {
+        public static bool ParseMonthYear(string month, out DateTime parsedMonth)
+        {
+            return DateTime.TryParseExact(
+                month,
+                "yyyy-MM",
+                CultureInfo.InvariantCulture,
+                DateTimeStyles.None,
+                out parsedMonth
+            );
+        }
+    }
 }

@@ -9,7 +9,7 @@
             Success = success;
             Message = message;
         }
-        public static ApiResponse Ok(string message = "Success") => new(true, message);
+        public static ApiResponse SuccessRes(string message = "Success") => new(true, message);
 
         public static ApiResponse Fail(string message) => new(false, message);
     }
@@ -21,7 +21,7 @@
             Data = data;
         }
 
-        public static ApiResponse<T> Ok(T? data, string message = "Success")
+        public static ApiResponse<T> SuccessRes(T? data, string message = "Success")
             => new(true, message, data);
 
         public static ApiResponse<T> Fail(T? data, string message)

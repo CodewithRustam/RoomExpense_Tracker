@@ -33,69 +33,57 @@ namespace AppExpenseTracker.Controllers
             this.settlementServices = settlementServices;
         }
         [HttpGet("get-months")]
-        public async Task<IActionResult> GetMonths()
+        public async Task<IActionResult> GetMonths(int roomId)
         {
-            var months = await expenseServices.GetExpenseMonths();
-            return Ok(ApiResponse<List<string>>.Ok(months, "Months retrieved successfully."));
+            var months = await expenseServices.GetExpenseMonths(roomId);
+            return Ok(ApiResponse<List<string>>.SuccessRes(months, "Months retrieved successfully."));
         }
-        [HttpPost("add")]
+        [HttpPost("add-expense")]
         public async Task<IActionResult> Add([FromBody] ExpenseViewModel expViewModel)
         {
-            if (expViewModel is null)
-                return BadRequest(ApiResponse.Fail("Invalid expense data."));
-
-            var memberId = await memberServices.GetMemberId(expViewModel.RoomId);
-            if (memberId == 0)
-                return BadRequest(ApiResponse.Fail("Member not found."));
-
-            expViewModel.MemberId = memberId;
-
-            var message = await expenseServices.AddExpenses(expViewModel);
-
-            return Ok(ApiResponse.Ok(message));
+            ApiResponse apiResponse = await expenseServices.AddExpenses(expViewModel);
+            return Ok(apiResponse);
         }
 
         [HttpPost("update-expense")]
-        public async Task<IActionResult> Edit([FromBody] ExpenseViewModel viewModel)
+        public async Task<IActionResult> UpdateExpense([FromBody] ExpenseViewModel expenseViewModel)
         {
-            if (viewModel is null)
-                return BadRequest(ApiResponse<string>.Fail("Invalid data."));
-
-            var message = await expenseServices.UpdateExpenses(viewModel);
-            return Ok(ApiResponse<string>.Ok(null, message));
+            ApiResponse apiResponse = await expenseServices.UpdateExpenses(expenseViewModel);
+            return Ok(apiResponse);
         }
 
-        [HttpGet("display-room-expense")]
+        [HttpGet("get-room-expenses")]
         public async Task<IActionResult> DisplayExpenses(int roomId, string? month)
         {
             if (roomId <= 0 || !await roomServices.IsValidRoomAsync(roomId))
-                return Ok(ApiResponse.Fail("Invalid room."));
+                return Ok(ApiResponse.Fail("Invalid room ID or room not found."));
 
-            RoomExpenseResponse roomExpenseRes;
+            ApiResponse apiResponse;
             if (string.IsNullOrEmpty(month))
             {
-                roomExpenseRes = await expenseServices.GetRoomExpensesForApi(roomId, new DateTime());
+                DateTime selectedMonth = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
+                apiResponse = await expenseServices.GetRoomExpensesForApi(roomId, selectedMonth);
             }
             else
             {
                 if (!DateTime.TryParseExact(month + "-01", "yyyy-MM-dd", null, DateTimeStyles.None, out var selectedMonth))
                     return Ok(ApiResponse.Fail("Invalid month format."));
 
-                roomExpenseRes = await expenseServices.GetRoomExpensesForApi(roomId, selectedMonth, false);
+                apiResponse = await expenseServices.GetRoomExpensesForApi(roomId, selectedMonth, false);
             }
-            return Ok(ApiResponse<RoomExpenseResponse>.Ok(roomExpenseRes, "Monthly expenses retrieved."));
+            return Ok(apiResponse);
         }
-        [HttpGet("display-user-expense")]
+        [HttpGet("get-user-expenses")]
         public async Task<IActionResult> DisplayUserExpenses(string month)
         {
             if (!DateTime.TryParseExact(month + "-01", "yyyy-MM-dd", null, DateTimeStyles.None, out var selectedMonth))
                 return Ok(ApiResponse.Fail("Invalid month format."));
 
-            var result = await expenseServices.GetUserExpensesForApi(selectedMonth);
-            return Ok(ApiResponse<List<UserExpenseResponse>>.Ok(result, "User expenses retrieved."));
+            ApiResponse apiResponse = await expenseServices.GetUserExpensesForApi(selectedMonth);
+            return Ok(apiResponse);
         }
 
-        [HttpPost("expenses-settle")]
+        [HttpPost("settle-expenses")]
         public async Task<IActionResult> Settle([FromBody] SettlementRequest settlementRequestVM)
         {
             if (!User.Identity!.IsAuthenticated || User.Identity.Name != settlementRequestVM.PayerName)
@@ -113,15 +101,15 @@ namespace AppExpenseTracker.Controllers
             if (!result.Success)
                 return Ok(ApiResponse.Fail(result.Message));
 
-            return Ok(ApiResponse<string>.Ok(null,result.Message));
+            return Ok(ApiResponse<string>.SuccessRes(null,result.Message));
         }
-        [HttpGet("expenses-trend")]
+        [HttpGet("trend-expenses")]
         public async Task<IActionResult> GetMonthlyExpensesTrend(int roomId, string month)
         {
-            var membersRecord = await expenseServices.GetMonthlyExpensesTrend(roomId, month);
-            return Ok(membersRecord);
+            ApiResponse apiResponse = await expenseServices.GetMonthlyExpensesTrend(roomId, month);
+            return Ok(apiResponse);
         }
-        [HttpGet("settlements")]
+        [HttpGet("get-settlement-details")]
         public async Task<IActionResult> GetSettlementDetails(int roomId, int memberId, [FromQuery] string? month = null)
         {
             if (roomId <= 0)
@@ -134,19 +122,9 @@ namespace AppExpenseTracker.Controllers
                 return Ok(ApiResponse.Fail("Invalid member ID."));
             }
 
-            DateTime? targetMonth = null;
-            if (!string.IsNullOrEmpty(month))
-            {
-                if (!DateTime.TryParseExact(month, "yyyy-MM", CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsedMonth))
-                {
-                    return Ok(ApiResponse.Fail("Invalid month format. Use YYYY-MM."));
-                }
-                targetMonth = parsedMonth;
-            }
+            var settlementDetsils = await expenseServices.GetSettlementDetails(roomId, memberId, month);
 
-            var result = await expenseServices.GetSettlementDetails(roomId, memberId, targetMonth);
-
-            return Ok(ApiResponse<SettlementData>.Ok(result));
+            return Ok(ApiResponse<SettlementData>.SuccessRes(settlementDetsils));
 
         }
     }

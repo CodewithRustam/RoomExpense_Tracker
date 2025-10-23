@@ -23,13 +23,9 @@ namespace Infrastructure.Repositories
         }
         public async Task<List<Settlement>> GetMonthlySettlements(int roomId, DateTime selectedMonth)
         {
-            string cacheKey = CacheHepler.GetCacheKey(roomId, selectedMonth);
-            if (!cache.TryGetValue(cacheKey, out List<Settlement>? settlementDataList))
-            {
-                settlementDataList = await GetAllAsync(x => x.RoomId == roomId);
-                cache.Set(cacheKey, settlementDataList, TimeSpan.FromDays(30));
-            }
-            return await GetAllAsync(x => x.RoomId == roomId);
+            int year = selectedMonth.Year;
+            int month = selectedMonth.Month;
+            return await GetAllAsync(x => x.RoomId == roomId && x.SettlementForDate.Year == year && x.SettlementForDate.Month == month);
         }
 
         public async Task<List<MonthlySettlementDto>> GetMonthlySettlementsDetails(int roomId, DateTime? targetMonth = null)
@@ -61,6 +57,17 @@ namespace Infrastructure.Repositories
                             && s.SettlementForDate >= monthStart
                             && s.SettlementForDate <= monthEnd)
                 .ToListAsync();
+        }
+        public async Task<bool> IsMonthSettledForRoomAsync(int roomId, DateTime month)
+        {
+            var startOfMonth = new DateTime(month.Year, month.Month, 1);
+            var endOfMonth = startOfMonth.AddMonths(1);
+
+            return await _context.Settlements
+                .AsNoTracking()
+                .AnyAsync(s => s.RoomId == roomId &&
+                               s.SettlementForDate >= startOfMonth &&
+                               s.SettlementForDate < endOfMonth);
         }
     }
 }
