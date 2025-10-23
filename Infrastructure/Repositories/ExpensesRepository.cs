@@ -198,5 +198,28 @@ namespace Infrastructure.Repositories
             }
         }
 
+        public async Task<List<string>> GetExpenseMonthsByUserId(string userId)
+        {
+            // Get all MemberIds for this user
+            var memberIds = await _context.Members
+                .Where(m => m.ApplicationUserId == userId)
+                .Select(m => m.MemberId)
+                .ToListAsync();
+
+            if (memberIds == null || memberIds.Count == 0)
+                return new List<string>();
+
+            // Fetch all distinct Year-Month combinations from Expenses for these members
+            return await _context.Expenses
+                .AsNoTracking()
+                .Where(e => memberIds.Contains(e.MemberId) && (e.IsDeleted == false || e.IsDeleted == null))
+                .Select(e => new { e.Date.Year, e.Date.Month })
+                .Distinct()
+                .OrderByDescending(x => x.Year)
+                .ThenByDescending(x => x.Month)
+                .Select(x => $"{x.Year:D4}-{x.Month:D2}")
+                .ToListAsync();
+        }
+
     }
 }

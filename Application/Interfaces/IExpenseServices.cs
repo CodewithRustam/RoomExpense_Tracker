@@ -9,9 +9,9 @@ namespace Services.Interfaces
         Task<RoomExpensesViewModel> GetMonthlyExpenses(int roomId, DateTime selectedMonth);
         Task<ApiResponse> UpdateExpenses(ExpenseViewModel expenseViewModel);
         Task<ApiResponse> GetRoomExpensesForApi(int roomId, DateTime selectedMonth, bool includeRoomInfo = true);
-        Task<ApiResponse> GetUserExpensesForApi(DateTime month);
+        Task<ApiResponse> GetUserExpensesForApi(string month);
         Task<ApiResponse> GetMonthlyExpensesTrend(int roomId, string month);
-        Task<SettlementData> GetSettlementDetails(int roomId, int memberId, DateTime? month = null);
-        Task<List<string>?> GetExpenseMonths(int roomId);
+        Task<ApiResponse> GetSettlementDetails(int roomId, int memberId, string month);
+        Task<List<string>?> GetExpenseMonthsByUserId();
     }
 }

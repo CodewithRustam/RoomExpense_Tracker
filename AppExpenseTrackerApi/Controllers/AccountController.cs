@@ -82,7 +82,7 @@ namespace AppExpenseTracker.Controllers
             if (result.Succeeded)
             {
                 await _signInManager.SignInAsync(user, isPersistent: false);
-                return Ok(ApiResponse.Ok("Registration successful"));
+                return Ok(ApiResponse.SuccessRes("Registration successful"));
             }
 
             var errors = result.Errors.Select(e => e.Description).ToList();
@@ -93,7 +93,7 @@ namespace AppExpenseTracker.Controllers
         public async Task<IActionResult> Logout()
         {
             await _signInManager.SignOutAsync();
-            return Ok(ApiResponse.Ok("Logged out successfully"));
+            return Ok(ApiResponse.SuccessRes("Logged out successfully"));
         }
 
         [HttpPost("forgot-password")]
@@ -104,7 +104,7 @@ namespace AppExpenseTracker.Controllers
 
             var user = await _userManager.FindByEmailAsync(model.Email!);
             if (user == null || string.IsNullOrEmpty(user.Email))
-                return Ok(ApiResponse.Ok("Password reset link sent if email exists"));
+                return Ok(ApiResponse.SuccessRes("Password reset link sent if email exists"));
 
             string shortCode = await _passwordResetLinkService.AddPasswordResetLink(model.Email!);
             var resetUrl = Url.Action("RedirectReset", "Account", new { code = shortCode }, Request.Scheme)!;
@@ -112,7 +112,7 @@ namespace AppExpenseTracker.Controllers
             var body = EmailTemplates.GetPasswordResetEmail(resetUrl);
             await _emailSender.SendEmailAsync(model.Email!, "Reset Your Password", body);
 
-            return Ok(ApiResponse.Ok("Password reset link sent"));
+            return Ok(ApiResponse.SuccessRes("Password reset link sent"));
         }
 
         [HttpPost("reset-password")]
@@ -128,7 +128,7 @@ namespace AppExpenseTracker.Controllers
             var result = await _userManager.ResetPasswordAsync(user, model.Token!, model.Password!);
 
             if (result.Succeeded)
-                return Ok(ApiResponse.Ok("Password reset successful"));
+                return Ok(ApiResponse.SuccessRes("Password reset successful"));
 
             var errors = result.Errors.Select(e => e.Description).ToList();
             return BadRequest(ApiResponse<object>.Fail(null,string.Join(", ", errors)));
@@ -138,10 +138,10 @@ namespace AppExpenseTracker.Controllers
         public async Task<IActionResult> CheckEmail(string email)
         {
             if (string.IsNullOrEmpty(email))
-                return Ok(ApiResponse<object>.Ok(new { exists = false }, "Invalid email"));
+                return Ok(ApiResponse<object>.Fail(new { exists = false }, "Invalid email"));
 
             var user = await _userManager.FindByEmailAsync(email);
-            return Ok(ApiResponse<object>.Ok(new { exists = user != null }, "Email check complete"));
+            return Ok(ApiResponse<object>.SuccessRes(new { exists = user != null }, "Email check complete"));
         }
 
         [HttpPost("app-register")]

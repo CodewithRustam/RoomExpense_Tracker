@@ -41,5 +41,9 @@ namespace Infrastructure.Repositories
         {
             return _context.Rooms.Where(x=>x.RoomId == roomId).Select(x=>x.Name).FirstOrDefault();
         }
+        public Task<bool> IsValidRoomAsync(int roomId)
+        {
+            return AnyAsync(x=>x.RoomId == roomId);
+        }
     }
 }

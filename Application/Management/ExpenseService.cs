@@ -39,9 +39,9 @@ namespace Services.Management
             _userManager = userManager;
             _serviceProvider = serviceProvider; 
         }
-        public async Task<List<string>?> GetExpenseMonths(int roomId)
+        public async Task<List<string>?> GetExpenseMonthsByUserId()
         {
-            return await expenseRepository.GetExpenseMonths(roomId);
+            return await expenseRepository.GetExpenseMonthsByUserId(currentUser.UserId!);
         }
         public async Task<ApiResponse> AddExpenses(ExpenseViewModel expenseViewModel)
         {
@@ -380,12 +380,25 @@ namespace Services.Management
             return summaries;
         }
 
-        public async Task<ApiResponse> GetUserExpensesForApi(DateTime month)
+        public async Task<ApiResponse> GetUserExpensesForApi(string month)
         {
+            DateTime targetMonth;
+            if (string.IsNullOrEmpty(month))
+            {
+                targetMonth = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
+            }
+            else
+            {
+                if (!DateTimeParser.ParseMonthYear(month, out targetMonth))
+                {
+                    return ApiResponse.Fail("Invalid month format. Please use YYYY-MM format (e.g., 2025-10).");
+                }
+            }
+
             var userId = currentUser.UserId;
             if (string.IsNullOrEmpty(userId)) return ApiResponse.Fail("User not found.");
 
-            var expenses = await expenseRepository.GetUserExpenses(userId, month);
+            var expenses = await expenseRepository.GetUserExpenses(userId, targetMonth);
 
             if(expenses is null) return ApiResponse.Fail("User expenses not found.");
 
@@ -398,12 +411,15 @@ namespace Services.Management
                 IconName = CategoryMapper.GetIconForCategory(e.Category ?? string.Empty),
                 UserId = userId
             }).ToList();
-            return ApiResponse.SuccessRes("User expenses fetched successfully.");
+
+            return ApiResponse<List<UserExpenseResponse>>.SuccessRes(userExpenseRes, "User expenses fetched successfully.");
         }
         public async Task<ApiResponse> GetMonthlyExpensesTrend(int roomId, string month)
         {
-            if (!DateTime.TryParseExact(month, "yyyy-MM", CultureInfo.InvariantCulture, DateTimeStyles.None, out var targetMonth))
-                return ApiResponse.Fail("Invalid month format. Use YYYY-MM.");
+            if (!DateTimeParser.ParseMonthYear(month, out var targetMonth))
+            {
+                return ApiResponse.Fail("Invalid month format. Please use YYYY-MM format (e.g., 2025-10).");
+            }
 
             var (memberDtos, categoryDtos, topSpendsDtos) = await expenseRepository.GetMonthlyExpensesTrendAsync(roomId, targetMonth);
 
@@ -441,19 +457,16 @@ namespace Services.Management
         }
         public async Task<ApiResponse> GetSettlementDetails(int roomId, int memberId, string month)
         {
-            // ✅ Validate month format
             if (!DateTimeParser.ParseMonthYear(month, out var targetMonth))
             {
                 return ApiResponse.Fail("Invalid month format. Please use YYYY-MM format (e.g., 2025-10).");
             }
 
-            // ✅ Validate room
-            if (roomId <= 0 || !await roomServices.IsValidRoomAsync(roomId))
+            if (roomId <= 0 || !await roomRepository.IsValidRoomAsync(roomId))
             {
                 return ApiResponse.Fail("Invalid room ID or room not found.");
             }
 
-            // ✅ Validate members
             var userId = currentUser.UserId;
             var members = await memberRepository.GetMembersByRoomId(roomId, userId);
             if (members == null || !members.Any())
@@ -461,14 +474,12 @@ namespace Services.Management
                 return ApiResponse.Fail("No members found for the specified room.");
             }
 
-            // ✅ Get monthly settlement details
             var monthlyBalances = await settlementRepository.GetMonthlySettlementsDetails(roomId, targetMonth);
             if (monthlyBalances == null || !monthlyBalances.Any())
             {
                 return ApiResponse.Fail("No settlement data found for the selected month.");
             }
 
-            // ✅ Calculate balances
             var balancesDict = new Dictionary<int, decimal>(monthlyBalances.Count);
             decimal targetBalance = 0m;
 
@@ -479,17 +490,14 @@ namespace Services.Management
                     targetBalance = m.NetBalance;
             }
 
-            // ✅ Compute settlements for the selected member
             var settlementDetails = ComputeSettlementsForMember(balancesDict, members, memberId);
 
-            // ✅ Prepare response object
             var settlementData = new SettlementData
             {
                 NetBalance = targetBalance,
                 Settlements = settlementDetails
             };
 
-            // ✅ Return success response
             return ApiResponse<SettlementData>.SuccessRes(settlementData, "Settlement details retrieved successfully.");
         }
         private List<SettlementDetail> ComputeSettlementsForMember(

@@ -9,5 +9,6 @@ namespace Domain.Interfaces
         Task<bool> MemberExistsAsync(int roomId, string username);
         Task AddMembersAsync(IEnumerable<Member> members);
         string? GetRoomName(int roomId);
+        Task<bool> IsValidRoomAsync(int roomId);
     }
 }

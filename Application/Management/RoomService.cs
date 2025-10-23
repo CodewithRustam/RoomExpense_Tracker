@@ -69,7 +69,7 @@ namespace Services.Management
         }
         public async Task<bool> IsValidRoomAsync(int roomId)
         {
-            return await roomRepository.AnyAsync(r => r.RoomId == roomId);
+           return await roomRepository.IsValidRoomAsync(roomId);
         }
         public async Task<RoomDetailsViewModel?> GetRoomDetails(int roomId, string? month, bool isFromSettled)
         {

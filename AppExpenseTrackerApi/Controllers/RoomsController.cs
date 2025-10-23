@@ -24,7 +24,7 @@ namespace ExpenseTracker.Controllers
         public async Task<IActionResult> GetRooms()
         {
             var rooms = await roomServices.GetRoomsForCurrentUser();
-            var response = ApiResponse<List<RoomResponse>>.Ok(rooms, "Rooms retrieved successfully.");
+            var response = ApiResponse<List<RoomResponse>>.SuccessRes(rooms, "Rooms retrieved successfully.");
             return Ok(response);
         }
 
@@ -39,7 +39,7 @@ namespace ExpenseTracker.Controllers
             if (!success)
                 return BadRequest(ApiResponse<string>.Fail(message));
 
-            return Ok(ApiResponse<string>.Ok(null, message));
+            return Ok(ApiResponse<string>.SuccessRes(null, message));
         }
 
         [HttpGet("details/{id}")]
@@ -50,7 +50,7 @@ namespace ExpenseTracker.Controllers
             if (roomDetails == null)
                 return NotFound(ApiResponse.Fail("Room not found."));
 
-            return Ok(ApiResponse<RoomDetailsViewModel>.Ok(roomDetails, "Room details retrieved successfully."));
+            return Ok(ApiResponse<RoomDetailsViewModel>.SuccessRes(roomDetails, "Room details retrieved successfully."));
         }
     }
 }

@@ -15,5 +15,6 @@ namespace Domain.Interfaces
         Task<List<Expense>> GetExpensesForMembers(int roomId, int payerMemberId, int receiverMemberId, DateTime monthStart, DateTime monthEnd);
         Task<(List<MemberExpensesDto> Members, List<CategoryExpenseDto> Categories, List<CategoryExpenseDto> TopSpends)> GetMonthlyExpensesTrendAsync(int roomId, DateTime targetMonth);
         Task<List<string>> GetExpenseMonths(int roomId);
+        Task<List<string>> GetExpenseMonthsByUserId(string userId);
     }
 }
