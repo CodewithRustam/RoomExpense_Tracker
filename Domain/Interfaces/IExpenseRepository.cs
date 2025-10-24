@@ -1,7 +1,4 @@
-﻿using Domain.Entities;
-using Domain.Entities.Dto;
-
-namespace Domain.Interfaces
+﻿namespace Domain.Interfaces
 {
     public interface IExpenseRepository: IRepository<Expense>
     {

@@ -1,8 +1,4 @@
-﻿using FirebaseAdmin;
-using FirebaseAdmin.Messaging;
-using Google.Apis.Auth.OAuth2;
-
-namespace Services.Management
+﻿namespace Services.Management
 {
     public class NotificationService
     {

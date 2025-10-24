@@ -1,7 +1,4 @@
-﻿using Services.ViewModels;
-using Services.ViewModels.ApiViewModels;
-
-namespace Services.Interfaces
+﻿namespace Services.Interfaces
 {
     public interface IExpenseServices
     {

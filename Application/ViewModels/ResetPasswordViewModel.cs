@@ -1,6 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
-
-namespace Services.ViewModels
+﻿namespace Services.ViewModels
 {
     public class ResetPasswordViewModel
     {

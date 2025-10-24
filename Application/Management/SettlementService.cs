@@ -1,16 +1,4 @@
-﻿using Domain.AppUser;
-using Domain.Entities;
-using Domain.Exceptions;
-using Domain.Interfaces;
-using ExpenseTrakcerHepler;
-using Infrastructure.Data;
-using Infrastructure.Email;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.Extensions.Caching.Memory;
-using Services.Interfaces;
-using Services.ViewModels;
-
-namespace Services.Management
+﻿namespace Services.Management
 {
     public class SettlementService : ISettlementServices
     {
@@ -97,7 +85,6 @@ namespace Services.Management
 
                 decimal avgExpensePerMember = Math.Round(totalRoomExpenses / totalMembers,2);
 
-                // Compute balances
                 decimal payerNetBalance = payerTotalExpenses + payerTotalPaid - payerTotalReceived;
                 decimal receiverNetBalance = receiverTotalExpenses + receiverTotalPaid - receiverTotalReceived;
 
@@ -128,7 +115,7 @@ namespace Services.Management
                 await _settlementRepo.AddAsync(newSettlement);
                 await transaction.CommitAsync();
 
-                string cacheKey = CacheHepler.GetCacheKey(roomId, settlementMonth);
+                string cacheKey = CacheHelper.GetCacheKey(roomId, settlementMonth);
                 _cache.Remove(cacheKey);
 
                 _ = Task.Run(() => SendSettlementEmailAsync(payer, receiver, request.SettlementAmount, settlementMonth));

@@ -1,9 +1,4 @@
-﻿using Azure.Core;
-using Infrastructure.Email.Config;
-using System.Net;
-using System.Net.Mail;
-
-namespace Infrastructure.Email
+﻿namespace Infrastructure.Email
 {
     public class SmtpEmailSender : IEmailSender
     {

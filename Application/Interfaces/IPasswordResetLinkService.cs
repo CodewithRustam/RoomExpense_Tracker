@@ -1,6 +1,4 @@
-﻿using Domain.Entities;
-
-namespace Services.Interfaces
+﻿namespace Services.Interfaces
 {
     public interface IPasswordResetLinkService
     {

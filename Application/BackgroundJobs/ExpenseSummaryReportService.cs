@@ -1,17 +1,4 @@
-﻿using Domain.AppUser;
-using Domain.Entities;
-using ExpenseTrakcerHepler;
-using Infrastructure.Data;
-using Infrastructure.Email;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
-using QuestPDF.Fluent;
-using QuestPDF.Helpers;
-using QuestPDF.Infrastructure;
-
-namespace Services.BackgroundJobs
+﻿namespace Services.BackgroundJobs
 {
     public class ExpenseSummaryReportService : IHostedService, IDisposable
     {

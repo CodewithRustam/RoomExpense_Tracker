@@ -1,14 +1,4 @@
-﻿using Domain.Entities;
-using Domain.Interfaces;
-using ExpenseTrakcerHepler;
-using Infrastructure.Data;
-using Microsoft.Data.SqlClient;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Caching.Memory;
-using Microsoft.Extensions.Configuration;
-using Dapper;
-
-namespace Infrastructure.Repositories
+﻿namespace Infrastructure.Repositories
 {
     public class SettlementRepository : Repository<Settlement>, ISettlementRepository
     {

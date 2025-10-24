@@ -1,6 +1,4 @@
-﻿using Domain.Entities;
-
-namespace Services.ViewModels.ApiViewModels
+﻿namespace Services.ViewModels.ApiViewModels
 {
     public class RoomExpensesViewModel
     {

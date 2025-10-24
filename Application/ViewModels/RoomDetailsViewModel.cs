@@ -1,9 +1,4 @@
-﻿using System.Globalization;
-using Domain.Entities;
-using Microsoft.AspNetCore.Mvc.Rendering;
-
-
-namespace Services.ViewModels
+﻿namespace Services.ViewModels
 {
     public class RoomDetailsViewModel
     {

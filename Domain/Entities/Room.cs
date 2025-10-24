@@ -1,7 +1,4 @@
-﻿using Domain.AppUser;
-using System.ComponentModel.DataAnnotations;
-
-namespace Domain.Entities
+﻿namespace Domain.Entities
 {
     public class Room
     {

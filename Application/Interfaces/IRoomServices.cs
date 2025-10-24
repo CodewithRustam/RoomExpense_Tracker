@@ -1,9 +1,4 @@
-﻿
-using Domain.Entities;
-using Services.ViewModels;
-using Services.ViewModels.ApiReponse;
-
-namespace Services.Interfaces
+﻿namespace Services.Interfaces
 {
     public interface IRoomServices
     {

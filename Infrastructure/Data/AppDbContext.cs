@@ -1,9 +1,3 @@
-using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
-using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore;
-using Domain.AppUser;
-using Domain.Entities;
-
 namespace Infrastructure.Data
 {
     public class AppDbContext : IdentityDbContext<ApplicationUser>, IDataProtectionKeyContext

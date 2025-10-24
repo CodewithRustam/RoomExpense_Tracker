@@ -1,8 +1,4 @@
-﻿using Microsoft.AspNetCore.Http;
-using Services.Interfaces;
-using System.Security.Claims;
-
-namespace Services.Management.AuthService
+﻿namespace Services.Management.AuthService
 {
     public class CurrentUserService : ICurrentUserService
     {

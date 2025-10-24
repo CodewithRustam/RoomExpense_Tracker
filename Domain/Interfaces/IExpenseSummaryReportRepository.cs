@@ -1,6 +1,4 @@
-﻿using Domain.Entities;
-
-namespace Domain.Interfaces
+﻿namespace Domain.Interfaces
 {
     public interface IExpenseSummaryReportRepository : IRepository<DailyReportLog>
     {

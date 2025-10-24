@@ -1,32 +1,33 @@
-﻿using Domain.AppUser;
-using Domain.Entities;
-using Domain.Interfaces;
-using Microsoft.AspNetCore.Identity;
-using Services.Interfaces;
-using Services.ViewModels;
-using Services.ViewModels.ApiReponse;
-
-namespace Services.Management
+﻿namespace Services.Management
 {
     public class RoomService : IRoomServices
     {
         private readonly IRoomRepository roomRepository;
         private readonly ICurrentUserService currentUser;
         private readonly UserManager<ApplicationUser> _userManager;
+        private readonly IMemoryCache cache;
 
-        public RoomService(IRoomRepository _roomRepository, ICurrentUserService _currentUser, UserManager<ApplicationUser> userManager) 
+        public RoomService(IRoomRepository _roomRepository, ICurrentUserService _currentUser, UserManager<ApplicationUser> userManager, IMemoryCache _cache) 
         {
             roomRepository = _roomRepository;
             currentUser = _currentUser;
             _userManager = userManager;
+            cache = _cache;
         }
 
         public async Task<List<RoomResponse>> GetRoomsForCurrentUser()
         {
             string? userId = currentUser.UserId;
+            string cacheKey = CacheHelper.GetRoomsUserKey(userId);
+
+            if (cache.TryGetValue(cacheKey, out List<RoomResponse>? cachedRooms))
+            {
+                return cachedRooms ?? new List<RoomResponse>();
+            }
+
             var rooms = await roomRepository.GetRoomsForCurrentUser(userId);
 
-            return rooms.Select(r =>
+            var roomResponses = rooms.Select(r =>
             {
                 if (r.Expenses == null || !r.Expenses.Any())
                 {
@@ -66,6 +67,9 @@ namespace Services.Management
                     Month = new DateTime(targetYear, targetMonth, 1).ToString("yyyy-MMM")
                 };
             }).ToList();
+
+            cache.Set(cacheKey, roomResponses, TimeSpan.FromDays(30));
+            return roomResponses;
         }
         public async Task<bool> IsValidRoomAsync(int roomId)
         {

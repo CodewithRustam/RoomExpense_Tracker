@@ -1,17 +1,4 @@
-﻿using Domain.AppUser;
-using ExpenseTrakcerHepler;
-using Infrastructure.Email;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.IdentityModel.Tokens;
-using Services.Interfaces;
-using Services.ViewModels;
-using Services.ViewModels.ApiViewModels;
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using System.Text;
-
-namespace AppExpenseTracker.Controllers
+﻿namespace AppExpenseTracker.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
@@ -69,7 +56,20 @@ namespace AppExpenseTracker.Controllers
         public async Task<IActionResult> Register([FromBody] RegisterViewModel model)
         {
             if (!ModelState.IsValid)
-                return BadRequest(ApiResponse.Fail("Invalid request data."));
+            {
+                var validationErrors = ModelState.Values
+                    .SelectMany(v => v.Errors)
+                    .Select(e => e.ErrorMessage)
+                    .ToList();
+
+                return BadRequest(ApiResponse<List<string>>.Fail(validationErrors, "Validation failed. Please check input fields."));
+            }
+
+            var existingUser = await _userManager.FindByEmailAsync(model.Email!);
+            if (existingUser != null)
+            {
+                return Conflict(ApiResponse.Fail("Email is already registered."));
+            }
 
             var user = new ApplicationUser
             {
@@ -82,11 +82,11 @@ namespace AppExpenseTracker.Controllers
             if (result.Succeeded)
             {
                 await _signInManager.SignInAsync(user, isPersistent: false);
-                return Ok(ApiResponse.SuccessRes("Registration successful"));
+                return Ok(ApiResponse.SuccessRes("Registration successful."));
             }
 
-            var errors = result.Errors.Select(e => e.Description).ToList();
-            return BadRequest(ApiResponse<object>.Fail(null,string.Join(", ", errors)));
+            var identityErrors = result.Errors.Select(e => e.Description).ToList();
+            return BadRequest(ApiResponse<List<string>>.Fail(identityErrors,"User registration failed due to identity errors."));
         }
 
         [HttpPost("logout")]
@@ -100,21 +100,30 @@ namespace AppExpenseTracker.Controllers
         public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordViewModel model)
         {
             if (!ModelState.IsValid)
-                return BadRequest(ApiResponse.Fail("Invalid request data."));
+            {
+                var validationErrors = ModelState.Values
+                    .SelectMany(v => v.Errors)
+                    .Select(e => e.ErrorMessage)
+                    .ToList();
+
+                return BadRequest(ApiResponse<List<string>>.Fail(validationErrors, "Validation failed. Please check your input."));
+            }
 
             var user = await _userManager.FindByEmailAsync(model.Email!);
             if (user == null || string.IsNullOrEmpty(user.Email))
-                return Ok(ApiResponse.SuccessRes("Password reset link sent if email exists"));
+            {
+                return Ok(ApiResponse.SuccessRes("If the email exists, a password reset link has been sent."));
+            }
 
             string shortCode = await _passwordResetLinkService.AddPasswordResetLink(model.Email!);
-            var resetUrl = Url.Action("RedirectReset", "Account", new { code = shortCode }, Request.Scheme)!;
+            string resetUrl = Url.Action("RedirectReset", "Account", new { code = shortCode }, Request.Scheme)!;
 
-            var body = EmailTemplates.GetPasswordResetEmail(resetUrl);
+            string body = EmailTemplates.GetPasswordResetEmail(resetUrl);
+
             await _emailSender.SendEmailAsync(model.Email!, "Reset Your Password", body);
 
-            return Ok(ApiResponse.SuccessRes("Password reset link sent"));
+            return Ok(ApiResponse.SuccessRes("Password reset link sent successfully."));
         }
-
         [HttpPost("reset-password")]
         public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordViewModel model)
         {

@@ -1,17 +1,4 @@
-﻿using Domain.Entities;
-using Domain.Interfaces;
-using ExpenseTrakcerHepler;
-using Infrastructure.Data;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Caching.Memory;
-using static Microsoft.EntityFrameworkCore.DbLoggerCategory.Database;
-using System.Data;
-using Microsoft.Data.SqlClient;
-using Dapper;
-using Microsoft.Extensions.Configuration;
-using System.Data.Common;
-using Domain.Entities.Dto;
-namespace Infrastructure.Repositories
+﻿namespace Infrastructure.Repositories
 {
     public class ExpensesRepository : Repository<Expense>, IExpenseRepository
     {
@@ -46,7 +33,7 @@ namespace Infrastructure.Repositories
                 await transaction.RollbackAsync();
                 return message = "An unexpected error occurred while adding the expense. Please try again.";
             }
-            message = "Expense added successfully";
+            message = "Expense has been recorded successfully.";
             return message;
         }
         public async Task<List<ExpenseRecordDto>> GetMonthlyExpenses(int roomId, DateTime selectedMonth)

@@ -1,9 +1,4 @@
-﻿using Domain.Entities;
-using Domain.Interfaces;
-using Infrastructure.Data;
-using Microsoft.EntityFrameworkCore;
-
-namespace Infrastructure.Repositories
+﻿namespace Infrastructure.Repositories
 {
     public class RoomRepository : Repository<Room>, IRoomRepository
     {
@@ -16,7 +11,7 @@ namespace Infrastructure.Repositories
         {
             return await _context.Rooms.Where(r => r.Members.Any(m => m.ApplicationUserId == userId) && !r.IsDeleted)
                                        .Include(r => r.Members)
-                                       .Include(r => r.Expenses).ToListAsync();
+                                       .Include(r => r.Expenses).AsNoTracking().ToListAsync();
 
         }
         public async Task<Room?> GetRoomDetails(int roomId, string? userId)

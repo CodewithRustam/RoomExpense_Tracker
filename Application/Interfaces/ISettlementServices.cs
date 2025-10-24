@@ -1,6 +1,4 @@
 ﻿
-using Services.ViewModels;
-
 namespace Services.Interfaces
 {
     public interface ISettlementServices

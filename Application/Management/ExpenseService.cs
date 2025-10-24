@@ -1,21 +1,4 @@
-﻿using Azure;
-using Domain.AppUser;
-using Domain.Entities;
-using Domain.Entities.Dto;
-using Domain.Interfaces;
-using ExpenseTrakcerHepler;
-using Infrastructure.Repositories;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Caching.Memory;
-using Microsoft.Extensions.DependencyInjection;
-using Services.Interfaces;
-using Services.ViewModels;
-using Services.ViewModels.ApiViewModels;
-using System.Globalization;
-using static Services.Management.ExpenseService;
-
-namespace Services.Management
+﻿namespace Services.Management
 {
     public class ExpenseService : IExpenseServices
     {
@@ -45,11 +28,10 @@ namespace Services.Management
         }
         public async Task<ApiResponse> AddExpenses(ExpenseViewModel expenseViewModel)
         {
-            string message = string.Empty;
-            var error = ValidateExpenseViewModel(expenseViewModel);
+            var errorMsg = ValidateExpenseViewModel(expenseViewModel);
 
-            if (!string.IsNullOrEmpty(error))
-                return ApiResponse.Fail(error);
+            if (!string.IsNullOrEmpty(errorMsg))
+                return ApiResponse.Fail(errorMsg);
 
             string? userId = currentUser.UserId;
             int memberId = await memberRepository.GetMemberId(userId, expenseViewModel.RoomId);
@@ -93,15 +75,23 @@ namespace Services.Management
                 return ApiResponse.Fail("This expense already exists.");
             }
 
-            message = await expenseRepository.AddExpenses(expense);
+            string message = await expenseRepository.AddExpenses(expense);
             if (expense is not null && expense.ExpenseId > 0)
             {
-                var cacheKey = CacheHepler.GetCacheKey(expenseViewModel.RoomId, expenseViewModel.Date);
+                var cacheKey = CacheHelper.GetCacheKey(expenseViewModel.RoomId, expenseViewModel.Date);
                 cache.Remove(cacheKey);
+                string roomuserCacheKey = CacheHelper.GetRoomsUserKey(userId);
+                cache.Remove(roomuserCacheKey);
+                string monthlyTrendsCacheKey = CacheHelper.GetMonthlyExpenseTrendKey(expenseViewModel.RoomId, expenseViewModel.Date);
+                cache.Remove(monthlyTrendsCacheKey);
+                string userExpensecacheKey = CacheHelper.GetUserExpensesKey(userId, expenseViewModel.Date);
+                cache.Remove(userExpensecacheKey);
+                string settlementCacheKey = CacheHelper.GetSettlementCacheKey(expenseViewModel.RoomId, memberId, expenseViewModel.Date);
+                cache.Remove(settlementCacheKey);
 
                 foreach (var isMemberInclude in new[] { true, false })
                 {
-                    string expenseDetails = CacheHepler.GetMonthlyExpensesKey(expenseViewModel.RoomId, expenseViewModel.Date, isMemberInclude);
+                    string expenseDetails = CacheHelper.GetMonthlyExpensesKey(expenseViewModel.RoomId, expenseViewModel.Date, isMemberInclude);
                     cache.Remove(expenseDetails);
                 }
 
@@ -119,19 +109,23 @@ namespace Services.Management
                 {
                     // swallow here: notifications must not break the request flow
                 }
-                return ApiResponse.SuccessRes("Expense has been recorded successfully.");
+                return ApiResponse.SuccessRes(message);
             }
             else
             {
-                return ApiResponse.Fail("Failed to add expense. Please try again later.");
+                return ApiResponse.Fail(message);
             }
         }
         public async Task<ApiResponse> UpdateExpenses(ExpenseViewModel expenseViewModel)
         {
-            var error = ValidateExpenseViewModel(expenseViewModel);
+            var errorMsg = ValidateExpenseViewModel(expenseViewModel);
 
-            if (!string.IsNullOrEmpty(error))
-                return ApiResponse.Fail(error);
+            if (!string.IsNullOrEmpty(errorMsg))
+                return ApiResponse.Fail(errorMsg);
+
+            bool isMonthSettledForRoom = await settlementRepository.IsMonthSettledForRoomAsync(expenseViewModel.RoomId, expenseViewModel.Date);
+
+            if(isMonthSettledForRoom) return ApiResponse.Fail("Cannot update expense for a settled month.");
 
             Expense expense = new Expense
             {
@@ -146,12 +140,13 @@ namespace Services.Management
 
             if (result.IsUpdated)
             {
-                var cacheKey = CacheHepler.GetCacheKey(expenseViewModel.RoomId, expenseViewModel.Date);
+                var cacheKey = CacheHelper.GetCacheKey(expenseViewModel.RoomId, expenseViewModel.Date);
                 cache.Remove(cacheKey);
-
+                string roomuserCacheKey = CacheHelper.GetRoomsUserKey(currentUser.UserId);
+                cache.Remove(roomuserCacheKey);
                 foreach (var isMemberInclude in new[] { true, false })
                 {
-                    string expenseDetails = CacheHepler.GetMonthlyExpensesKey(expenseViewModel.RoomId, expenseViewModel.Date, isMemberInclude);
+                    string expenseDetails = CacheHelper.GetMonthlyExpensesKey(expenseViewModel.RoomId, expenseViewModel.Date, isMemberInclude);
                     cache.Remove(expenseDetails);
                 }
                 return ApiResponse.SuccessRes(result.Message);
@@ -273,7 +268,7 @@ namespace Services.Management
         }
         public async Task<ApiResponse> GetRoomExpensesForApi(int roomId, DateTime selectedMonth, bool includeRoomInfo = true)
         {
-            string cacheKey = CacheHepler.GetMonthlyExpensesKey(roomId, selectedMonth, includeRoomInfo);
+            string cacheKey = CacheHelper.GetMonthlyExpensesKey(roomId, selectedMonth, includeRoomInfo);
             if (!cache.TryGetValue(cacheKey, out RoomExpenseResponse? response))
             {
                 List<ExpenseRecordDto>? expenses = await expenseRepository.GetMonthlyExpenses(roomId, selectedMonth);
@@ -290,6 +285,7 @@ namespace Services.Management
                 int year = selectedMonth.Year;
                 int month = selectedMonth.Month;
 
+                bool isMonthSettledForRoom = await settlementRepository.IsMonthSettledForRoomAsync(roomId, selectedMonth);
                 response = new RoomExpenseResponse
                 {
                     RoomId = roomId,
@@ -306,7 +302,7 @@ namespace Services.Management
                         PayerId = e.PayerId,
                         Category = e.Category ?? string.Empty,
                         IconName = CategoryMapper.GetIconForCategory(e.Category ?? string.Empty),
-                        IsEditShow = e.ApplicationUserId == userId && DateTime.Now.Month == e.Date.Month
+                        IsEditShow = e.ApplicationUserId == userId && !isMonthSettledForRoom
                     }).ToList()
                 };
                 response.MembersSummary = CalculateMemberExpenseSummary(expenses, filteredSettlements, members);
@@ -320,11 +316,11 @@ namespace Services.Management
             }
             if (response is null)
             {
-                return ApiResponse<RoomExpenseResponse>.SuccessRes(response, "Failed to fetch expense details. Please try again later.");
+                return ApiResponse.Fail("Failed to fetch expense details. Please try again later.");
             }
             return ApiResponse<RoomExpenseResponse>.SuccessRes(response, "Expense details fetched successfully.");
         }
-        private List<MemberExpenseSummary> CalculateMemberExpenseSummary(List<ExpenseRecordDto> expenses,List<Settlement> settlements,List<Member> members)
+        List<MemberExpenseSummary> CalculateMemberExpenseSummary(List<ExpenseRecordDto> expenses,List<Settlement> settlements,List<Member> members)
         {
             var summaries = new List<MemberExpenseSummary>();
             var userId = currentUser.UserId;
@@ -396,11 +392,22 @@ namespace Services.Management
             }
 
             var userId = currentUser.UserId;
-            if (string.IsNullOrEmpty(userId)) return ApiResponse.Fail("User not found.");
+            if (string.IsNullOrEmpty(userId))
+                return ApiResponse.Fail("User not found.");
+
+            string cacheKey = CacheHelper.GetUserExpensesKey(userId, targetMonth);
+
+            if (cache.TryGetValue(cacheKey, out List<UserExpenseResponse>? cachedExpenses))
+            {
+                return ApiResponse<List<UserExpenseResponse>>.SuccessRes(cachedExpenses,
+                    "User expenses fetched successfully.");
+            }
 
             var expenses = await expenseRepository.GetUserExpenses(userId, targetMonth);
-
-            if(expenses is null) return ApiResponse.Fail("User expenses not found.");
+            if (expenses == null || !expenses.Any())
+            {
+                return ApiResponse.Fail("User expenses not found.");
+            }
 
             var userExpenseRes = expenses.Select(e => new UserExpenseResponse
             {
@@ -412,6 +419,8 @@ namespace Services.Management
                 UserId = userId
             }).ToList();
 
+            cache.Set(cacheKey, userExpenseRes, TimeSpan.FromDays(30));
+
             return ApiResponse<List<UserExpenseResponse>>.SuccessRes(userExpenseRes, "User expenses fetched successfully.");
         }
         public async Task<ApiResponse> GetMonthlyExpensesTrend(int roomId, string month)
@@ -421,13 +430,25 @@ namespace Services.Management
                 return ApiResponse.Fail("Invalid month format. Please use YYYY-MM format (e.g., 2025-10).");
             }
 
+            string cacheKey = CacheHelper.GetMonthlyExpenseTrendKey(roomId, targetMonth);
+
+            if (cache.TryGetValue(cacheKey, out MonthlyExpensesTrendResponse? cachedResponse))
+            {
+                return ApiResponse<MonthlyExpensesTrendResponse>.SuccessRes(cachedResponse,
+                    "Expense trend data fetched successfully.");
+            }
+
             var (memberDtos, categoryDtos, topSpendsDtos) = await expenseRepository.GetMonthlyExpensesTrendAsync(roomId, targetMonth);
 
             if (memberDtos == null || categoryDtos == null || topSpendsDtos == null)
+            {
                 return ApiResponse.Fail("Failed to fetch monthly expense trends. Please try again later.");
+            }
 
             if (!memberDtos.Any() && !categoryDtos.Any() && !topSpendsDtos.Any())
+            {
                 return ApiResponse.Fail("No expense trend data found for the selected month.");
+            }
 
             var response = new MonthlyExpensesTrendResponse
             {
@@ -453,13 +474,21 @@ namespace Services.Management
                     IconName = CategoryMapper.GetIconForCategory(t.Category)
                 }).ToList()
             };
-            return ApiResponse.SuccessRes("Expense trend data fetched successfully.");
+            cache.Set(cacheKey, response, TimeSpan.FromDays(30));
+
+            return ApiResponse<MonthlyExpensesTrendResponse>.SuccessRes(response, "Expense trend data fetched successfully.");
         }
         public async Task<ApiResponse> GetSettlementDetails(int roomId, int memberId, string month)
         {
             if (!DateTimeParser.ParseMonthYear(month, out var targetMonth))
             {
                 return ApiResponse.Fail("Invalid month format. Please use YYYY-MM format (e.g., 2025-10).");
+            }
+
+            string cacheKey = CacheHelper.GetSettlementCacheKey(roomId, memberId, targetMonth);
+            if (cache.TryGetValue(cacheKey, out SettlementData? cachedSettlementData))
+            {
+                return ApiResponse<SettlementData>.SuccessRes(cachedSettlementData, "Settlement details retrieved.");
             }
 
             if (roomId <= 0 || !await roomRepository.IsValidRoomAsync(roomId))
@@ -482,7 +511,6 @@ namespace Services.Management
 
             var balancesDict = new Dictionary<int, decimal>(monthlyBalances.Count);
             decimal targetBalance = 0m;
-
             foreach (var m in monthlyBalances)
             {
                 balancesDict[m.MemberId] = m.NetBalance;
@@ -498,21 +526,19 @@ namespace Services.Management
                 Settlements = settlementDetails
             };
 
+            cache.Set(cacheKey, settlementData, TimeSpan.FromDays(30));
+
             return ApiResponse<SettlementData>.SuccessRes(settlementData, "Settlement details retrieved successfully.");
         }
-        private List<SettlementDetail> ComputeSettlementsForMember(
-            Dictionary<int, decimal> balancesDict,
-            List<Member> members,
-            int targetMemberId)
+        private List<SettlementDetail> ComputeSettlementsForMember(Dictionary<int, decimal> balancesDict,List<Member> members,int targetMemberId)
         {
             var settlements = new List<SettlementDetail>();
 
-            if (!balancesDict.TryGetValue(targetMemberId, out decimal debtorBalance) || Math.Abs(debtorBalance) < 0.5m)
-                return settlements; // Already settled or zero
+            if (!balancesDict.TryGetValue(targetMemberId, out decimal targetBalance) || Math.Abs(targetBalance) < 0.5m)
+                return settlements; 
 
-            // Separate creditors and other debtors
             var creditors = new List<(int Id, decimal Balance, string Name)>();
-            var otherDebtors = new List<(int Id, decimal Balance, string Name)>();
+            var debtors = new List<(int Id, decimal Balance, string Name)>();
 
             foreach (var member in members)
             {
@@ -520,69 +546,50 @@ namespace Services.Management
 
                 var balance = balancesDict[member.MemberId];
                 if (balance > 0) creditors.Add((member.MemberId, balance, member.Name));
-                else if (balance < 0) otherDebtors.Add((member.MemberId, Math.Abs(balance), member.Name));
+                else if (balance < 0) debtors.Add((member.MemberId, Math.Abs(balance), member.Name));
             }
 
-            creditors.Sort((a, b) => b.Balance.CompareTo(a.Balance));
-            otherDebtors.Sort((a, b) => b.Balance.CompareTo(a.Balance));
+            if(creditors.Count > 0) creditors.Sort((a, b) => b.Balance.CompareTo(a.Balance));
+            if(debtors.Count>0) debtors.Sort((a, b) => b.Balance.CompareTo(a.Balance));
 
-            if (debtorBalance < 0)
+            if (targetBalance < 0)
             {
-                // Target owes money
-                var amountToPay = Math.Abs(debtorBalance);
-                foreach (var creditor in creditors)
+                var amountToPay = Math.Abs(targetBalance);
+
+                int i = 0;
+                while (amountToPay > 0 && i < creditors.Count)
                 {
-                    if (amountToPay <= 0) break;
-                    var settleAmount = Math.Min(amountToPay, creditor.Balance);
+                    var settleAmount = Math.Min(amountToPay, creditors[i].Balance);
                     if (settleAmount > 0)
                     {
                         settlements.Add(new SettlementDetail
                         {
-                            ToMemberId = creditor.Id,
-                            ToMemberName = creditor.Name,
+                            ToMemberId = creditors[i].Id,
+                            ToMemberName = creditors[i].Name,
                             Amount = settleAmount
                         });
                         amountToPay -= settleAmount;
                     }
+                    i++;
                 }
 
-                foreach (var otherDebtor in otherDebtors)
+                i = 0;
+                while (amountToPay > 0 && i < debtors.Count)
                 {
-                    if (amountToPay <= 0) break;
-                    var settleAmount = Math.Min(amountToPay, otherDebtor.Balance);
+                    var settleAmount = Math.Min(amountToPay, debtors[i].Balance);
                     if (settleAmount > 0)
                     {
                         settlements.Add(new SettlementDetail
                         {
-                            ToMemberId = otherDebtor.Id,
-                            ToMemberName = otherDebtor.Name,
+                            ToMemberId = debtors[i].Id,
+                            ToMemberName = debtors[i].Name,
                             Amount = settleAmount
                         });
                         amountToPay -= settleAmount;
                     }
+                    i++;
                 }
             }
-            else
-            {
-                // Target is owed money
-                var amountToReceive = debtorBalance;
-                foreach (var otherDebtor in otherDebtors)
-                {
-                    if (amountToReceive <= 0) break;
-                    var settleAmount = Math.Min(amountToReceive, otherDebtor.Balance);
-                    if (settleAmount > 0)
-                    {
-                        settlements.Add(new SettlementDetail
-                        {
-                            ToMemberId = otherDebtor.Id,
-                            ToMemberName = otherDebtor.Name,
-                            Amount = settleAmount
-                        });
-                        amountToReceive -= settleAmount;
-                    }
-                }
-            }
-
             return settlements;
         }
     }

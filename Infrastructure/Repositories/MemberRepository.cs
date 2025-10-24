@@ -1,9 +1,4 @@
-﻿using Domain.Entities;
-using Domain.Interfaces;
-using Infrastructure.Data;
-using Microsoft.EntityFrameworkCore;
-
-namespace Infrastructure.Repositories
+﻿namespace Infrastructure.Repositories
 {
     public class MemberRepository : Repository<Member>, IMemberRepository
     {

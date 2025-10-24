@@ -1,12 +1,4 @@
-﻿using ExpenseTrakcerHepler;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
-using Services.Interfaces;
-using Services.ViewModels;
-using Services.ViewModels.ApiViewModels;
-using System.Globalization;
-
-namespace AppExpenseTracker.Controllers
+﻿namespace AppExpenseTracker.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
@@ -109,7 +101,6 @@ namespace AppExpenseTracker.Controllers
         {
             ApiResponse apiResponse = await expenseServices.GetSettlementDetails(roomId, memberId, month);
             return Ok(apiResponse);
-
         }
     }
 }

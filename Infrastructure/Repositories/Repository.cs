@@ -1,9 +1,4 @@
-﻿using Domain.Interfaces;
-using Infrastructure.Data;
-using Microsoft.EntityFrameworkCore;
-using System.Linq.Expressions;
-
-namespace Infrastructure.Repositories
+﻿namespace Infrastructure.Repositories
 {
     public class Repository<T> : IRepository<T> where T : class
     {

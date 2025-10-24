@@ -1,11 +1,4 @@
-﻿using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
-using Services.Interfaces;
-using Services.ViewModels;
-using Services.ViewModels.ApiReponse;
-using Services.ViewModels.ApiViewModels;
-
-namespace ExpenseTracker.Controllers
+﻿namespace ExpenseTracker.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]

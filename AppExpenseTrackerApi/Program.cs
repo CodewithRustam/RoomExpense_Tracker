@@ -165,11 +165,11 @@ namespace AppExpenseTrackerApi
                             Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"] ?? string.Empty))
                     };
                 });
-                var firebaseApp = FirebaseApp.Create(new AppOptions
-                {
-                    Credential = GoogleCredential.FromFile("serviceAccountKey.json"),
-                    ProjectId = "splitx-c010d"
-                });
+                //var firebaseApp = FirebaseApp.Create(new AppOptions
+                //{
+                //    Credential = GoogleCredential.FromFile("serviceAccountKey.json"),
+                //    ProjectId = "splitx-c010d"
+                //});
                 var app = builder.Build();
                 app.UseMiddleware<ExceptionHandlingMiddleware>();
                 // Middleware

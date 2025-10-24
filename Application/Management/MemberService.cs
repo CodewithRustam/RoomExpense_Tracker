@@ -1,7 +1,4 @@
-﻿using Domain.Interfaces;
-using Services.Interfaces;
-
-namespace Services.Management
+﻿namespace Services.Management
 {
     public class MemberService : IMemberServices
     {

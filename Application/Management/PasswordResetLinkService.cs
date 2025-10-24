@@ -1,10 +1,4 @@
-﻿using Domain.AppUser;
-using Domain.Entities;
-using Domain.Interfaces;
-using Microsoft.AspNetCore.Identity;
-using Services.Interfaces;
-
-namespace Services.Management
+﻿namespace Services.Management
 {
     public class PasswordResetLinkService : IPasswordResetLinkService
     {

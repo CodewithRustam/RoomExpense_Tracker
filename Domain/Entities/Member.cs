@@ -1,5 +1,3 @@
-using Domain.AppUser;
-
 namespace Domain.Entities
 {
     public class Member
