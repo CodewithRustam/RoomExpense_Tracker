@@ -1,4 +1,7 @@
-﻿namespace Services.Management
+﻿using Domain.Entities;
+using Services.ViewModels;
+
+namespace Services.Management
 {
     public class SettlementService : ISettlementServices
     {
@@ -108,17 +111,35 @@
                     PaidToMemberId = receiver.MemberId,
                     RoomId = roomId,
                     Amount = request.SettlementAmount,
-                    SettlementDate = DateTime.UtcNow,
+                    SettlementDate = DateTimeProvider.NowIST,
                     SettlementForDate = settlementMonth
                 };
 
                 await _settlementRepo.AddAsync(newSettlement);
+                await _settlementRepo.SaveChangesAsync();
                 await transaction.CommitAsync();
 
                 string cacheKey = CacheHelper.GetCacheKey(roomId, settlementMonth);
                 _cache.Remove(cacheKey);
+                string roomuserCacheKey = CacheHelper.GetRoomsUserKey(userId);
+                _cache.Remove(roomuserCacheKey);
+                string monthlyTrendsCacheKey = CacheHelper.GetMonthlyExpenseTrendKey(roomId, settlementMonth);
+                _cache.Remove(monthlyTrendsCacheKey);
+                string userExpensecacheKey = CacheHelper.GetUserExpensesKey(userId, settlementMonth);
+                _cache.Remove(userExpensecacheKey);
+                string settlementCacheKey = CacheHelper.GetSettlementCacheKey(roomId, payer.MemberId, settlementMonth);
+                _cache.Remove(settlementCacheKey);
+                string settlCacheKey = CacheHelper.GetSettlementCacheKey(roomId, receiver.MemberId, settlementMonth);
+                _cache.Remove(settlCacheKey);
 
-                _ = Task.Run(() => SendSettlementEmailAsync(payer, receiver, request.SettlementAmount, settlementMonth));
+                foreach (var isMemberInclude in new[] { true, false })
+                {
+                    string expenseDetails = CacheHelper.GetMonthlyExpensesKey(roomId, settlementMonth, isMemberInclude);
+                    _cache.Remove(expenseDetails);
+                }
+
+
+                await SendSettlementEmailAsync(payer, receiver, request.SettlementAmount, settlementMonth,roomId);
 
                 return (true, $"Successfully settled ₹{request.SettlementAmount:F2} with {receiverName}.");
             }
@@ -128,7 +149,7 @@
                 throw new NotFoundException("An unexpected error occurred while settling expenses. Please try again.");
             }
         }
-        public async Task SendSettlementEmailAsync(Member payer, Member receiver, decimal amount, DateTime settlementForMonth)
+        public async Task SendSettlementEmailAsync(Member payer, Member receiver, decimal amount, DateTime settlementForMonth, int roomId)
         {
             if (payer == null || receiver == null || string.IsNullOrWhiteSpace(payer.ApplicationUserId) || string.IsNullOrWhiteSpace(receiver.ApplicationUserId))
             {
@@ -142,10 +163,10 @@
             if (receiverUser != null && !string.IsNullOrWhiteSpace(receiverUser.Email))
             {
                 string receiverEmailSubject = $"Settlement Received - {settlementForMonth:MMMM yyyy}";
-                string receiverEmailBody = EmailTemplates.GetEmailTemplate(
+                string receiverEmailBody = EmailTemplates.GetSettlementEmailTemplate(
                     receiverUser.UserName!,
                     $"{payer.Name} has settled ₹{amount:F2} with you for {settlementForMonth:MMMM yyyy}.",
-                    "Settlement Received"
+                    "Settlement Received",roomId
                 );
 
                 await _emailSender.SendEmailAsync(receiverUser.Email, receiverEmailSubject, receiverEmailBody);
@@ -154,10 +175,10 @@
             if (payerUser != null && !string.IsNullOrWhiteSpace(payerUser.Email))
             {
                 string payerEmailSubject = $"Settlement Paid - {settlementForMonth:MMMM yyyy}";
-                string payerEmailBody = EmailTemplates.GetEmailTemplate(
+                string payerEmailBody = EmailTemplates.GetSettlementEmailTemplate(
                     payerUser.UserName!,
                     $"You have successfully settled ₹{amount:F2} to {receiver.Name} for {settlementForMonth:MMMM yyyy}.",
-                    "Settlement Paid"
+                    "Settlement Paid",roomId
                 );
 
                 await _emailSender.SendEmailAsync(payerUser.Email, payerEmailSubject, payerEmailBody);

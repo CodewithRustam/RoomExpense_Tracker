@@ -7,5 +7,7 @@ namespace Domain.AppUser
     {
         public ICollection<Member>? MemberRooms { get; set; }
         public string? DeviceToken { get; set; }
+        public string? UpdatedBy { get; set; }
+        public DateTime? UpdatedDate { get; set; }
     }
 }

@@ -31,13 +31,16 @@ namespace AppExpenseTrackerApi
         {
             // Configure Serilog early
             Log.Logger = new LoggerConfiguration()
-                .ReadFrom.Configuration(new ConfigurationBuilder()
-                    .AddJsonFile("appsettings.json")
-                    .AddEnvironmentVariables()
-                    .Build())
-                .Enrich.FromLogContext()
-                .WriteTo.Console()
-                .CreateLogger();
+                        .Enrich.FromLogContext()
+                        .Enrich.With<CustomTimestampEnricher>()   // <-- your custom timestamp
+                        .WriteTo.Console(outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}")
+                        .WriteTo.File(
+                            path: "Logs/log-.txt",
+                            rollingInterval: RollingInterval.Day,
+                            outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}"
+                        )
+                        .CreateLogger();
+
 
             try
             {
@@ -117,7 +120,6 @@ namespace AppExpenseTrackerApi
                     new SmtpEmailSender(builder.Configuration.GetSection("SmtpSettings").Get<SmtpSettings>()));
                 builder.Services.AddScoped<IEmailSender>(sp => sp.GetRequiredService<SmtpEmailSender>());
 
-                builder.Services.AddSingleton<IDateTimeProvider, DateTimeProvider>();
                 builder.Services.AddHostedService<ExpenseSummaryReportService>();
 
                 // Identity
@@ -165,11 +167,11 @@ namespace AppExpenseTrackerApi
                             Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"] ?? string.Empty))
                     };
                 });
-                //var firebaseApp = FirebaseApp.Create(new AppOptions
-                //{
-                //    Credential = GoogleCredential.FromFile("serviceAccountKey.json"),
-                //    ProjectId = "splitx-c010d"
-                //});
+                var firebaseApp = FirebaseApp.Create(new AppOptions
+                {
+                    Credential = GoogleCredential.FromFile("serviceAccountKey.json"),
+                    ProjectId = "splitx-c010d"
+                });
                 var app = builder.Build();
                 app.UseMiddleware<ExceptionHandlingMiddleware>();
                 // Middleware

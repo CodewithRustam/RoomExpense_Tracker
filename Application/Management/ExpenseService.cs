@@ -144,6 +144,12 @@
                 cache.Remove(cacheKey);
                 string roomuserCacheKey = CacheHelper.GetRoomsUserKey(currentUser.UserId);
                 cache.Remove(roomuserCacheKey);
+                string monthlyTrendsCacheKey = CacheHelper.GetMonthlyExpenseTrendKey(expenseViewModel.RoomId, expenseViewModel.Date);
+                cache.Remove(monthlyTrendsCacheKey);
+                string userExpensecacheKey = CacheHelper.GetUserExpensesKey(currentUser.UserId, expenseViewModel.Date);
+                cache.Remove(userExpensecacheKey);
+                string settlementCacheKey = CacheHelper.GetSettlementCacheKey(expenseViewModel.RoomId, expenseViewModel.MemberId, expenseViewModel.Date);
+                cache.Remove(settlementCacheKey);
                 foreach (var isMemberInclude in new[] { true, false })
                 {
                     string expenseDetails = CacheHelper.GetMonthlyExpensesKey(expenseViewModel.RoomId, expenseViewModel.Date, isMemberInclude);
@@ -399,6 +405,7 @@
 
             if (cache.TryGetValue(cacheKey, out List<UserExpenseResponse>? cachedExpenses))
             {
+                await Task.Delay(200);
                 return ApiResponse<List<UserExpenseResponse>>.SuccessRes(cachedExpenses,
                     "User expenses fetched successfully.");
             }
@@ -434,6 +441,7 @@
 
             if (cache.TryGetValue(cacheKey, out MonthlyExpensesTrendResponse? cachedResponse))
             {
+                await Task.Delay(200);
                 return ApiResponse<MonthlyExpensesTrendResponse>.SuccessRes(cachedResponse,
                     "Expense trend data fetched successfully.");
             }

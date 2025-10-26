@@ -8,6 +8,6 @@
         public string Password { get; set; } = "";
         public bool EnableSSL { get; set; }
         public string FromEmail { get; set; } = "";
-        public string FromName { get; set; } = "Expense Tracker";
+        public string FromName { get; set; } = "SplitX";
     }
 }

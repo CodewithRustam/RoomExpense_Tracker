@@ -1,4 +1,6 @@
-﻿namespace AppExpenseTracker.Controllers
+﻿using static Org.BouncyCastle.Crypto.Engines.SM2Engine;
+
+namespace AppExpenseTracker.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
@@ -116,25 +118,31 @@
             }
 
             string shortCode = await _passwordResetLinkService.AddPasswordResetLink(model.Email!);
-            string resetUrl = Url.Action("RedirectReset", "Account", new { code = shortCode }, Request.Scheme)!;
+            string resetUrl = $"https://splitx-exp.netlify.app/reset/reset-password?code={shortCode}";
 
-            string body = EmailTemplates.GetPasswordResetEmail(resetUrl);
+            string memberName = string.IsNullOrEmpty(user.UserName) ? "User" : user.UserName;
+            string body = EmailTemplates.GetPasswordResetEmail(resetUrl, memberName);
 
             await _emailSender.SendEmailAsync(model.Email!, "Reset Your Password", body);
 
             return Ok(ApiResponse.SuccessRes("Password reset link sent successfully."));
         }
         [HttpPost("reset-password")]
-        public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordViewModel model)
+        public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordVM model)
         {
             if (!ModelState.IsValid)
                 return BadRequest(ApiResponse.Fail("Invalid request data."));
 
-            var user = await _userManager.FindByEmailAsync(model.Email!);
+            var passwordResetLink = await _passwordResetLinkService.GetPasswordResetDetailsByShortCode(model.Token!);
+
+            if(passwordResetLink == null)
+                return BadRequest(ApiResponse.Fail("Invalid or expired password reset link."));
+
+            var user = await _userManager.FindByEmailAsync(passwordResetLink?.Email!);
             if (user == null)
                 return BadRequest(ApiResponse.Fail("Invalid user."));
 
-            var result = await _userManager.ResetPasswordAsync(user, model.Token!, model.Password!);
+            var result = await _userManager.ResetPasswordAsync(user, passwordResetLink?.Token!, model.Password!);
 
             if (result.Succeeded)
                 return Ok(ApiResponse.SuccessRes("Password reset successful"));
@@ -160,6 +168,8 @@
             if (user == null) return NotFound();
 
             user.DeviceToken = model.DeviceToken;
+            user.UpdatedBy = $"Updated by: {model.UserId}";
+            user.UpdatedDate = DateTimeProvider.NowIST;
             await _userManager.UpdateAsync(user);
 
             return Ok();

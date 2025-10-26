@@ -4,15 +4,13 @@
     {
         private readonly IServiceProvider _serviceProvider;
         private readonly IConfiguration _configuration;
-        private readonly IDateTimeProvider _dateTimeProvider;
         private Timer? _timer;
 
-        public ExpenseSummaryReportService(IServiceProvider serviceProvider, IConfiguration configuration, IDateTimeProvider dateTimeProvider)
+        public ExpenseSummaryReportService(IServiceProvider serviceProvider, IConfiguration configuration)
         {
             _serviceProvider = serviceProvider;
             QuestPDF.Settings.License = LicenseType.Community;
             _configuration = configuration;
-            _dateTimeProvider = dateTimeProvider;
         }
 
         public Task StartAsync(CancellationToken cancellationToken)
@@ -24,7 +22,7 @@
 
         private async void ScheduleNextRun()
         {
-            var indiaNow = _dateTimeProvider.NowIST;
+            var indiaNow = DateTimeProvider.NowIST;
 
             var targetHour = 21;
             var targetMinute = 30;
@@ -84,11 +82,11 @@
             {
                 context.DailyReportLogs.Add(new DailyReportLog
                 {
-                    RunDate = _dateTimeProvider.NowIST,
+                    RunDate = DateTimeProvider.NowIST,
                     ReportName = "Monthly Expense Report",
                     Status = "Started",
                     Message = "Report generation started",
-                    CreatedAt = _dateTimeProvider.NowIST
+                    CreatedAt = DateTimeProvider.NowIST
                 });
                 await context.SaveChangesAsync();
 
@@ -96,11 +94,11 @@
 
                 context.DailyReportLogs.Add(new DailyReportLog
                 {
-                    RunDate = _dateTimeProvider.NowIST,
+                    RunDate = DateTimeProvider.NowIST,
                     ReportName = "Monthly Expense Report",
                     Status = "Completed",
                     Message = "Report generation completed",
-                    CreatedAt = _dateTimeProvider.NowIST
+                    CreatedAt = DateTimeProvider.NowIST
                 });
                 await context.SaveChangesAsync();
             }
@@ -108,11 +106,11 @@
             {
                 context.DailyReportLogs.Add(new DailyReportLog
                 {
-                    RunDate = _dateTimeProvider.NowIST,
+                    RunDate = DateTimeProvider.NowIST,
                     ReportName = "Monthly Expense Report",
                     Status = "Failed",
                     Message = ex.Message,
-                    CreatedAt = _dateTimeProvider.NowIST
+                    CreatedAt = DateTimeProvider.NowIST
                 });
                 await context.SaveChangesAsync();
             }
@@ -141,11 +139,11 @@
                         {
                             UserId = user.Id,
                             Email = user.Email,
-                            RunDate = _dateTimeProvider.NowIST,
+                            RunDate = DateTimeProvider.NowIST,
                             ReportName = "Monthly Expense Report",
                             Status = "Success",
                             Message = "Report sent successfully",
-                            CreatedAt = _dateTimeProvider.NowIST
+                            CreatedAt = DateTimeProvider.NowIST
                         });
                     }
                     else
@@ -154,11 +152,11 @@
                         {
                             UserId = user.Id,
                             Email = user.Email,
-                            RunDate = _dateTimeProvider.NowIST,
+                            RunDate = DateTimeProvider.NowIST,
                             ReportName = "Monthly Expense Report",
                             Status = "Skipped",
                             Message = "No data to send",
-                            CreatedAt = _dateTimeProvider.NowIST
+                            CreatedAt = DateTimeProvider.NowIST
                         });
                     }
                 }
@@ -168,11 +166,11 @@
                     {
                         UserId = user.Id,
                         Email = user.Email,
-                        RunDate = _dateTimeProvider.NowIST,
+                        RunDate = DateTimeProvider.NowIST,
                         ReportName = "Monthly Expense Report",
                         Status = "Failed",
                         Message = ex.Message,
-                        CreatedAt = _dateTimeProvider.NowIST
+                        CreatedAt = DateTimeProvider.NowIST
                     });
                 }
 

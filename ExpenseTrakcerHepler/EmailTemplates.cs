@@ -2,99 +2,224 @@
 {
     public static class EmailTemplates
     {
-        public static string GetPasswordResetEmail(string resetLink)
+        public static string GetPasswordResetEmail(string resetLink, string memberName)
         {
+            const string ionicTertiary = "#7044ff"; // Ionic Tertiary Color
+            const string ionicTertiaryHover = "#5d3ad4"; // Darker shade for hover
+
             return $@"
-        <div style='font-family: Arial, sans-serif; color:#333;'>
-            <h2 style='color:#16a34a;'>Password Reset Request</h2>
-            <p>Hello,</p>
-            <p>We received a request to reset your password for your account. 
-               Click the button below to set a new password:</p>
-            
-            <p style='margin:20px 0;'>
-                <a href='{resetLink}' 
-                   style='background-color:#16a34a; color:white; padding:10px 20px; 
-                          text-decoration:none; border-radius:5px;'>
-                    Reset Password
-                </a>
-            </p>
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+    <meta charset='UTF-8' />
+    <meta name='viewport' content='width=device-width, initial-scale=1.0' />
+    <title>Reset Your Password</title>
+    <!-- Fallback for email clients that don't support CSS -->
+    <style type='text/css'>
+        a {{ color: {ionicTertiary}; text-decoration: none; }}
+        .button {{ 
+            background-color: {ionicTertiary}; 
+            color: white; 
+            padding: 12px 28px; 
+            font-weight: 600; 
+            border-radius: 6px; 
+            display: inline-block; 
+            font-size: 16px; 
+            text-align: center;
+            transition: background-color 0.2s;
+        }}
+        .button:hover {{ background-color: {ionicTertiaryHover}; }}
+        @media (prefers-color-scheme: dark) {{
+            .email-body {{ background-color: #1a1a1a; color: #e0e0e0; }}
+            .card {{ background-color: #2d2d2d; border-color: #444; }}
+            .text-muted {{ color: #aaaaaa !important; }}
+            hr {{ border-color: #444 !important; }}
+        }}
+        @media only screen and (max-width: 480px) {{
+            .container {{ width: 100% !important; padding: 16px !important; }}
+            .button {{ font-size: 15px !important; padding: 11px 24px !important; }}
+        }}
+    </style>
+</head>
+<body class='email-body' style='margin:0; padding:0; background-color:#f9f9fb; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color:#333333;'>
+    <table role='presentation' border='0' cellpadding='0' cellspacing='0' width='100%' style='background-color:#f9f9fb;'>
+        <tr>
+            <td align='center' style='padding: 20px 0;'>
+                <!-- Main Container -->
+                <table role='presentation' class='container' border='0' cellpadding='0' cellspacing='0' width='100%' style='max-width: 600px;'>
+                    <tr>
+                        <td align='center'>
+                            <!-- Card -->
+                            <table role='presentation' class='card' border='0' cellpadding='0' cellspacing='0' width='100%' style='background-color:#ffffff; border-radius:12px; overflow:hidden; box-shadow:0 4px 12px rgba(0,0,0,0.05); border:1px solid #e5e7eb; margin-bottom:24px;'>
+                                <tr>
+                                    <td style='padding:32px 40px; text-align:center;'>
+                                        <!-- Logo / Brand (Optional: Replace with your logo URL) -->
+                                         <img src='https://splitx-exp.netlify.app/assets/donut-chart.png' alt='Your App' width='48' style='margin-bottom:16px;' /> 
+                                        
+                                        <h1 style='margin:0 0 16px 0; font-size:24px; font-weight:700; color:#111111;'>
+                                            Password Reset Request
+                                        </h1>
+                                        
+                                        <p style='margin:0 0 20px 0; font-size:16px; line-height:1.5; color:#555555;'>
+                                            Hello <strong>{memberName}</strong>,
+                                        </p>
+                                        
+                                        <p style='margin:0 0 24px 0; font-size:15px; line-height:1.6; color:#666666;'>
+                                            We received a request to reset the password for your account. 
+                                            Click the button below to create a new secure password.
+                                        </p>
 
-            <p>If the button doesn’t work, copy and paste the following link into your browser:</p>
-            <p><a href='{resetLink}'>{resetLink}</a></p>
+                                        <!-- CTA Button -->
+                                        <div style='margin:28px 0; text-align:center;'>
+                                            <a href='{resetLink}' 
+                                               class='button' 
+                                               target='_blank'
+                                               style='background-color:{ionicTertiary}; color:#ffffff; padding:12px 28px; font-weight:600; border-radius:6px; display:inline-block; font-size:16px; text-decoration:none; box-shadow:0 2px 4px rgba(112,68,255,0.2);'>
+                                                Reset Password
+                                            </a>
+                                        </div>
 
-            <p style='margin-top:20px; font-size:12px; color:#666;'>
-                If you did not request a password reset, please ignore this email. 
-                Your account will remain secure.
-            </p>
-            <hr style='border:none; border-top:1px solid #ddd; margin:20px 0;' />
-            <p style='font-size:12px; color:#888;'>This is an automated message. Please do not reply.</p>
-        </div>
-        ";
-        }
-        /// <summary>
-        /// Returns a clean, professional HTML email template
-        /// </summary>
-        public static string GetEmailTemplate(string userName, string mainMessage, string heading)
+                                        <p style='margin:24px 0 0 0; font-size:14px; line-height:1.6; color:#888888;'>
+                                            This link will expire in <strong>1 hour</strong> for security.
+                                        </p>
+
+                                        <hr style='border:none; border-top:1px solid #e5e7eb; margin:32px 0;' />
+
+                                        <p class='text-muted' style='margin:0; font-size:13px; line-height:1.5; color:#999999;'>
+                                            If you didn’t request this, you can safely ignore this email. 
+                                            Your account remains secure and no changes have been made.
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <!-- Footer -->
+                            <table role='presentation' border='0' cellpadding='0' cellspacing='0' width='100%'>
+                                <tr>
+                                    <td align='center' style='padding:0 20px;'>
+                                        <p style='margin:0; font-size:12px; color:#aaaaaa; line-height:1.4;'>
+                                            This is an automated message — please do not reply.
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
+";
+        }        /// <summary>
+                 /// Returns a clean, professional HTML email template
+                 /// </summary>
+        public static string GetSettlementEmailTemplate(string userName, string mainMessage, string heading,int roomId)
         {
+            const string ionicTertiary = "#7044ff";
+            const string ionicTertiaryHover = "#5d3ad4";
+
             return $@"
-                    <!DOCTYPE html>
-                    <html lang='en'>
-                    <head>
-                        <meta charset='UTF-8'>
-                        <meta name='viewport' content='width=device-width, initial-scale=1.0'>
-                        <style>
-                            body {{
-                                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-                                background-color: #f4f4f7;
-                                color: #333;
-                                margin: 0;
-                                padding: 0;
-                            }}
-                            .email-container {{
-                                max-width: 600px;
-                                margin: 30px auto;
-                                background-color: #ffffff;
-                                border-radius: 10px;
-                                padding: 20px;
-                                box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-                            }}
-                            h2 {{
-                                color: #4e54c8;
-                                text-align: center;
-                            }}
-                            p {{
-                                line-height: 1.6;
-                                font-size: 16px;
-                            }}
-                            .footer {{
-                                font-size: 14px;
-                                color: #777;
-                                text-align: center;
-                                margin-top: 20px;
-                            }}
-                            .button {{
-                                display: inline-block;
-                                padding: 10px 20px;
-                                margin-top: 20px;
-                                background: #4e54c8;
-                                color: #fff;
-                                text-decoration: none;
-                                border-radius: 5px;
-                            }}
-                        </style>
-                    </head>
-                    <body>
-                        <div class='email-container'>
-                            <h2>{heading}</h2>
-                            <p>Hi {userName},</p>
-                            <p>{mainMessage}</p>
-                            <p>Thank you for using Expense Tracker!</p>
-                            <div class='footer'>
-                                &copy; {DateTime.UtcNow.Year} Expense Tracker. All rights reserved.
-                            </div>
-                        </div>
-                    </body>
-                    </html>";
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+    <meta charset='UTF-8' />
+    <meta name='viewport' content='width=device-width, initial-scale=1.0' />
+    <title>{heading}</title>
+    <style type='text/css'>
+        body {{ margin:0; padding:0; background-color:#f9f9fb; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }}
+        a {{ color: {ionicTertiary}; text-decoration: none; }}
+        .button {{
+            background-color: {ionicTertiary};
+            color: white !important;
+            padding: 12px 28px;
+            font-weight: 600;
+            border-radius: 6px;
+            display: inline-block;
+            font-size: 16px;
+            text-align: center;
+            text-decoration: none;
+            box-shadow: 0 2px 4px rgba(112,68,255,0.2);
+        }}
+        .button:hover {{ background-color: {ionicTertiaryHover}; }}
+        @media (prefers-color-scheme: dark) {{
+            .email-body {{ background-color: #1a1a1a; }}
+            .card {{ background-color: #2d2d2d !important; border-color: #444 !important; }}
+            .text-muted {{ color: #aaaaaa !important; }}
+            .footer {{ color: #888888 !important; }}
+            hr {{ border-color: #444 !important; }}
+        }}
+        @media only screen and (max-width: 480px) {{
+            .container {{ width: 100% !important; padding: 16px !important; }}
+            .button {{ font-size: 15px !important; padding: 11px 24px !important; }}
+        }}
+    </style>
+</head>
+<body class='email-body' style='margin:0; padding:0; background-color:#f9f9fb;'>
+    <!-- Preheader (hidden preview text) -->
+    <div style='display:none; font-size:1px; color:#f9f9fb; line-height:1px; max-height:0px; max-width:0px; opacity:0; overflow:hidden;'>
+        {mainMessage.Replace("<br>", " ")}
+    </div>
+
+    <table role='presentation' border='0' cellpadding='0' cellspacing='0' width='100%' style='background-color:#f9f9fb;'>
+        <tr>
+            <td align='center' style='padding: 20px 0;'>
+                <!-- Main Container -->
+                <table role='presentation' class='container' border='0' cellpadding='0' cellspacing='0' width='100%' style='max-width: 600px;'>
+                    <tr>
+                        <td align='center'>
+                            <!-- Card -->
+                            <table role='presentation' class='card' border='0' cellpadding='0' cellspacing='0' width='100%' style='background-color:#ffffff; border-radius:12px; overflow:hidden; box-shadow:0 4px 12px rgba(0,0,0,0.05); border:1px solid #e5e7eb; margin-bottom:24px;'>
+                                <tr>
+                                    <td style='padding:32px 40px; text-align:center;'>
+                                        <!-- Optional Logo -->
+                                         <img src='https://splitx-exp.netlify.app/assets/donut-chart.png
+' alt='Expense Tracker' width='48' style='margin-bottom:16px;' />
+
+                                        <h1 style='margin:0 0 16px 0; font-size:24px; font-weight:700; color:#111111; line-height:1.2;'>
+                                            {heading}
+                                        </h1>
+
+                                        <p style='margin:0 0 20px 0; font-size:16px; line-height:1.6; color:#555555;'>
+                                            Hi <strong>{userName}</strong>,
+                                        </p>
+
+                                        <p style='margin:0 0 28px 0; font-size:15px; line-height:1.7; color:#666666;'>
+                                            {mainMessage}
+                                        </p>
+
+                                        <!-- Optional CTA (e.g., View Dashboard) -->
+                                        <div style='margin:32px 0; text-align:center;'>
+                                            <a href='https://splitx-exp.netlify.app/tabs/expenses?roomId={roomId}' 
+                                               class='button' 
+                                               target='_blank'
+                                               style='background-color:{ionicTertiary}; color:#ffffff; padding:12px 28px; font-weight:600; border-radius:6px; display:inline-block; font-size:16px; text-decoration:none; box-shadow:0 2px 4px rgba(112,68,255,0.2);'>
+                                                View Dashboard
+                                            </a>
+                                        </div>
+
+                                        <p style='margin:24px 0 0 0; font-size:14px; color:#888888;'>
+                                            Thank you for keeping your expenses organized!
+                                        </p>
+
+                                        <hr style='border:none; border-top:1px solid #e5e7eb; margin:32px 0;' />
+
+                                        <p class='text-muted' style='margin:0; font-size:13px; line-height:1.5; color:#999999;'>
+                                            This is an automated notification from SplitX.
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
+";
         }
     }
 }

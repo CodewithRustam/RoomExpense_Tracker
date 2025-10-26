@@ -17,3 +17,5 @@ global using Domain.AppUser;
 global using ExpenseTrakcerHepler;
 global using Infrastructure.Email;
 
+global using Serilog.Core;
+global using Serilog.Events;

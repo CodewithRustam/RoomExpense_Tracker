@@ -70,7 +70,7 @@
             return Ok(apiResponse);
         }
 
-        [HttpPost("settle-expenses")]
+        [HttpPost("expenses-settle")]
         public async Task<IActionResult> Settle([FromBody] SettlementRequest settlementRequestVM)
         {
             if (!User.Identity!.IsAuthenticated || User.Identity.Name != settlementRequestVM.PayerName)

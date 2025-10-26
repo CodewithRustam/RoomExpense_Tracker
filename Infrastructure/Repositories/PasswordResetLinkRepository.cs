@@ -1,4 +1,6 @@
-﻿namespace Infrastructure.Repositories
+﻿using ExpenseTrakcerHepler;
+
+namespace Infrastructure.Repositories
 {
     public class PasswordResetLinkRepository : Repository<PasswordResetLink>, IPasswordResetLinkRepository
     {
@@ -15,7 +17,7 @@
 
         public async Task<PasswordResetLink?> GetPasswordResetDetailsByShortCode(string code)
         {
-            return await FirstOrDefaultAsync(x => x.ShortCode == code && x.Expiry > DateTime.Now);
+            return await FirstOrDefaultAsync(x => x.ShortCode == code && x.Expiry >= DateTimeProvider.NowIST);
         }
     }
 }

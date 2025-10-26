@@ -50,7 +50,6 @@ internal class Program
 
         builder.Services.AddScoped<IEmailSender>(sp => sp.GetRequiredService<SmtpEmailSender>());
 
-        builder.Services.AddSingleton<IDateTimeProvider, DateTimeProvider>();
         builder.Services.AddHostedService<ExpenseSummaryReportService>();
 
         builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>

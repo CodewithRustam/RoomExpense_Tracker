@@ -45,7 +45,7 @@ namespace AppExpenseTracker.Controllers
                     //viewModel.Expense.MemberId = memberId;
                     //viewModel.Expense.Date = viewModel.Expense.Date.Date;
 
-                    message = await expenseServices.AddExpenses(viewModel);
+                    message = string.Empty;//await expenseServices.AddExpenses(viewModel);
                 }
             }
             catch (Exception)
@@ -68,7 +68,7 @@ namespace AppExpenseTracker.Controllers
                 if (viewModel is not null)
                 {
                     Roomid = viewModel.RoomId;
-                   message = await expenseServices.UpdateExpenses(viewModel);
+                    message = string.Empty;//await expenseServices.UpdateExpenses(viewModel);
                 }
             }
             catch (Exception)

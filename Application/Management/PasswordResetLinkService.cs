@@ -22,7 +22,7 @@
                 ShortCode = shortCode,
                 Token = token,
                 Email = Email,
-                Expiry = DateTime.Now.AddHours(1)
+                Expiry = DateTimeProvider.NowIST.AddHours(1)
             };
             await passwordResetLinkRepository.AddPasswordResetLink(resetLinkEntry);
 

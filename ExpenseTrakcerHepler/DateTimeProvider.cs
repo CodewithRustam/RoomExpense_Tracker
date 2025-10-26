@@ -2,17 +2,13 @@
 
 namespace ExpenseTrakcerHepler
 {
-    public class DateTimeProvider : IDateTimeProvider
+    public static class DateTimeProvider
     {
-        private readonly TimeZoneInfo _indiaTimeZone = TimeZoneInfo.FindSystemTimeZoneById("India Standard Time");
+        private static readonly TimeZoneInfo _indiaTimeZone =
+            TimeZoneInfo.FindSystemTimeZoneById("India Standard Time");
 
-        public DateTime NowIST => TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, _indiaTimeZone);
-        public DateTime NowUtc => DateTime.UtcNow;
-    }
-    public interface IDateTimeProvider
-    {
-        DateTime NowIST { get; }
-        DateTime NowUtc { get; }
+        public static DateTime NowIST => TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, _indiaTimeZone);
+        public static DateTime NowUtc => DateTime.UtcNow;
     }
     public class DateTimeParser
     {
