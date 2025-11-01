@@ -10,6 +10,7 @@ global using Microsoft.EntityFrameworkCore;
 global using Microsoft.AspNetCore.Identity;
 global using Microsoft.AspNetCore.Http;
 global using Microsoft.Extensions.Hosting;
+global using Microsoft.Extensions.Logging;
 
 global using QuestPDF.Fluent;
 global using QuestPDF.Helpers;

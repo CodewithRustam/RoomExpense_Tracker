@@ -1,27 +1,4 @@
-using Domain.AppUser;
-using Domain.Interfaces;
-using ExpenseTrakcerHepler;
-using FirebaseAdmin;
-using Google.Apis.Auth.OAuth2;
-using Infrastructure.Data;
-using Infrastructure.Email;
-using Infrastructure.Email.Config;
-using Infrastructure.Repositories;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.Builder.Extensions;
-using Microsoft.AspNetCore.DataProtection;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.IdentityModel.Tokens;
 using Serilog;
-using Services.BackgroundJobs;
-using Services.Interfaces;
-using Services.Management;
-using Services.Management.AuthService;
-using System.Text;
-using Microsoft.OpenApi.Models;
-using AppExpenseTrackerApi.Middlewares;
 
 namespace AppExpenseTrackerApi
 {
@@ -30,17 +7,14 @@ namespace AppExpenseTrackerApi
         public static void Main(string[] args)
         {
             // Configure Serilog early
-            Log.Logger = new LoggerConfiguration()
-                        .Enrich.FromLogContext()
-                        .Enrich.With<CustomTimestampEnricher>()   // <-- your custom timestamp
-                        .WriteTo.Console(outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}")
-                        .WriteTo.File(
-                            path: "Logs/log-.txt",
-                            rollingInterval: RollingInterval.Day,
-                            outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}"
-                        )
-                        .CreateLogger();
-
+            Log.Logger = new Serilog.LoggerConfiguration()
+                .ReadFrom.Configuration(new ConfigurationBuilder()
+                    .AddJsonFile("appsettings.json")
+                    .AddEnvironmentVariables()
+                    .Build())
+                .Enrich.FromLogContext()
+                .WriteTo.Console()
+                .CreateLogger();
 
             try
             {
@@ -114,6 +88,7 @@ namespace AppExpenseTrackerApi
                 builder.Services.AddScoped<ISettlementServices, SettlementService>();
                 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
                 builder.Services.AddScoped<IPasswordResetLinkService, PasswordResetLinkService>();
+                builder.Services.AddScoped<NotificationService>();
 
                 // Email
                 builder.Services.AddSingleton(resolver =>

@@ -49,17 +49,11 @@
             ApiResponse apiResponse;
             if (string.IsNullOrEmpty(month))
             {
-                DateTime selectedMonth = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
-                apiResponse = await expenseServices.GetRoomExpensesForApi(roomId, selectedMonth);
+                apiResponse = await expenseServices.GetRoomExpensesForApi(roomId, month);
             }
             else
             {
-                if (!DateTimeParser.ParseMonthYear(month, out var targetMonth))
-                {
-                    return Ok(ApiResponse.Fail("Invalid month format. Please use YYYY-MM format (e.g., 2025-10)."));
-                }
-
-                apiResponse = await expenseServices.GetRoomExpensesForApi(roomId, targetMonth, false);
+                apiResponse = await expenseServices.GetRoomExpensesForApi(roomId, month, false);
             }
             return Ok(apiResponse);
         }

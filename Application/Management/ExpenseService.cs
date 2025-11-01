@@ -95,20 +95,14 @@
                     cache.Remove(expenseDetails);
                 }
 
-                try
-                {
-                    using var scope = _serviceProvider.CreateScope();
-                    var notificationService = scope.ServiceProvider.GetRequiredService<NotificationService>();
-                    var deviceTokens = expenseRepository.GetDeviceToken(expense.RoomId);
-                    var roomName = roomRepository.GetRoomName(expense.RoomId);
-                    var memberName = currentUser.UserName ?? string.Empty;
+                using var scope = _serviceProvider.CreateScope();
+                var notificationService = scope.ServiceProvider.GetRequiredService<NotificationService>();
+                var deviceTokens = expenseRepository.GetDeviceToken(expense.RoomId);
+                var roomName = roomRepository.GetRoomName(expense.RoomId);
+                var memberName = currentUser.UserName ?? string.Empty;
 
-                    await notificationService.SendExpenseNotificationAsync(deviceTokens!, expense.Item, expense.Amount, memberName, roomName);
-                }
-                catch
-                {
-                    // swallow here: notifications must not break the request flow
-                }
+                await notificationService.SendExpenseNotificationAsync(deviceTokens!, expense.Item, expense.Amount, memberName, roomName);
+
                 return ApiResponse.SuccessRes(message);
             }
             else
@@ -155,6 +149,14 @@
                     string expenseDetails = CacheHelper.GetMonthlyExpensesKey(expenseViewModel.RoomId, expenseViewModel.Date, isMemberInclude);
                     cache.Remove(expenseDetails);
                 }
+
+                using var scope = _serviceProvider.CreateScope();
+                var notificationService = scope.ServiceProvider.GetRequiredService<NotificationService>();
+                var deviceTokens = expenseRepository.GetDeviceToken(expense.RoomId);
+                var roomName = roomRepository.GetRoomName(expense.RoomId);
+                var memberName = currentUser.UserName ?? string.Empty;
+
+                await notificationService.SendExpenseNotificationAsync(deviceTokens!, expense.Item, expense.Amount, memberName, roomName,true);
                 return ApiResponse.SuccessRes(result.Message);
             }
             else
@@ -272,58 +274,86 @@
             }
             return summaries;
         }
-        public async Task<ApiResponse> GetRoomExpensesForApi(int roomId, DateTime selectedMonth, bool includeRoomInfo = true)
+        public async Task<ApiResponse> GetRoomExpensesForApi(int roomId, string? monthReq, bool includeRoomInfo = true)
         {
-            string cacheKey = CacheHelper.GetMonthlyExpensesKey(roomId, selectedMonth, includeRoomInfo);
-            if (!cache.TryGetValue(cacheKey, out RoomExpenseResponse? response))
+            RoomExpenseResponse? response = null;
+
+            DateTime currentExpensemonth = new DateTime();
+            if (string.IsNullOrEmpty(monthReq))
             {
-                List<ExpenseRecordDto>? expenses = await expenseRepository.GetMonthlyExpenses(roomId, selectedMonth);
-                List<Settlement>? settlements = await settlementRepository.GetMonthlySettlements(roomId, selectedMonth);
-
-                var userId = currentUser.UserId;
-                List<Member> members = await memberRepository.GetMembersByRoomId(roomId, userId);
-                string? roomName = roomRepository.GetRoomName(roomId);
-
-                var filteredSettlements = settlements.OrderByDescending(x => x.SettlementId).ToList();
-
-                var totalExpense = expenses.Sum(e => e.Amount);
-
-                int year = selectedMonth.Year;
-                int month = selectedMonth.Month;
-
-                bool isMonthSettledForRoom = await settlementRepository.IsMonthSettledForRoomAsync(roomId, selectedMonth);
-                response = new RoomExpenseResponse
-                {
-                    RoomId = roomId,
-                    TotalMontlyExpense = totalExpense,
-                    SelectedMonth = $"{year:D4}-{month:D2}",
-                    Expenses = expenses.Select(e => new ExpenseDetailResponse
-                    {
-                        ExpenseId = e.ExpenseId,
-                        RoomId = e.RoomId,
-                        Item = e.Item ?? string.Empty,
-                        Amount = e.Amount,
-                        Date = e.Date,
-                        PayerName = e.PayerName,
-                        PayerId = e.PayerId,
-                        Category = e.Category ?? string.Empty,
-                        IconName = CategoryMapper.GetIconForCategory(e.Category ?? string.Empty),
-                        IsEditShow = e.ApplicationUserId == userId && !isMonthSettledForRoom
-                    }).ToList()
-                };
-                response.MembersSummary = CalculateMemberExpenseSummary(expenses, filteredSettlements, members);
-
-                if (includeRoomInfo && members.Count > 0)
-                {
-                    response.RoomName = roomName ?? string.Empty;
-                    response.AvailableMonths = await expenseRepository.GetExpenseMonths(roomId);
-                }
-                cache.Set(cacheKey, response, TimeSpan.FromDays(30));
+                currentExpensemonth = expenseRepository.GetAllAsync().Result.Max(x=>x.Date);
             }
+            else
+            {
+                if (!DateTimeParser.ParseMonthYear(monthReq, out var targetMonth))
+                {
+                    return ApiResponse.Fail("Invalid month format. Please use YYYY-MM format (e.g., 2025-10).");
+                }
+                currentExpensemonth = targetMonth;
+            }
+            string cacheKey = CacheHelper.GetMonthlyExpensesKey(roomId, currentExpensemonth, includeRoomInfo);
+
+            bool isCurrentMonth = currentExpensemonth.Year == DateTime.Now.Year &&
+                                  currentExpensemonth.Month == DateTime.Now.Month;
+
+            if (!isCurrentMonth && cache.TryGetValue(cacheKey, out response))
+            {
+                return ApiResponse<RoomExpenseResponse>.SuccessRes(response, "Expense details fetched successfully (from cache).");
+            }
+
+            List<ExpenseRecordDto>? expenses = await expenseRepository.GetMonthlyExpenses(roomId, currentExpensemonth);
+            List<Settlement>? settlements = await settlementRepository.GetMonthlySettlements(roomId, currentExpensemonth);
+
+            var userId = currentUser.UserId;
+            List<Member> members = await memberRepository.GetMembersByRoomId(roomId, userId);
+            string? roomName = roomRepository.GetRoomName(roomId);
+
+            var filteredSettlements = settlements.OrderByDescending(x => x.SettlementId).ToList();
+            var totalExpense = expenses.Sum(e => e.Amount);
+
+            int year = currentExpensemonth.Year;
+            int month = currentExpensemonth.Month;
+
+            bool isMonthSettledForRoom = await settlementRepository.IsMonthSettledForRoomAsync(roomId, currentExpensemonth);
+
+            response = new RoomExpenseResponse
+            {
+                RoomId = roomId,
+                TotalMontlyExpense = totalExpense,
+                SelectedMonth =  $"{year:D4}-{month:D2}",
+                Expenses = expenses.Select(e => new ExpenseDetailResponse
+                {
+                    ExpenseId = e.ExpenseId,
+                    RoomId = e.RoomId,
+                    Item = e.Item ?? string.Empty,
+                    Amount = e.Amount,
+                    Date = e.Date,
+                    PayerName = e.PayerName,
+                    PayerId = e.PayerId,
+                    Category = e.Category ?? string.Empty,
+                    IconName = CategoryMapper.GetIconForCategory(e.Category ?? string.Empty),
+                    IsEditShow = e.ApplicationUserId == userId && !isMonthSettledForRoom
+                }).ToList()
+            };
+
+            response.MembersSummary = CalculateMemberExpenseSummary(expenses, filteredSettlements, members);
+
+            if (includeRoomInfo && members.Count > 0)
+            {
+                response.RoomName = roomName ?? string.Empty;
+                response.AvailableMonths = await expenseRepository.GetExpenseMonths(roomId);
+            }
+
+            if (!isCurrentMonth)
+            {
+                cache.Set(cacheKey, response, TimeSpan.FromDays(2));
+            }
+
             if (response is null)
             {
                 return ApiResponse.Fail("Failed to fetch expense details. Please try again later.");
             }
+
             return ApiResponse<RoomExpenseResponse>.SuccessRes(response, "Expense details fetched successfully.");
         }
         List<MemberExpenseSummary> CalculateMemberExpenseSummary(List<ExpenseRecordDto> expenses,List<Settlement> settlements,List<Member> members)

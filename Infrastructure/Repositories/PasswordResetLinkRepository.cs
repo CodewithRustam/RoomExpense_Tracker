@@ -17,7 +17,7 @@ namespace Infrastructure.Repositories
 
         public async Task<PasswordResetLink?> GetPasswordResetDetailsByShortCode(string code)
         {
-            return await FirstOrDefaultAsync(x => x.ShortCode == code && x.Expiry >= DateTimeProvider.NowIST);
+            return await FirstOrDefaultAsync(x => x.ShortCode == code);
         }
     }
 }

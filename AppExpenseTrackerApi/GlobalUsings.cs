@@ -19,3 +19,18 @@ global using Infrastructure.Email;
 
 global using Serilog.Core;
 global using Serilog.Events;
+
+global using Domain.Interfaces;
+global using FirebaseAdmin;
+global using Google.Apis.Auth.OAuth2;
+global using Infrastructure.Data;
+global using Infrastructure.Email.Config;
+global using Infrastructure.Repositories;
+global using Microsoft.AspNetCore.Authentication.JwtBearer;
+global using Microsoft.AspNetCore.DataProtection;
+global using Microsoft.EntityFrameworkCore;
+global using Services.BackgroundJobs;
+global using Services.Management;
+global using Services.Management.AuthService;
+global using Microsoft.OpenApi.Models;
+global using AppExpenseTrackerApi.Middlewares;

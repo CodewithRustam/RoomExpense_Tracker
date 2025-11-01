@@ -131,16 +131,19 @@ namespace AppExpenseTracker.Controllers
         public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordVM model)
         {
             if (!ModelState.IsValid)
-                return BadRequest(ApiResponse.Fail("Invalid request data."));
+                return Ok(ApiResponse.Fail("Invalid request data."));
 
             var passwordResetLink = await _passwordResetLinkService.GetPasswordResetDetailsByShortCode(model.Token!);
 
-            if(passwordResetLink == null)
-                return BadRequest(ApiResponse.Fail("Invalid or expired password reset link."));
+            if (passwordResetLink == null)
+                return Ok(ApiResponse.Fail("Invalid password reset link."));
+
+            if (passwordResetLink.Expiry < DateTimeProvider.NowIST)
+                return Ok(ApiResponse.Fail("Password link is Expired."));
 
             var user = await _userManager.FindByEmailAsync(passwordResetLink?.Email!);
             if (user == null)
-                return BadRequest(ApiResponse.Fail("Invalid user."));
+                return Ok(ApiResponse.Fail("Invalid user."));
 
             var result = await _userManager.ResetPasswordAsync(user, passwordResetLink?.Token!, model.Password!);
 
@@ -148,7 +151,24 @@ namespace AppExpenseTracker.Controllers
                 return Ok(ApiResponse.SuccessRes("Password reset successful"));
 
             var errors = result.Errors.Select(e => e.Description).ToList();
-            return BadRequest(ApiResponse<object>.Fail(null,string.Join(", ", errors)));
+            return Ok(ApiResponse<object>.Fail(null,string.Join(", ", errors)));
+        }
+        [HttpPost("verify-resetpassword-link")]
+        public async Task<IActionResult> VerifyResetPasswordLink([FromBody] VerifyEmailLinkVM verifyEmailLink)
+        {
+            if (!ModelState.IsValid)
+                return Ok(ApiResponse.Fail("Invalid request data."));
+
+            var passwordResetLink = await _passwordResetLinkService
+                .GetPasswordResetDetailsByShortCode(verifyEmailLink.ShortCode!);
+
+            if (passwordResetLink == null)
+                return Ok(ApiResponse.Fail("Invalid password reset link."));
+
+            if (passwordResetLink.Expiry < DateTimeProvider.NowIST)
+                return Ok(ApiResponse.Fail("Password link is Expired."));
+
+            return Ok(ApiResponse.SuccessRes("Token is valid"));
         }
 
         [HttpGet("check-email")]
