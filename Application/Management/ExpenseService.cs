@@ -97,11 +97,11 @@
 
                 using var scope = _serviceProvider.CreateScope();
                 var notificationService = scope.ServiceProvider.GetRequiredService<NotificationService>();
-                var deviceTokens = expenseRepository.GetDeviceToken(expense.RoomId);
+                var deviceTokens = expenseRepository.GetDeviceToken(expense.RoomId, currentUser.UserId);
                 var roomName = roomRepository.GetRoomName(expense.RoomId);
                 var memberName = currentUser.UserName ?? string.Empty;
 
-                await notificationService.SendExpenseNotificationAsync(deviceTokens!, expense.Item, expense.Amount, memberName, roomName);
+                await notificationService.SendExpenseNotificationAsync(deviceTokens!, expense.Item, expense.Amount, memberName, roomName,expense.RoomId);
 
                 return ApiResponse.SuccessRes(message);
             }
@@ -156,7 +156,7 @@
                 var roomName = roomRepository.GetRoomName(expense.RoomId);
                 var memberName = currentUser.UserName ?? string.Empty;
 
-                await notificationService.SendExpenseNotificationAsync(deviceTokens!, expense.Item, expense.Amount, memberName, roomName,true);
+                await notificationService.SendExpenseNotificationAsync(deviceTokens!, expense.Item, expense.Amount, memberName, roomName,expense.RoomId,true);
                 return ApiResponse.SuccessRes(result.Message);
             }
             else
@@ -281,7 +281,7 @@
             DateTime currentExpensemonth = new DateTime();
             if (string.IsNullOrEmpty(monthReq))
             {
-                currentExpensemonth = expenseRepository.GetAllAsync().Result.Max(x=>x.Date);
+                currentExpensemonth = expenseRepository.GetAllAsync(x => x.RoomId == roomId).Result.Max(x=>x.Date);
             }
             else
             {
@@ -291,15 +291,10 @@
                 }
                 currentExpensemonth = targetMonth;
             }
-            string cacheKey = CacheHelper.GetMonthlyExpensesKey(roomId, currentExpensemonth, includeRoomInfo);
 
             bool isCurrentMonth = currentExpensemonth.Year == DateTime.Now.Year &&
                                   currentExpensemonth.Month == DateTime.Now.Month;
 
-            if (!isCurrentMonth && cache.TryGetValue(cacheKey, out response))
-            {
-                return ApiResponse<RoomExpenseResponse>.SuccessRes(response, "Expense details fetched successfully (from cache).");
-            }
 
             List<ExpenseRecordDto>? expenses = await expenseRepository.GetMonthlyExpenses(roomId, currentExpensemonth);
             List<Settlement>? settlements = await settlementRepository.GetMonthlySettlements(roomId, currentExpensemonth);
@@ -342,11 +337,6 @@
             {
                 response.RoomName = roomName ?? string.Empty;
                 response.AvailableMonths = await expenseRepository.GetExpenseMonths(roomId);
-            }
-
-            if (!isCurrentMonth)
-            {
-                cache.Set(cacheKey, response, TimeSpan.FromDays(2));
             }
 
             if (response is null)
@@ -523,11 +513,11 @@
                 return ApiResponse.Fail("Invalid month format. Please use YYYY-MM format (e.g., 2025-10).");
             }
 
-            string cacheKey = CacheHelper.GetSettlementCacheKey(roomId, memberId, targetMonth);
-            if (cache.TryGetValue(cacheKey, out SettlementData? cachedSettlementData))
-            {
-                return ApiResponse<SettlementData>.SuccessRes(cachedSettlementData, "Settlement details retrieved.");
-            }
+            //string cacheKey = CacheHelper.GetSettlementCacheKey(roomId, memberId, targetMonth);
+            //if (cache.TryGetValue(cacheKey, out SettlementData? cachedSettlementData))
+            //{
+            //    return ApiResponse<SettlementData>.SuccessRes(cachedSettlementData, "Settlement details retrieved.");
+            //}
 
             if (roomId <= 0 || !await roomRepository.IsValidRoomAsync(roomId))
             {
@@ -564,7 +554,7 @@
                 Settlements = settlementDetails
             };
 
-            cache.Set(cacheKey, settlementData, TimeSpan.FromDays(30));
+            //cache.Set(cacheKey, settlementData, TimeSpan.FromDays(30));
 
             return ApiResponse<SettlementData>.SuccessRes(settlementData, "Settlement details retrieved successfully.");
         }

@@ -46,6 +46,7 @@ namespace ExpenseTrakcerHepler
                 "kaddu", "pumpkin", "mushroom", "peas", "matar", "brinjal", "baingan", "capsicum", "shimla mirch",
                 "lettuce", "zucchini", "pudina", "karela", "lauki", "tinda","matar", "coriander", "dhaniya","aaloo",
                 "cucumber", "kheera", "radish", "mooli", "sweet potato", "shakarkandi", "turnip","muli","mooli",
+                "Aalu","dhanya"
             },
 
             ["Fruits"] = new HashSet<string>
@@ -187,19 +188,41 @@ namespace ExpenseTrakcerHepler
             item = Preprocess(item);
             var tokens = Tokenize(item);
 
+            // Dictionary to store match counts per category
             var categoryScores = new Dictionary<string, int>();
 
             foreach (var category in categoryKeywords.Keys)
             {
                 var keywords = categoryKeywords[category];
+                // Count how many words belong to this category
                 int score = tokens.Count(token => keywords.Contains(token));
                 categoryScores[category] = score;
             }
 
-            var bestCategory = categoryScores.OrderByDescending(kv => kv.Value).First();
+            // Weighted logic: if majority of matched words belong to a certain category
+            int totalMatches = categoryScores.Values.Sum();
 
-            return bestCategory.Value > 0 ? bestCategory.Key : "Miscellaneous";
+            if (totalMatches == 0)
+                return "Miscellaneous";
+
+            // Pick category with highest match count
+            var bestCategory = categoryScores
+                .OrderByDescending(kv => kv.Value)
+                .First();
+
+            // If tie, choose category with higher keyword density or known preference
+            var topCategories = categoryScores
+                .Where(kv => kv.Value == bestCategory.Value)
+                .Select(kv => kv.Key)
+                .ToList();
+
+            // Return Vegetables if tie includes it (since it's more common)
+            if (topCategories.Count > 1 && topCategories.Contains("Vegetables"))
+                return "Vegetables";
+
+            return bestCategory.Key;
         }
+
 
         /// <summary>
         /// Returns the FontAwesome icon class string for a given category.

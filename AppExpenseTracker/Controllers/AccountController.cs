@@ -102,7 +102,7 @@ namespace AppExpenseTracker.Controllers
            
             var shortUrl = Url.Action("RedirectReset", "Account", new { code = shortCode }, Request.Scheme)!;
 
-            var body = EmailTemplates.GetPasswordResetEmail(shortUrl);
+            var body = string.Empty;// EmailTemplates.GetPasswordResetEmail(shortUrl);
             await _emailSender.SendEmailAsync(model.Email!, "Reset Your Password", body);
 
             return RedirectToAction(nameof(ForgotPasswordConfirmation));

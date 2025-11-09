@@ -80,6 +80,7 @@
             expenseData.Amount = expense.Amount;
             expenseData.Date = expense.Date.Date;
             expenseData.RoomId = expense.RoomId;
+            expenseData.Category = expense.Category;
 
             Update(expenseData);
             await SaveChangesAsync();
@@ -129,10 +130,12 @@
                          .ToListAsync();
         }
 
-        public List<string?> GetDeviceToken(int roomId)
+        public List<string?> GetDeviceToken(int roomId, string? userId)
         {
            return _context.Members
-                  .Where(m => m.RoomId == roomId && m.ApplicationUser!.DeviceToken != null)
+                  .Where(m => m.RoomId == roomId && m.ApplicationUserId != userId &&
+                  
+                  m.ApplicationUser!.DeviceToken != null)
                   .Select(m => m.ApplicationUser!.DeviceToken)
                   .ToList();
         }

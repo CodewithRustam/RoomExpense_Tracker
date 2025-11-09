@@ -12,8 +12,7 @@ namespace Infrastructure.Data
         public DbSet<DailyReportLog> DailyReportLogs { get; set; }
         public DbSet<Settlement> Settlements { get; set; }
         public DbSet<PasswordResetLink> PasswordResetLink { get; set; }
-
-
+        public DbSet<PushNotification> Notifications { get; set; }
 
         public DbSet<DataProtectionKey> DataProtectionKeys { get; set; } = null!;
         protected override void OnModelCreating(ModelBuilder modelBuilder)

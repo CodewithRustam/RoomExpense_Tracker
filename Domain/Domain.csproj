@@ -10,4 +10,8 @@
     <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="8.0.19" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\ExpenseTrakcerHepler\ExpenseTrakcerHepler.csproj" />
+  </ItemGroup>
+
 </Project>
