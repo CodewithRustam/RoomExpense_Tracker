@@ -80,6 +80,7 @@ namespace AppExpenseTrackerApi
                 builder.Services.AddScoped<ISettlementRepository, SettlementRepository>();
                 builder.Services.AddScoped<IExpenseSummaryReportRepository, ExpenseSummaryReportRepository>();
                 builder.Services.AddScoped<IPasswordResetLinkRepository, PasswordResetLinkRepository>();
+                builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
 
                 // Services
                 builder.Services.AddScoped<IRoomServices, RoomService>();

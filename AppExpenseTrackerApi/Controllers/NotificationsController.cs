@@ -16,21 +16,21 @@ namespace AppExpenseTrackerApi.Controllers
         [HttpPost("send")]
         public async Task<IActionResult> SendNotification([FromBody] UserNotificationVM userNotificationVM)
         {
-            var usersInRoom = await _context.Members.Where(r => r.RoomId == userNotificationVM.RoomId).Select(r => r.ApplicationUserId).ToListAsync();
+            //var usersInRoom = await _context.Members.Where(r => r.RoomId == userNotificationVM.RoomId).Select(r => r.ApplicationUserId).ToListAsync();
 
-            foreach (var userId in usersInRoom)
-            {
-                _context.Notifications.Add(new PushNotification
-                {
-                    UserId = userId ?? string.Empty,
-                    Title = userNotificationVM.Title,
-                    Body = userNotificationVM.Body,
-                    SentAt = DateTimeProvider.NowIST,
-                    IsRead = false
-                });
-            }
+            //foreach (var userId in usersInRoom)
+            //{
+            //    _context.Notifications.Add(new PushNotification
+            //    {
+            //        UserId = userId ?? string.Empty,
+            //        Title = userNotificationVM.Title,
+            //        Body = userNotificationVM.Body,
+            //        SentAt = DateTimeProvider.NowIST,
+            //        IsRead = false
+            //    });
+            //}
 
-            await _context.SaveChangesAsync();
+            //await _context.SaveChangesAsync();
 
             return Ok(ApiResponse.SuccessRes("Notification added"));
         }
