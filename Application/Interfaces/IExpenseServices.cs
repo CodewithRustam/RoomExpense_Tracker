@@ -10,5 +10,6 @@
         Task<ApiResponse> GetMonthlyExpensesTrend(int roomId, string month);
         Task<ApiResponse> GetSettlementDetails(int roomId, int memberId, string month);
         Task<List<string>?> GetExpenseMonthsByUserId();
+        Task<ApiResponse> DeleteExpense(int expenseId);
     }
 }

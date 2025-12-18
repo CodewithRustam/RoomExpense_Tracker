@@ -39,7 +39,12 @@
             ApiResponse apiResponse = await expenseServices.UpdateExpenses(expenseViewModel);
             return Ok(apiResponse);
         }
-
+        [HttpDelete("delete-expense/{id}")]
+        public async Task<IActionResult> DeleteExpense(int id)
+        {
+            ApiResponse apiResponse = await expenseServices.DeleteExpense(id);
+            return Ok(apiResponse);
+        }
         [HttpGet("get-room-expenses")]
         public async Task<IActionResult> DisplayExpenses(int roomId, string? month)
         {

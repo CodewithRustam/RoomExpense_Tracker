@@ -6,7 +6,7 @@
         Task<T?> GetByIdAsync(int id);
         Task AddAsync(T entity);
         Task AddRangeAsync(IEnumerable<T> entities);
-        void Update(T entity);
+        Task Update(T entity);
         Task SaveChangesAsync();
         Task<T?> FirstOrDefaultAsync(Expression<Func<T, bool>> predicate);
         Task<bool> AnyAsync(Expression<Func<T, bool>> predicate);

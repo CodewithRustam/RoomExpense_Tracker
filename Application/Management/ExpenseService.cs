@@ -692,5 +692,48 @@ namespace Services.Management
             }
             return settlements;
         }
+        public async Task<ApiResponse> DeleteExpense(int expenseId)
+        {
+            // 1. Get existing expense to find RoomId and Date for cache clearing
+            var expense = await expenseRepository.FirstOrDefaultAsync(e => e.ExpenseId == expenseId);
+            if (expense == null) return ApiResponse.Fail("Expense not found.");
+
+            // 2. Security/Business Logic: Prevent deletion if month is settled
+            bool isMonthSettled = await settlementRepository.IsMonthSettledForRoomAsync(expense.RoomId, expense.Date);
+            if (isMonthSettled) return ApiResponse.Fail("Cannot delete expense for a settled month.");
+
+            // 3. Perform Deletion
+            expense.IsDeleted = true;
+            await expenseRepository.Update(expense);
+            await expenseRepository.SaveChangesAsync();
+
+            expense = await expenseRepository.FirstOrDefaultAsync(e => e.ExpenseId == expenseId);
+
+            if (expense != null && expense.IsDeleted.HasValue && expense.IsDeleted.Value == true)
+            {
+                return ApiResponse.Fail("Failed to delete the expense from the database.");
+            }
+            // 4. Clear Caches (Copying the logic from your UpdateExpenses method)
+            var userId = currentUser.UserId;
+            var cacheKey = CacheHelper.GetCacheKey(expense.RoomId, expense.Date);
+            cache.Remove(cacheKey);
+
+            string roomuserCacheKey = CacheHelper.GetRoomsUserKey(userId);
+            cache.Remove(roomuserCacheKey);
+
+            string monthlyTrendsCacheKey = CacheHelper.GetMonthlyExpenseTrendKey(expense.RoomId, expense.Date);
+            cache.Remove(monthlyTrendsCacheKey);
+
+            string userExpensecacheKey = CacheHelper.GetUserExpensesKey(userId, expense.Date);
+            cache.Remove(userExpensecacheKey);
+
+            foreach (var isMemberInclude in new[] { true, false })
+            {
+                string expenseDetails = CacheHelper.GetMonthlyExpensesKey(expense.RoomId, expense.Date, isMemberInclude);
+                cache.Remove(expenseDetails);
+            }
+
+            return ApiResponse.SuccessRes("Expense deleted successfully.");
+        }
     }
 }
