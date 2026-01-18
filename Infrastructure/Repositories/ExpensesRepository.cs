@@ -63,6 +63,7 @@
         {
             return await AnyAsync(e => e.RoomId == expense.RoomId &&
                                        e.MemberId == expense.MemberId &&
+                                       e.Item == expense.Item &&
                                        e.Date == expense.Date && e.Amount == expense.Amount);
         }
 
@@ -82,7 +83,7 @@
             expenseData.RoomId = expense.RoomId;
             expenseData.Category = expense.Category;
 
-            Update(expenseData);
+            await Update(expenseData);
             await SaveChangesAsync();
 
             return (true, "Expense has been updated successfully.");
@@ -210,6 +211,27 @@
                 .Select(x => $"{x.Year:D4}-{x.Month:D2}")
                 .ToListAsync();
         }
+        public async Task<bool> DeleteExpenseAsync(int expenseId)
+        {
+            using var transaction = await _context.Database.BeginTransactionAsync();
+            try
+            {
+                var expense = await FirstOrDefaultAsync(e => e.ExpenseId == expenseId && (e.IsDeleted == null || e.IsDeleted == false));
 
+                if (expense == null) return false;
+
+                expense.IsDeleted = true;
+                await Update(expense);
+                await SaveChangesAsync();
+
+                await transaction.CommitAsync();
+                return true;
+            }
+            catch (Exception)
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+        }
     }
 }

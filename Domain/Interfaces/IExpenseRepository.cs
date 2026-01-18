@@ -13,5 +13,6 @@
         Task<(List<MemberExpensesDto> Members, List<CategoryExpenseDto> Categories, List<CategoryExpenseDto> TopSpends)> GetMonthlyExpensesTrendAsync(int roomId, DateTime targetMonth);
         Task<List<string>> GetExpenseMonths(int roomId);
         Task<List<string>> GetExpenseMonthsByUserId(string userId);
+        Task<bool> DeleteExpenseAsync(int expenseId);
     }
 }

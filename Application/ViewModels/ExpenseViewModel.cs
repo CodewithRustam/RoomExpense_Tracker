@@ -3,7 +3,7 @@
     public class ExpenseViewModel
     {
         public int RoomId { get; set; }
-        public int ExpenseId { get; set; }
+        public int? ExpenseId { get; set; }
         public int MemberId { get; set; }
         [Required]
         public string? Item { get; set; }

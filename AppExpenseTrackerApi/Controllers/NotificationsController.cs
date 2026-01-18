@@ -63,5 +63,16 @@ namespace AppExpenseTrackerApi.Controllers
             await _context.SaveChangesAsync();
             return Ok();
         }
+        [HttpDelete("delete-notification")]
+        public async Task<IActionResult> DeleteNotification(int notificationId)
+        {
+            var notification = _context.Notifications.Where(n => n.Id == notificationId).FirstOrDefault();
+            if (notification != null)
+            {
+                _context.Notifications.Remove(notification);
+                await _context.SaveChangesAsync();
+            }
+            return Ok();
+        }
     }
 }

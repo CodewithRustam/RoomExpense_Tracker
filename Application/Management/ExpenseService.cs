@@ -105,44 +105,42 @@ namespace Services.Management
 
                 if (!Convert.ToBoolean(configuration["EnableNotifications"]))
                 {
-                    _ = Task.Run(async () =>
+
+                    try
                     {
-                        try
+                        using var scope = _serviceProvider.CreateScope();
+                        var backgroundNotifService = scope.ServiceProvider.GetRequiredService<NotificationService>();
+                        var backgroundExpenseRepo = scope.ServiceProvider.GetRequiredService<IExpenseRepository>();
+                        var backgroundMemberRepo = scope.ServiceProvider.GetRequiredService<IMemberRepository>();
+                        var backgroundNotifRepo = scope.ServiceProvider.GetRequiredService<INotificationRepository>();
+                        var backgroundRoomRepo = scope.ServiceProvider.GetRequiredService<IRoomRepository>();
+
+                        var tokens = backgroundExpenseRepo.GetDeviceToken(expense.RoomId, userId);
+                        var roomName = backgroundRoomRepo.GetRoomName(expense.RoomId);
+                        var userName = currentUser.UserName ?? "Someone";
+
+                        var result = await backgroundNotifService.SendExpenseNotificationAsync(tokens!, expense.Item, expense.Amount, userName, roomName, expense.RoomId);
+
+                        var otherUsers = await backgroundMemberRepo.GetAllAsync(m => m.RoomId == expense.RoomId && m.ApplicationUserId != userId);
+
+                        var notificationList = otherUsers.Select(u => new PushNotification
                         {
-                            using var scope = _serviceProvider.CreateScope();
-                            var backgroundNotifService = scope.ServiceProvider.GetRequiredService<NotificationService>();
-                            var backgroundExpenseRepo = scope.ServiceProvider.GetRequiredService<IExpenseRepository>();
-                            var backgroundMemberRepo = scope.ServiceProvider.GetRequiredService<IMemberRepository>();
-                            var backgroundNotifRepo = scope.ServiceProvider.GetRequiredService<INotificationRepository>();
-                            var backgroundRoomRepo = scope.ServiceProvider.GetRequiredService<IRoomRepository>();
+                            UserId = u.ApplicationUserId ?? string.Empty,
+                            Title = result.Title,
+                            Body = result.Body,
+                            SentAt = DateTimeProvider.NowIST,
+                            IsRead = false
+                        }).ToList();
 
-                            var tokens = backgroundExpenseRepo.GetDeviceToken(expense.RoomId, userId);
-                            var roomName = backgroundRoomRepo.GetRoomName(expense.RoomId);
-                            var userName = currentUser.UserName ?? "Someone";
-
-                            var result = await backgroundNotifService.SendExpenseNotificationAsync(tokens!, expense.Item, expense.Amount, userName, roomName, expense.RoomId);
-
-                            var otherUsers = await backgroundMemberRepo.GetAllAsync(m => m.RoomId == expense.RoomId && m.ApplicationUserId != userId);
-
-                            var notificationList = otherUsers.Select(u => new PushNotification
-                            {
-                                UserId = u.ApplicationUserId, // Corrected: target user, not the sender
-                                Title = result.Title,
-                                Body = result.Body,
-                                SentAt = DateTimeProvider.NowIST,
-                                IsRead = false
-                            }).ToList();
-
-                            if (notificationList.Any())
-                                await backgroundNotifRepo.AddRangeAsync(notificationList);
-                            await backgroundNotifRepo.SaveChangesAsync();
-                        }
-                        catch (Exception ex)
-                        {
-                            // Log error (use a real logger here)
-                            Console.WriteLine($"Background notification failed: {ex.Message}");
-                        }
-                    });
+                        if (notificationList.Any())
+                            await backgroundNotifRepo.AddRangeAsync(notificationList);
+                        await backgroundNotifRepo.SaveChangesAsync();
+                    }
+                    catch (Exception ex)
+                    {
+                        // Log error (use a real logger here)
+                        Console.WriteLine($"Background notification failed: {ex.Message}");
+                    }
                 }
                 return ApiResponse.SuccessRes(message);
             }
@@ -164,7 +162,7 @@ namespace Services.Management
 
             Expense expense = new Expense
             {
-                ExpenseId = expenseViewModel.ExpenseId,
+                ExpenseId = Convert.ToInt32(expenseViewModel.ExpenseId),
                 Item = expenseViewModel.Item?.Trim(),
                 Amount = expenseViewModel.Amount,
                 Date = expenseViewModel.Date.Date,
@@ -191,43 +189,36 @@ namespace Services.Management
                     cache.Remove(expenseDetails);
                 }
 
-                using var scope = _serviceProvider.CreateScope();
-                var notificationService = scope.ServiceProvider.GetRequiredService<NotificationService>();
-                var roomName = roomRepository.GetRoomName(expense.RoomId);
-                var memberName = currentUser.UserName ?? string.Empty;
 
                 if (!Convert.ToBoolean(configuration["EnableNotifications"]))
                 {
-                    _ = Task.Run(async () =>
+                    using var scope = _serviceProvider.CreateScope();
+                    var backgroundNotifService = scope.ServiceProvider.GetRequiredService<NotificationService>();
+                    var backgroundExpenseRepo = scope.ServiceProvider.GetRequiredService<IExpenseRepository>();
+                    var backgroundMemberRepo = scope.ServiceProvider.GetRequiredService<IMemberRepository>();
+                    var backgroundNotifRepo = scope.ServiceProvider.GetRequiredService<INotificationRepository>();
+                    var backgroundRoomRepo = scope.ServiceProvider.GetRequiredService<IRoomRepository>();
+
+                    var tokens = backgroundExpenseRepo.GetDeviceToken(expense.RoomId, currentUser.UserId);
+                    var roomName = backgroundRoomRepo.GetRoomName(expense.RoomId);
+                    var userName = currentUser.UserName ?? "Someone";
+
+                    var data = await backgroundNotifService.SendExpenseNotificationAsync(tokens!, expense.Item, expense.Amount, userName, roomName, expense.RoomId,true);
+
+                    var otherUsers = await backgroundMemberRepo.GetAllAsync(m => m.RoomId == expense.RoomId && m.ApplicationUserId != currentUser.UserId);
+
+                    var notificationList = otherUsers.Select(u => new PushNotification
                     {
-                        using var scope = _serviceProvider.CreateScope();
-                        var backgroundNotifService = scope.ServiceProvider.GetRequiredService<NotificationService>();
-                        var backgroundExpenseRepo = scope.ServiceProvider.GetRequiredService<IExpenseRepository>();
-                        var backgroundMemberRepo = scope.ServiceProvider.GetRequiredService<IMemberRepository>();
-                        var backgroundNotifRepo = scope.ServiceProvider.GetRequiredService<INotificationRepository>();
-                        var backgroundRoomRepo = scope.ServiceProvider.GetRequiredService<IRoomRepository>();
+                        UserId = u.ApplicationUserId ?? string.Empty,
+                        Title = data.Title,
+                        Body = data.Body,
+                        SentAt = DateTimeProvider.NowIST,
+                        IsRead = false
+                    }).ToList();
 
-                        var tokens = backgroundExpenseRepo.GetDeviceToken(expense.RoomId, currentUser.UserId);
-                        var roomName = backgroundRoomRepo.GetRoomName(expense.RoomId);
-                        var userName = currentUser.UserName ?? "Someone";
-
-                        var result = await backgroundNotifService.SendExpenseNotificationAsync(tokens!, expense.Item, expense.Amount, userName, roomName, expense.RoomId);
-
-                        var otherUsers = await backgroundMemberRepo.GetAllAsync(m => m.RoomId == expense.RoomId && m.ApplicationUserId != currentUser.UserId);
-
-                        var notificationList = otherUsers.Select(u => new PushNotification
-                        {
-                            UserId = u.ApplicationUserId, // Corrected: target user, not the sender
-                            Title = result.Title,
-                            Body = result.Body,
-                            SentAt = DateTimeProvider.NowIST,
-                            IsRead = false
-                        }).ToList();
-
-                        if (notificationList.Any())
-                            await backgroundNotifRepo.AddRangeAsync(notificationList);
-                            await backgroundNotifRepo.SaveChangesAsync();
-                    });
+                    if (notificationList.Any())
+                        await backgroundNotifRepo.AddRangeAsync(notificationList);
+                    await backgroundNotifRepo.SaveChangesAsync();
                 }
                 return ApiResponse.SuccessRes(result.Message);
             }
@@ -353,7 +344,16 @@ namespace Services.Management
             DateTime currentExpensemonth = new DateTime();
             if (string.IsNullOrEmpty(monthReq))
             {
-                currentExpensemonth = expenseRepository.GetAllAsync(x => x.RoomId == roomId).Result.Max(x=>x.Date);
+                var allExpenses = await expenseRepository.GetAllAsync(x => x.RoomId == roomId);
+
+                if (allExpenses != null && allExpenses.Any())
+                {
+                    currentExpensemonth = allExpenses.Max(x => x.Date);
+                }
+                else
+                {
+                    currentExpensemonth = DateTime.Now;
+                }
             }
             else
             {
@@ -694,46 +694,54 @@ namespace Services.Management
         }
         public async Task<ApiResponse> DeleteExpense(int expenseId)
         {
-            // 1. Get existing expense to find RoomId and Date for cache clearing
-            var expense = await expenseRepository.FirstOrDefaultAsync(e => e.ExpenseId == expenseId);
+            var userId = currentUser.UserId;
+            string rateLimitKey = $"RateLimit_Delete_{userId}";
+            int limit = 2; 
+            TimeSpan window = TimeSpan.FromDays(1);
+
+            if (cache.TryGetValue(rateLimitKey, out int deleteCount))
+            {
+                if (deleteCount >= limit)
+                {
+                    return ApiResponse.Fail(
+                        "You have reached the daily delete limit. Please try again after 24 hours."
+                    );
+                }
+            }
+
+            var expense = await expenseRepository.GetByIdAsync(expenseId);
             if (expense == null) return ApiResponse.Fail("Expense not found.");
 
-            // 2. Security/Business Logic: Prevent deletion if month is settled
-            bool isMonthSettled = await settlementRepository.IsMonthSettledForRoomAsync(expense.RoomId, expense.Date);
-            if (isMonthSettled) return ApiResponse.Fail("Cannot delete expense for a settled month.");
+            bool isSettled = await settlementRepository.IsMonthSettledForRoomAsync(expense.RoomId, expense.Date);
+            if (isSettled) return ApiResponse.Fail("Cannot delete from a settled month.");
 
-            // 3. Perform Deletion
-            expense.IsDeleted = true;
-            await expenseRepository.Update(expense);
-            await expenseRepository.SaveChangesAsync();
+            bool success = await expenseRepository.DeleteExpenseAsync(expenseId);
 
-            expense = await expenseRepository.FirstOrDefaultAsync(e => e.ExpenseId == expenseId);
-
-            if (expense != null && expense.IsDeleted.HasValue && expense.IsDeleted.Value == true)
+            if (success)
             {
-                return ApiResponse.Fail("Failed to delete the expense from the database.");
-            }
-            // 4. Clear Caches (Copying the logic from your UpdateExpenses method)
-            var userId = currentUser.UserId;
-            var cacheKey = CacheHelper.GetCacheKey(expense.RoomId, expense.Date);
-            cache.Remove(cacheKey);
+                var cacheEntryOptions = new MemoryCacheEntryOptions().SetAbsoluteExpiration(window);
+                cache.Set(rateLimitKey, (deleteCount + 1), cacheEntryOptions);
 
-            string roomuserCacheKey = CacheHelper.GetRoomsUserKey(userId);
-            cache.Remove(roomuserCacheKey);
-
-            string monthlyTrendsCacheKey = CacheHelper.GetMonthlyExpenseTrendKey(expense.RoomId, expense.Date);
-            cache.Remove(monthlyTrendsCacheKey);
-
-            string userExpensecacheKey = CacheHelper.GetUserExpensesKey(userId, expense.Date);
-            cache.Remove(userExpensecacheKey);
-
-            foreach (var isMemberInclude in new[] { true, false })
-            {
-                string expenseDetails = CacheHelper.GetMonthlyExpensesKey(expense.RoomId, expense.Date, isMemberInclude);
-                cache.Remove(expenseDetails);
+                ClearAllRelatedCaches(expense, userId!);
+                return ApiResponse.SuccessRes("Deleted successfully.");
             }
 
-            return ApiResponse.SuccessRes("Expense deleted successfully.");
+            return ApiResponse.Fail("Deletion failed.");
+        }
+        private void ClearAllRelatedCaches(Expense expense, string userId)
+        {
+            cache.Remove(CacheHelper.GetCacheKey(expense.RoomId, expense.Date));
+
+            cache.Remove(CacheHelper.GetRoomsUserKey(userId));
+            cache.Remove(CacheHelper.GetUserExpensesKey(userId, expense.Date));
+
+            
+            cache.Remove(CacheHelper.GetMonthlyExpenseTrendKey(expense.RoomId, expense.Date));
+
+            foreach (var includeMembers in new[] { true, false })
+            {
+                cache.Remove(CacheHelper.GetMonthlyExpensesKey(expense.RoomId, expense.Date, includeMembers));
+            }
         }
     }
 }
