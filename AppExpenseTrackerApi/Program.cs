@@ -1,4 +1,5 @@
 using Hangfire;
+using Hangfire.Dashboard.BasicAuthorization;
 using Hangfire.SqlServer;
 using Serilog;
 
@@ -181,7 +182,26 @@ namespace AppExpenseTrackerApi
                     c.RoutePrefix = "swagger";
                 });
 
-                app.UseHangfireDashboard();
+                app.UseHangfireDashboard("/hangfire", new DashboardOptions
+                {
+                    Authorization = new[]
+                                 {
+                        new BasicAuthAuthorizationFilter(new BasicAuthAuthorizationFilterOptions
+                        {
+                            SslRedirect = false,
+                            RequireSsl = false,
+                            LoginCaseSensitive = true,
+                            Users = new []
+                            {
+                                new BasicAuthAuthorizationUser
+                                {
+                                    Login = "admin",
+                                    PasswordClear =  "Rustam@121"
+                                }
+                            }
+                        })
+                    }
+                });
                 TimeZoneInfo indiaTimeZone = TimeZoneInfo.FindSystemTimeZoneById("India Standard Time");
 
                 // CRON expression: Minute(30) Hour(21) DayOfMonth(*/3 - every 3rd day) Month(*) DayOfWeek(*)
@@ -205,6 +225,7 @@ namespace AppExpenseTrackerApi
                 app.UseDefaultFiles();
                 app.UseStaticFiles();
                 app.UseCors("AllowIonic");
+
                 app.UseAuthentication();
                 app.UseAuthorization();
                 app.UseSerilogRequestLogging();
