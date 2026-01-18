@@ -1,0 +1,181 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FinanceTracker API - Service Status</title>
+    <style>
+        :root {
+            --bg-color: #1a1a2e;
+            --text-color: #ffffff;
+            --accent-blue: #007bff;
+            --accent-green: #28a745;
+            --secondary-text: #b3b3b3;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            height: 100%;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            text-align: center;
+        }
+
+        /* Navigation */
+        .navbar {
+            display: flex;
+            align-items: center;
+            padding: 1rem 0;
+            margin-bottom: 1rem;
+        }
+
+        .navbar-brand {
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin-right: 2rem;
+        }
+
+        .nav-links a {
+            color: var(--secondary-text);
+            text-decoration: none;
+            margin-right: 1.5rem;
+            transition: color 0.3s ease;
+        }
+
+            .nav-links a:hover {
+                color: var(--text-color);
+            }
+
+        /* Banner Image Placeholder */
+        .banner-container {
+            background: linear-gradient(45deg, #1e2235, #26344a);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 40px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .banner-svg {
+            max-width: 100%;
+            height: auto;
+            max-height: 300px;
+            /* Using a generic dashboard SVG placeholder to match the style */
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 300" fill="none"><rect x="100" y="50" width="300" height="200" rx="10" fill="%232a3b55"/><circle cx="180" cy="130" r="30" stroke="%23f0ad4e" stroke-width="8"/><circle cx="230" cy="180" r="30" stroke="%235bc0de" stroke-width="8"/><rect x="250" y="80" width="100" height="10" fill="%235a6b85"/><rect x="250" y="100" width="80" height="10" fill="%235a6b85"/><path d="M320 220 L340 180 L360 200 L390 150" stroke="%235cb85c" stroke-width="4" fill="none"/><rect x="320" y="230" width="15" height="20" fill="%238e44ad"/><rect x="340" y="210" width="15" height="40" fill="%238e44ad"/><rect x="360" y="220" width="15" height="30" fill="%238e44ad"/><rect x="380" y="190" width="15" height="60" fill="%238e44ad"/></svg>');
+            width: 500px;
+            height: 300px;
+            background-repeat: no-repeat;
+            background-position: center;
+        }
+
+        /* Content */
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .status-online {
+            color: var(--accent-green);
+        }
+
+        .check-icon {
+            /* SVG for green checkmark */
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="40" height="40"><path fill="%2328a745" d="M256 8C119.033 8 8 119.033 8 256s111.033 248 248 248 248-111.033 248-248S392.967 8 256 8zm0 464c-118.664 0-216-97.336-216-216S137.336 40 256 40s216 97.336 216 216-97.336 216-216 216zm141.63-274.961l-178 178c-6.248 6.248-16.379 6.248-22.627 0l-89-89c-6.248-6.249-6.248-16.379 0-22.627l22.627-22.627c6.248-6.249 16.379-6.249 22.627 0l55.06 55.06 144.06-144.06c6.248-6.249 16.379-6.249 22.627 0l22.627 22.627c6.248 6.248 6.248 16.379 0 22.627z"/></svg>');
+            width: 40px;
+            height: 40px;
+            display: inline-block;
+        }
+
+        .description {
+            font-size: 1.1rem;
+            color: var(--secondary-text);
+            margin-bottom: 2rem;
+            line-height: 1.6;
+        }
+
+            .description a {
+                color: var(--accent-blue);
+                text-decoration: none;
+            }
+
+        /* Buttons */
+        .button-group {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+        }
+
+        .btn {
+            padding: 0.8rem 1.5rem;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .btn-primary {
+            background-color: var(--accent-blue);
+            color: white;
+            border: none;
+        }
+
+            .btn-primary:hover {
+                background-color: #0056b3;
+            }
+
+        .btn-outline {
+            background-color: transparent;
+            color: var(--secondary-text);
+            border: 2px solid #3a3a4a;
+        }
+
+            .btn-outline:hover {
+                border-color: var(--text-color);
+                color: var(--text-color);
+            }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <nav class="navbar">
+            <div class="navbar-brand">FinanceTracker API</div>
+            <div class="nav-links">
+                <a href="#">Home</a>
+                <a href="#">About</a>
+                <a href="#">Documentation</a>
+            </div>
+        </nav>
+
+        <div class="banner-container">
+            <div class="banner-svg"></div>
+        </div>
+
+        <h1>
+            Service Status: <span class="status-online">Online</span>
+            <span class="check-icon"></span>
+        </h1>
+        <p class="description">
+            Welcome to the FinanceTracker API. This service is currently running and accessible.<br>
+            For documentation, please visit our <a href="/swagger/index.html">Swagger UI</a>.
+        </p>
+
+        <div class="button-group">
+            <a href="/swagger/index.html" class="btn btn-primary">API Documentation (Swagger)</a>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,3 +1,5 @@
+using Hangfire;
+using Hangfire.SqlServer;
 using Serilog;
 
 namespace AppExpenseTrackerApi
@@ -73,6 +75,9 @@ namespace AppExpenseTrackerApi
 
                 builder.Services.AddMemoryCache();
 
+                //background Services
+                builder.Services.AddScoped<IExpenseReportJob, ExpenseReportJob>();
+
                 // Repositories
                 builder.Services.AddScoped<IRoomRepository, RoomRepository>();
                 builder.Services.AddScoped<IExpenseRepository, ExpensesRepository>();
@@ -95,8 +100,9 @@ namespace AppExpenseTrackerApi
                 builder.Services.AddSingleton(resolver =>
                     new SmtpEmailSender(builder.Configuration.GetSection("SmtpSettings").Get<SmtpSettings>()));
                 builder.Services.AddScoped<IEmailSender>(sp => sp.GetRequiredService<SmtpEmailSender>());
+                //builder.Services.AddScoped<IEmailSender>();
 
-                builder.Services.AddHostedService<ExpenseSummaryReportService>();
+                //builder.Services.AddHostedService<ExpenseSummaryReportService>();
 
                 // Identity
                 builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
@@ -148,20 +154,56 @@ namespace AppExpenseTrackerApi
                     Credential = GoogleCredential.FromFile("serviceAccountKey.json"),
                     ProjectId = "splitx-c010d"
                 });
+
+                builder.Services.AddHangfire(configuration => configuration
+                                .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
+                                .UseSimpleAssemblyNameTypeSerializer()
+                                .UseRecommendedSerializerSettings()
+                                // Tell Hangfire to store its state in your SQL Server
+                                .UseSqlServerStorage(builder.Configuration.GetConnectionString("DefaultConnection"), new SqlServerStorageOptions
+                                {
+                                    CommandBatchMaxTimeout = TimeSpan.FromMinutes(5),
+                                    SlidingInvisibilityTimeout = TimeSpan.FromMinutes(5),
+                                    QueuePollInterval = TimeSpan.Zero,
+                                    UseRecommendedIsolationLevel = true,
+                                    DisableGlobalLocks = true
+                                }));
+
+                builder.Services.AddHangfireServer();
                 var app = builder.Build();
+
+
                 app.UseMiddleware<ExceptionHandlingMiddleware>();
-                // Middleware
-                if (app.Environment.IsDevelopment())
+                app.UseSwagger();
+                app.UseSwaggerUI(c =>
                 {
-                    app.UseSwagger();
-                    app.UseSwaggerUI(c =>
-                    {
-                        c.SwaggerEndpoint("/swagger/v1/swagger.json", "ExpenseTracker API V1");
-                        c.RoutePrefix = "swagger";
-                    });
-                }
+                    c.SwaggerEndpoint("/swagger/v1/swagger.json", "ExpenseTracker API V1");
+                    c.RoutePrefix = "swagger";
+                });
+
+                app.UseHangfireDashboard();
+                TimeZoneInfo indiaTimeZone = TimeZoneInfo.FindSystemTimeZoneById("India Standard Time");
+
+                // CRON expression: Minute(30) Hour(21) DayOfMonth(*/3 - every 3rd day) Month(*) DayOfWeek(*)
+                string cronExpression = "30 21 */3 * *";
+                //string cronExpression = "51 20 18 1 0";
+
+                var options = new RecurringJobOptions
+                {
+                    TimeZone = indiaTimeZone
+                };
+                // Tell Hangfire: "Ensure the 'ExecuteAsync' method on IExpenseReportJob runs according to this CRON schedule in this timezone."
+                RecurringJob.AddOrUpdate<IExpenseReportJob>(
+                    "monthly-expense-report", // Unique ID for this job
+                    job => job.ExecuteAsync(CancellationToken.None),
+                    cronExpression,
+                    options
+                );
 
                 app.UseHttpsRedirection();
+
+                app.UseDefaultFiles();
+                app.UseStaticFiles();
                 app.UseCors("AllowIonic");
                 app.UseAuthentication();
                 app.UseAuthorization();
