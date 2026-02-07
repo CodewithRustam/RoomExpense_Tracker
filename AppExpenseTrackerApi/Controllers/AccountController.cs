@@ -180,24 +180,5 @@ namespace AppExpenseTracker.Controllers
             var user = await _userManager.FindByEmailAsync(email);
             return Ok(ApiResponse<object>.SuccessRes(new { exists = user != null }, "Email check complete"));
         }
-
-        [HttpPost("app-register")]
-        public async Task<IActionResult> RegisterDevice([FromBody] DeviceTokenModel model)
-        {
-            var user = await _userManager.FindByIdAsync(model.UserId!);
-            if (user == null) return NotFound();
-
-            user.DeviceToken = model.DeviceToken;
-            user.UpdatedBy = $"Updated by: {model.UserId}";
-            user.UpdatedDate = DateTimeProvider.NowIST;
-            await _userManager.UpdateAsync(user);
-
-            return Ok();
-        }
-    }
-    public class DeviceTokenModel
-    {
-        public string? UserId { get; set; }
-        public string? DeviceToken { get; set; }
     }
 }

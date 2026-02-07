@@ -24,7 +24,7 @@
         public async Task AddMembersAsync(IEnumerable<Member> members)
         {
             await _context.Members.AddRangeAsync(members);
-            await SaveChangesAsync();
+            //await SaveChangesAsync();
         }
 
         public async Task<bool> MemberExistsAsync(int roomId, string userName)

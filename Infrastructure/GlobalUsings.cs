@@ -17,5 +17,6 @@ global using System.Linq.Expressions;
 
 global using Infrastructure.Email.Config;
 global using Infrastructure.Data;
+global using Infrastructure;
 
 global using Dapper;

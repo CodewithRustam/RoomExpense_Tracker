@@ -1,10 +1,13 @@
 ﻿using Domain.Entities;
+using Infrastructure;
 using Services.ViewModels;
 
 namespace Services.Management
 {
     public class SettlementService : ISettlementServices
     {
+        private readonly IUnitOfWork _uow;
+
         private readonly IMemberRepository _memberRepo;
         private readonly IExpenseRepository _expenseRepo;
         private readonly ISettlementRepository _settlementRepo;
@@ -15,7 +18,7 @@ namespace Services.Management
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly AppDbContext _context;
 
-        public SettlementService(IMemberRepository memberRepo, IExpenseRepository expenseRepo,ISettlementRepository settlementRepo, IRoomRepository roomRepo, IEmailSender emailSender, IMemoryCache cache, ICurrentUserService _currentUser, UserManager<ApplicationUser> userManager, AppDbContext context)
+        public SettlementService(IMemberRepository memberRepo, IExpenseRepository expenseRepo,ISettlementRepository settlementRepo, IRoomRepository roomRepo, IEmailSender emailSender, IMemoryCache cache, ICurrentUserService _currentUser, UserManager<ApplicationUser> userManager, AppDbContext context, IUnitOfWork uow)
         {
             _memberRepo = memberRepo;
             _expenseRepo = expenseRepo;
@@ -26,11 +29,11 @@ namespace Services.Management
             currentUser = _currentUser;
             _userManager = userManager;
             _context = context;
+            _uow = uow;
         }
 
         public async Task<(bool Success, string Message)> SettleExpenseAsync(SettlementRequest request)
         {
-            await using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
                 if (request.RoomId <= 0)
@@ -116,8 +119,8 @@ namespace Services.Management
                 };
 
                 await _settlementRepo.AddAsync(newSettlement);
-                await _settlementRepo.SaveChangesAsync();
-                await transaction.CommitAsync();
+                await _uow.SaveAsync();
+                //await transaction.CommitAsync();
 
                 string cacheKey = CacheHelper.GetCacheKey(roomId, settlementMonth);
                 _cache.Remove(cacheKey);
@@ -138,14 +141,15 @@ namespace Services.Management
                     _cache.Remove(expenseDetails);
                 }
 
-
-                await SendSettlementEmailAsync(payer, receiver, request.SettlementAmount, settlementMonth,roomId);
-
-                return (true, $"Successfully settled ₹{request.SettlementAmount:F2} with {receiverName}.");
+                if (newSettlement.SettlementId > 0)
+                {
+                    await SendSettlementEmailAsync(payer, receiver, request.SettlementAmount, settlementMonth, roomId);
+                    return (true, $"Successfully settled ₹{request.SettlementAmount:F2} with {receiverName}.");
+                }
+                return (true, $"Settlement failed ₹{request.SettlementAmount:F2} with {receiverName}.");
             }
             catch (Exception)
             {
-                await transaction.RollbackAsync();
                 throw new NotFoundException("An unexpected error occurred while settling expenses. Please try again.");
             }
         }

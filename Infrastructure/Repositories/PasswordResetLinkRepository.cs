@@ -12,7 +12,7 @@ namespace Infrastructure.Repositories
         public async Task AddPasswordResetLink(PasswordResetLink passwordResetLink)
         {
             await AddAsync(passwordResetLink);
-            await SaveChangesAsync();
+            //await SaveChangesAsync();
         }
 
         public async Task<PasswordResetLink?> GetPasswordResetDetailsByShortCode(string code)

@@ -20,6 +20,10 @@ namespace Infrastructure.Data
             base.OnModelCreating(modelBuilder);
             modelBuilder.Entity<MonthlySettlementDto>().HasNoKey();
 
+            modelBuilder.Entity<MonthlySettlementDto>()
+                        .Property(p => p.NetBalance)
+                        .HasPrecision(18, 2); 
+
             modelBuilder.Entity<Expense>(entity =>
             {
                 entity.HasOne(e => e.Member)

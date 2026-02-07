@@ -1,7 +1,10 @@
-using Hangfire;
+﻿using Hangfire;
 using Hangfire.Dashboard.BasicAuthorization;
 using Hangfire.SqlServer;
+using Infrastructure;
 using Serilog;
+using System.Data;
+using Serilog.Sinks.MSSqlServer;
 
 namespace AppExpenseTrackerApi
 {
@@ -9,25 +12,111 @@ namespace AppExpenseTrackerApi
     {
         public static void Main(string[] args)
         {
-            // Configure Serilog early
-            Log.Logger = new Serilog.LoggerConfiguration()
-                .ReadFrom.Configuration(new ConfigurationBuilder()
-                    .AddJsonFile("appsettings.json")
-                    .AddEnvironmentVariables()
-                    .Build())
+            Serilog.Debugging.SelfLog.Enable(msg => Console.WriteLine(msg));
+            var configuration = new ConfigurationBuilder().AddJsonFile("appsettings.json").AddEnvironmentVariables().Build();
+
+            var connectionString = configuration.GetConnectionString("DefaultConnection");
+
+
+            // ================================
+            // Request / Info Logs
+            // ================================
+            var requestLogColumns = new ColumnOptions();
+
+            // 1. Remove TimeStamp so SQL Server can use its IST DEFAULT constraint
+            requestLogColumns.Store.Remove(StandardColumn.TimeStamp);
+
+            requestLogColumns.Store.Remove(StandardColumn.MessageTemplate);
+            requestLogColumns.Store.Remove(StandardColumn.Properties);
+            requestLogColumns.Store.Remove(StandardColumn.Exception);
+
+            requestLogColumns.AdditionalColumns = new List<SqlColumn>
+            {
+                new SqlColumn("UserId", SqlDbType.NVarChar) { DataLength = 50, AllowNull = true },
+                new SqlColumn("RoomId", SqlDbType.Int) { AllowNull = true },
+                new SqlColumn("RequestUrl", SqlDbType.NVarChar) { DataLength = 500, AllowNull = true },
+                new SqlColumn("StatusCode", SqlDbType.Int) { AllowNull = true },
+                
+                // Use -1 for NVARCHAR(MAX)
+                new SqlColumn("RequestData", SqlDbType.NVarChar) { DataLength = -1, AllowNull = true },
+                new SqlColumn("ResponseData", SqlDbType.NVarChar) { DataLength = -1, AllowNull = true },
+                
+                // Change to Float for easiest millisecond storage (13.3320)
+                // Float handles decimal points perfectly without needing Precision/Scale settings
+                new SqlColumn("TimeTakenMs", SqlDbType.Float) { AllowNull = true }
+            };
+
+
+            // ================================
+            // Error Logs
+            // ================================
+            var errorLogColumns = new ColumnOptions();
+            errorLogColumns.Store.Remove(StandardColumn.TimeStamp);
+            errorLogColumns.Store.Remove(StandardColumn.MessageTemplate);
+            errorLogColumns.Store.Remove(StandardColumn.Properties);
+
+            errorLogColumns.AdditionalColumns = new List<SqlColumn>
+            {
+               new SqlColumn("UserId", SqlDbType.NVarChar) { DataLength = 50, AllowNull = true },
+               new SqlColumn("RoomId", SqlDbType.Int) { AllowNull = true },
+               new SqlColumn("RequestUrl", SqlDbType.NVarChar) { DataLength = 500, AllowNull = true },
+               new SqlColumn("StatusCode", SqlDbType.Int) { AllowNull = true }
+            };
+
+
+
+            // ================================
+            // Serilog Configuration
+            // ================================
+            Log.Logger = new LoggerConfiguration()
+                .MinimumLevel.Information()
+                .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
+                .MinimumLevel.Override("System", LogEventLevel.Warning)
                 .Enrich.FromLogContext()
                 .WriteTo.Console()
+
+                // ℹ️ Info + ⚠️ Warning → RequestLogs
+                .WriteTo.Logger(lc => lc
+                    .Filter.ByIncludingOnly(e =>
+                        e.Level == LogEventLevel.Information ||
+                        e.Level == LogEventLevel.Warning)
+                    .WriteTo.MSSqlServer(
+                        connectionString,
+                        sinkOptions: new MSSqlServerSinkOptions
+                        {
+                            TableName = "RequestLogs",
+                            AutoCreateSqlTable = false
+                        },
+                        columnOptions: requestLogColumns
+                    )
+                )
+
+                // ❌ Error + 💥 Fatal → ErrorLog
+                .WriteTo.Logger(lc => lc
+                    .Filter.ByIncludingOnly(e =>
+                        e.Level == LogEventLevel.Error ||
+                        e.Level == LogEventLevel.Fatal)
+                    .WriteTo.MSSqlServer(
+                        connectionString,
+                        sinkOptions: new MSSqlServerSinkOptions
+                        {
+                            TableName = "ErrorLog",
+                            AutoCreateSqlTable = false
+                        },
+                        columnOptions: errorLogColumns
+                    )
+                )
                 .CreateLogger();
 
             try
             {
                 Log.Information("Starting ExpenseTracker API...");
+                Log.Error(new Exception("Staring Exception Logging..."), "Staring Exception Logging...");
 
                 var builder = WebApplication.CreateBuilder(args);
 
                 // Replace default logging with Serilog
                 builder.Host.UseSerilog();
-
                 // Add services
                 builder.Services.AddControllers();
 
@@ -60,8 +149,6 @@ namespace AppExpenseTrackerApi
                     });
                 });
 
-                string? connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-
                 builder.Services.AddDbContext<AppDbContext>(options =>
                 {
                     options.UseSqlServer(connectionString, sqlOptions =>
@@ -78,6 +165,7 @@ namespace AppExpenseTrackerApi
 
                 //background Services
                 builder.Services.AddScoped<IExpenseReportJob, ExpenseReportJob>();
+                builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
                 // Repositories
                 builder.Services.AddScoped<IRoomRepository, RoomRepository>();
@@ -173,8 +261,29 @@ namespace AppExpenseTrackerApi
                 builder.Services.AddHangfireServer();
                 var app = builder.Build();
 
+                app.UseSerilogRequestLogging(options =>
+                {
+                    // 1. Keep this to hide "OPTIONS" noise (CORS pre-flights)
+                    options.GetLevel = (httpContext, elapsed, ex) =>
+                        httpContext.Request.Method == "OPTIONS" ? LogEventLevel.Verbose : LogEventLevel.Information;
+
+                    // 2. Only use this for properties the middleware might miss (like Authentication)
+                    options.EnrichDiagnosticContext = (diagnosticContext, httpContext) =>
+                    {
+                        var user = httpContext.User;
+                        if (user?.Identity?.IsAuthenticated == true)
+                        {
+                            var userId = user.Claims.FirstOrDefault(c => c.Type == "uid")?.Value ?? user.Identity.Name;
+                            diagnosticContext.Set("UserId", userId);
+                        }
+
+                        // NOTE: We don't need to set RequestData/ResponseData here 
+                        // because the Middleware already called diagnosticContext.Set()
+                    };
+                });
 
                 app.UseMiddleware<ExceptionHandlingMiddleware>();
+
                 app.UseSwagger();
                 app.UseSwaggerUI(c =>
                 {
@@ -196,7 +305,7 @@ namespace AppExpenseTrackerApi
                                 new BasicAuthAuthorizationUser
                                 {
                                     Login = "admin",
-                                    PasswordClear =  "Rustam@121"
+                                    PasswordClear =  "R"
                                 }
                             }
                         })
@@ -205,7 +314,7 @@ namespace AppExpenseTrackerApi
                 TimeZoneInfo indiaTimeZone = TimeZoneInfo.FindSystemTimeZoneById("India Standard Time");
 
                 // CRON expression: Minute(30) Hour(21) DayOfMonth(*/3 - every 3rd day) Month(*) DayOfWeek(*)
-                string cronExpression = "30 21 */3 * *";
+                string cronExpression = "30 21 */10 * *";
                 //string cronExpression = "51 20 18 1 0";
 
                 var options = new RecurringJobOptions
@@ -228,8 +337,7 @@ namespace AppExpenseTrackerApi
 
                 app.UseAuthentication();
                 app.UseAuthorization();
-                app.UseSerilogRequestLogging();
-
+                app.UseMiddleware<LogEnrichmentMiddleware>(); 
                 app.MapControllers();
 
                 app.Run();

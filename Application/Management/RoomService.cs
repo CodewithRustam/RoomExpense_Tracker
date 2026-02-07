@@ -108,7 +108,6 @@
             };
 
             await roomRepository.AddAsync(room);
-            await roomRepository.SaveChangesAsync();
 
             var members = new List<Member>
                               {

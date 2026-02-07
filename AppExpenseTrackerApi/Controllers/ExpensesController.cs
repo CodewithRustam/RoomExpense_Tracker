@@ -9,16 +9,19 @@
         private readonly IRoomServices roomServices;
         private readonly IExpenseServices expenseServices;
         private readonly ISettlementServices settlementServices;
+        private readonly ILogger<ExpensesController> _logger;
 
         public ExpensesController(IMemberServices memberServices,
             IRoomServices roomServices,
             IExpenseServices expenseServices,
-            ISettlementServices settlementServices)
+            ISettlementServices settlementServices,
+            ILogger<ExpensesController> logger)
         {
             this.memberServices = memberServices;
             this.roomServices = roomServices;
             this.expenseServices = expenseServices;
             this.settlementServices = settlementServices;
+            _logger = logger;
         }
         [HttpGet("get-userexpesne-months")]
         public async Task<IActionResult> GetMonths(int roomId)
@@ -87,7 +90,7 @@
             if (!result.Success)
                 return Ok(ApiResponse.Fail(result.Message));
 
-            return Ok(ApiResponse<string>.SuccessRes(null,result.Message));
+            return Ok(ApiResponse<string>.SuccessRes(null, result.Message));
         }
         [HttpGet("trend-expenses")]
         public async Task<IActionResult> GetMonthlyExpensesTrend(int roomId, string month)
@@ -99,6 +102,12 @@
         public async Task<IActionResult> GetSettlementDetails(int roomId, int memberId, [FromQuery] string month)
         {
             ApiResponse apiResponse = await expenseServices.GetSettlementDetails(roomId, memberId, month);
+            return Ok(apiResponse);
+        }
+        [HttpGet("trend-home-expenses")]
+        public async Task<IActionResult> GetRoomTrend(int roomId)
+        {
+            ApiResponse apiResponse = await expenseServices.GetHomeExpenseTrends(roomId);
             return Ok(apiResponse);
         }
     }

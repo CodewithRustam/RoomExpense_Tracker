@@ -6,6 +6,7 @@
         private readonly IMemoryCache cache;
         private readonly string _connectionString;
 
+
         public ExpensesRepository(AppDbContext context, IMemoryCache _cache, IConfiguration configuration) : base(context)
         {
             _context = context;
@@ -13,29 +14,6 @@
             _connectionString = configuration.GetConnectionString("DefaultConnection") ?? string.Empty;
         }
 
-        public async Task<string> AddExpenses(Expense expense)
-        {
-            string message = string.Empty;
-            using var transaction = await _context.Database.BeginTransactionAsync();
-            try
-            {
-                await AddAsync(expense);
-                await SaveChangesAsync();
-                await transaction.CommitAsync();
-            }
-            catch (DbUpdateException)
-            {
-                await transaction.RollbackAsync();
-                return message = "Expense could not be added due to database constraints. Please check your input.";
-            }
-            catch (Exception)
-            {
-                await transaction.RollbackAsync();
-                return message = "An unexpected error occurred while adding the expense. Please try again.";
-            }
-            message = "Expense has been recorded successfully.";
-            return message;
-        }
         public async Task<List<ExpenseRecordDto>> GetMonthlyExpenses(int roomId, DateTime selectedMonth)
         {
             int year = selectedMonth.Year;
@@ -67,26 +45,12 @@
                                        e.Date == expense.Date && e.Amount == expense.Amount);
         }
 
-        public async Task<(bool IsUpdated, string Message)> UpdateExpenses(Expense expense)
+        public async Task<bool> IsExpenseExistForUser(Expense expense)
         {
-            var expenseData = await FirstOrDefaultAsync(x =>
+            return await AnyAsync(x =>
                 x.ExpenseId == expense.ExpenseId &&
                 x.RoomId == expense.RoomId &&
                 (x.IsDeleted == false || x.IsDeleted == null));
-
-            if (expenseData is null)
-                return (false, "Expense not found.");
-
-            expenseData.Item = expense.Item?.Trim();
-            expenseData.Amount = expense.Amount;
-            expenseData.Date = expense.Date.Date;
-            expenseData.RoomId = expense.RoomId;
-            expenseData.Category = expense.Category;
-
-            await Update(expenseData);
-            await SaveChangesAsync();
-
-            return (true, "Expense has been updated successfully.");
         }
         public async Task<decimal> GetTotalRoomExpenses(int roomId, DateTime start, DateTime end)
         {
@@ -211,27 +175,13 @@
                 .Select(x => $"{x.Year:D4}-{x.Month:D2}")
                 .ToListAsync();
         }
-        public async Task<bool> DeleteExpenseAsync(int expenseId)
+        public async Task<List<Expense>> GetHomeExpenseTrends(int roomId, DateTime startDate)
         {
-            using var transaction = await _context.Database.BeginTransactionAsync();
-            try
-            {
-                var expense = await FirstOrDefaultAsync(e => e.ExpenseId == expenseId && (e.IsDeleted == null || e.IsDeleted == false));
-
-                if (expense == null) return false;
-
-                expense.IsDeleted = true;
-                await Update(expense);
-                await SaveChangesAsync();
-
-                await transaction.CommitAsync();
-                return true;
-            }
-            catch (Exception)
-            {
-                await transaction.RollbackAsync();
-                throw;
-            }
+            return await _context.Expenses
+                .Where(e => e.RoomId == roomId &&
+                            (e.IsDeleted == false || e.IsDeleted == null) &&
+                            e.Date >= startDate)
+                .ToListAsync();
         }
     }
 }

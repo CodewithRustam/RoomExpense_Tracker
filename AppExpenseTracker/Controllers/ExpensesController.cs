@@ -79,19 +79,19 @@ namespace AppExpenseTracker.Controllers
             return RedirectToAction("Details", "Rooms", new { id = Roomid });
         }
 
-        [HttpGet]
-        public async Task<IActionResult> DisplayExpenses(int roomId, string month)
-        {
-            if (roomId <= 0 || !await roomServices.IsValidRoomAsync(roomId))
-                return RedirectToAction("AccessDenied", "Account");
+        //[HttpGet]
+        //public async Task<IActionResult> DisplayExpenses(int roomId, string month)
+        //{
+        //    if (roomId <= 0 || !await roomServices.IsValidRoomAsync(roomId))
+        //        return RedirectToAction("AccessDenied", "Account");
 
-            if (!DateTime.TryParseExact(month + "-01", "yyyy-MM-dd", null, DateTimeStyles.None, out var selectedMonth))
-                return BadRequest("Invalid month format.");
+        //    if (!DateTime.TryParseExact(month + "-01", "yyyy-MM-dd", null, DateTimeStyles.None, out var selectedMonth))
+        //        return BadRequest("Invalid month format.");
 
-            RoomExpensesViewModel roomExpensesViewModel = await expenseServices.GetMonthlyExpenses(roomId, selectedMonth);
+        //    RoomExpensesViewModel roomExpensesViewModel = await expenseServices.GetMonthlyExpenses(roomId, selectedMonth);
 
-            return PartialView("_DisplayRoomExpenses", roomExpensesViewModel);
-        }
+        //    return PartialView("_DisplayRoomExpenses", roomExpensesViewModel);
+        //}
 
         [HttpPost]
         [ValidateAntiForgeryToken]

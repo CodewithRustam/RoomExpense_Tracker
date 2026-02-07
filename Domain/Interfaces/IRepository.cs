@@ -7,7 +7,6 @@
         Task AddAsync(T entity);
         Task AddRangeAsync(IEnumerable<T> entities);
         Task Update(T entity);
-        Task SaveChangesAsync();
         Task<T?> FirstOrDefaultAsync(Expression<Func<T, bool>> predicate);
         Task<bool> AnyAsync(Expression<Func<T, bool>> predicate);
         Task<List<T>> GetAllAsync(Expression<Func<T, bool>>? predicate = null);

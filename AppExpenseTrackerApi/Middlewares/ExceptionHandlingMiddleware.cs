@@ -1,5 +1,4 @@
 ﻿using Domain.Exceptions;
-using Services.ViewModels.ApiViewModels;
 using System.Text.Json;
 
 namespace AppExpenseTrackerApi.Middlewares
