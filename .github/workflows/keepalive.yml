@@ -1,15 +1,1 @@
-name: Keep API Alive
 
-on:
-  schedule:
-    - cron: "*/10 * * * *"   # every 10 minutes
-  workflow_dispatch:         # manual trigger (optional)
-
-jobs:
-  ping:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Call health API
-        run: |
-          curl -s https://financetracker.runasp.net/api/health
