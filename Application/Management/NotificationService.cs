@@ -9,8 +9,8 @@
         int roomId,
         bool isUpdated = false)
     {
-        var title = isUpdated ? "Expense Updated" : "New Expense Added";
-        var body = $"{userName} {(isUpdated ? "updated" : "added")} an expense of ₹{amount} for {expenseName} in {roomName}.";
+        var title = isUpdated ? "Expense Updated" : "New Expense Added";      
+        var body = $"Expense {(isUpdated ? "updated" : "added")} by {userName} — {expenseName}: ₹{amount} ({roomName}).";
 
         if (deviceTokens != null && deviceTokens.Any())
         {

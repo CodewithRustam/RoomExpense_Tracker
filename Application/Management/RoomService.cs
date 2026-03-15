@@ -20,10 +20,10 @@
             string? userId = currentUser.UserId;
             string cacheKey = CacheHelper.GetRoomsUserKey(userId);
 
-            if (cache.TryGetValue(cacheKey, out List<RoomResponse>? cachedRooms))
-            {
-                return cachedRooms ?? new List<RoomResponse>();
-            }
+            //if (cache.TryGetValue(cacheKey, out List<RoomResponse>? cachedRooms))
+            //{
+            //    return cachedRooms ?? new List<RoomResponse>();
+            //}
 
             var rooms = await roomRepository.GetRoomsForCurrentUser(userId);
 
@@ -68,7 +68,7 @@
                 };
             }).ToList();
 
-            cache.Set(cacheKey, roomResponses, TimeSpan.FromDays(30));
+            //cache.Set(cacheKey, roomResponses, TimeSpan.FromDays(30));
             return roomResponses;
         }
         public async Task<bool> IsValidRoomAsync(int roomId)

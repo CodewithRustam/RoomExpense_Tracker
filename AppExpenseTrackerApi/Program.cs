@@ -1,10 +1,12 @@
-﻿using Hangfire;
+﻿using AppExpenseTrackerApi.ViewModelValidator;
+using FluentValidation;
+using Hangfire;
 using Hangfire.Dashboard.BasicAuthorization;
 using Hangfire.SqlServer;
 using Infrastructure;
 using Serilog;
-using System.Data;
 using Serilog.Sinks.MSSqlServer;
+using System.Data;
 
 namespace AppExpenseTrackerApi
 {
@@ -259,6 +261,9 @@ namespace AppExpenseTrackerApi
                                 }));
 
                 builder.Services.AddHangfireServer();
+
+                builder.Services.AddValidatorsFromAssemblyContaining<ExpenseViewModelValidator>();
+
                 var app = builder.Build();
 
                 app.UseSerilogRequestLogging(options =>
@@ -305,7 +310,7 @@ namespace AppExpenseTrackerApi
                                 new BasicAuthAuthorizationUser
                                 {
                                     Login = "admin",
-                                    PasswordClear =  "R"
+                                    PasswordClear =  "Rustam@121"
                                 }
                             }
                         })

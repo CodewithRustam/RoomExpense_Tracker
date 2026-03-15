@@ -6,11 +6,11 @@ namespace Services.Management
 {
     public class ExpenseService : IExpenseServices
     {
+        private readonly IServiceScopeFactory _scopeFactory;
         private readonly IUnitOfWork _uow;
         private readonly ICurrentUserService _currentUser;
         private readonly IMemoryCache _cache;
         private readonly IConfiguration _config;
-        private readonly IServiceProvider _serviceProvider;
         private readonly ILogger<ExpenseService> _logger;
 
         #region Repositories
@@ -21,35 +21,24 @@ namespace Services.Management
         #endregion
 
         public ExpenseService(
+            IServiceScopeFactory scopeFactory,
             IUnitOfWork uow,
             ICurrentUserService currentUser,
             IMemoryCache cache,
             IConfiguration config,
-            IServiceProvider serviceProvider,
             ILogger<ExpenseService> logger)
         {
+            _scopeFactory = scopeFactory;
             _uow = uow;
             _currentUser = currentUser;
             _cache = cache;
             _config = config;
-            _serviceProvider = serviceProvider;
             _logger = logger;
         }
 
         #region Add Expense
         public async Task<ApiResponse> AddExpenses(ExpenseViewModel model)
         {
-            _logger.LogInformation("Processing AddExpense for User {UserId} in Room {RoomId}. Amount: {Amount}",
-                _currentUser.UserId, model.RoomId, model.Amount);
-
-            var validationError = ValidateExpenseViewModel(model);
-            if (!string.IsNullOrEmpty(validationError))
-            {
-                _logger.LogWarning("AddExpense validation failed for User {UserId}. Reason: {ValidationError}",
-                    _currentUser.UserId, validationError);
-                return ApiResponse.Fail(validationError);
-            }
-
             var userId = _currentUser.UserId!;
             int memberId = await MemberRepo.GetMemberId(userId, model.RoomId);
 
@@ -82,12 +71,20 @@ namespace Services.Management
                 return ApiResponse.Fail("Failed to record expense.");
             }
 
-            _logger.LogInformation("Expense {ExpenseId} successfully saved for User {UserId}", expense.ExpenseId, userId);
-
             ClearExpenseCaches(model, userId, memberId);
+            var userName = _currentUser.UserName;
 
-            await SendNotificationToUser(expense);
-
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await SendNotificationToUser(expense,userId, userName!);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Background notification failed for expense {Id}", expense.ExpenseId);
+                }
+            });
             return ApiResponse.SuccessRes("Expense recorded successfully.");
         }
         #endregion
@@ -95,17 +92,6 @@ namespace Services.Management
         #region Update Expense
         public async Task<ApiResponse> UpdateExpenses(ExpenseViewModel model)
         {
-            _logger.LogInformation("Attempting to update expense {ExpenseId} for User {UserId} in Room {RoomId}",
-                model.ExpenseId, _currentUser.UserId, model.RoomId);
-
-            var validationError = ValidateExpenseViewModel(model);
-            if (!string.IsNullOrEmpty(validationError))
-            {
-                _logger.LogWarning("Update validation failed for Expense {ExpenseId}: {ValidationError}",
-                    model.ExpenseId, validationError);
-                return ApiResponse.Fail(validationError);
-            }
-
             if (await SettlementRepo.IsMonthSettledForRoomAsync(model.RoomId, model.Date))
             {
                 _logger.LogWarning("Update blocked: Month is already settled for Room {RoomId}, Date {Date}. ExpenseId: {ExpenseId}",
@@ -132,12 +118,22 @@ namespace Services.Management
                 return ApiResponse.Fail("Expense not updated.");
             }
 
-            _logger.LogInformation("Expense {ExpenseId} successfully updated by User {UserId}",
-                expense.ExpenseId, _currentUser.UserId);
-
             ClearExpenseCaches(model, _currentUser.UserId!, model.MemberId);
 
-            await SendNotificationToUser(expense, isUpdate: true);
+            _logger.LogInformation($"UpdateExpenses UserId: {_currentUser.UserId!}.");
+
+
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await SendNotificationToUser(expense, _currentUser.UserId!, _currentUser.UserName!, isUpdate: true);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Background notification failed for expense {Id}", expense.ExpenseId);
+                }
+            });
 
             return ApiResponse.SuccessRes("Expense updated successfully.");
         }
@@ -569,7 +565,7 @@ namespace Services.Management
         {
             if (model == null) return "Expense details are missing.";
             if (string.IsNullOrWhiteSpace(model.Item)) return "Expense item is required.";
-            if (model.Amount <= 0) return "Amount must be greater than zero.";
+            if (model.Amount <= 1) return "Amount must be greater than 1.";
             if (model.RoomId <= 0) return "Invalid room.";
             return string.Empty;
         }
@@ -609,7 +605,7 @@ namespace Services.Management
         #endregion
 
         #region Notifications
-        private async Task SendNotificationToUser(Expense expense, bool isUpdate = false)
+        private async Task SendNotificationToUser(Expense expense,string userId, string userName, bool isUpdate = false)
         {
             if (!Convert.ToBoolean(_config["EnableNotifications"]))
             {
@@ -619,9 +615,7 @@ namespace Services.Management
 
             try
             {
-                using var scope = _serviceProvider.CreateScope();
-
-                _logger.LogDebug("DI scope created for notification process.");
+                using var scope = _scopeFactory.CreateScope();
 
                 var notifService = scope.ServiceProvider.GetRequiredService<NotificationService>();
                 var expenseRepo = scope.ServiceProvider.GetRequiredService<IExpenseRepository>();
@@ -629,10 +623,7 @@ namespace Services.Management
                 var roomRepo = scope.ServiceProvider.GetRequiredService<IRoomRepository>();
                 var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
 
-                _logger.LogDebug("Required services resolved successfully.");
-
-                var tokens = expenseRepo.GetDeviceToken(expense.RoomId, _currentUser.UserId);
-                _logger.LogInformation( "Fetched device tokens. TokenCount={TokenCount}, RoomId={RoomId}",tokens?.Count() ?? 0, expense.RoomId);
+                var tokens = expenseRepo.GetDeviceToken(expense.RoomId, userId);
 
                 if (tokens == null || !tokens.Any())
                 {
@@ -641,11 +632,6 @@ namespace Services.Management
                 }
 
                 var roomName = roomRepo.GetRoomName(expense.RoomId);
-                var userName = _currentUser.UserName;
-
-                _logger.LogDebug(
-                    "Preparing notification payload. UserName={UserName}, RoomName={RoomName}",
-                    userName, roomName);
 
                 var result = await notifService.SendExpenseNotificationAsync(
                     tokens!,
@@ -655,13 +641,19 @@ namespace Services.Management
                     roomName,
                     expense.RoomId,isUpdate);
 
-                _logger.LogInformation("Push notification sent successfully. Title={Title}", result.Title);
+                _logger.LogInformation("Push notification sent successfully. Body={Title}", result.Body);
 
-                var members = await memberRepo.GetAllAsync(m => m.RoomId == expense.RoomId && m.ApplicationUserId != _currentUser.UserId);
+                var members = await memberRepo.GetAllAsync(m => m.RoomId == expense.RoomId && m.ApplicationUserId != userId);
 
-                _logger.LogInformation("Fetched room members for notification persistence. MemberCount={MemberCount}", members.Count());
+                if(members == null || !members.Any())
+                {
+                    _logger.LogWarning("No members found in the room for notification persistence. RoomId={RoomId}",expense.RoomId);
+                    _logger.LogInformation("Fetched room members for notification persistence. MemberCount={MemberCount}", members?.Count());
+                    return;
+                }
+                _logger.LogInformation($"UserId: {userId}, Fetched room members for notification persistence. MemberCount={members?.Count()}");
 
-                var notifications = members.Select(m => new PushNotification
+                var notifications = members!.Select(m => new PushNotification
                 {
                     UserId = m.ApplicationUserId!,
                     Title = result.Title,
@@ -677,18 +669,12 @@ namespace Services.Management
                 }
 
                 await uow.Repository<PushNotification>().AddRangeAsync(notifications);
-                _logger.LogDebug("PushNotification entities added to UnitOfWork. Count={Count}", notifications.Count);
 
                 await uow.SaveAsync();
-                _logger.LogInformation("Push notifications saved successfully to database. RoomId={RoomId}",expense.RoomId);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error occurred while sending expense notification. ExpenseId={ExpenseId}, RoomId={RoomId}",expense.ExpenseId, expense.RoomId);
-            }
-            finally
-            {
-                _logger.LogInformation("SendNotificationToUser finished. ExpenseId={ExpenseId}",expense.ExpenseId);
             }
         }
         #endregion

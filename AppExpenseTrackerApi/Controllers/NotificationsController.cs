@@ -11,11 +11,13 @@ namespace AppExpenseTrackerApi.Controllers
     {
         private readonly AppDbContext _context;
         private readonly UserManager<ApplicationUser> _userManager;
+        private readonly ICurrentUserService _currentUser;
 
-        public NotificationsController(AppDbContext context, UserManager<ApplicationUser> userManager)
+        public NotificationsController(AppDbContext context, UserManager<ApplicationUser> userManager, ICurrentUserService currentUser)
         {
             _context = context;
             _userManager = userManager;
+            _currentUser = currentUser;
         }
 
         [HttpPost("send")]
@@ -41,10 +43,10 @@ namespace AppExpenseTrackerApi.Controllers
         }
 
         [HttpGet("get-notifications")]
-        public async Task<IActionResult> GetNotifications(string userId)
+        public async Task<IActionResult> GetNotifications()
         {
             var list = await _context.Notifications
-                .Where(n => n.UserId == userId)
+                .Where(n => n.UserId == _currentUser.UserId)
                 .OrderByDescending(n => n.SentAt)
                 .ToListAsync();
 
@@ -82,11 +84,12 @@ namespace AppExpenseTrackerApi.Controllers
         [HttpPost("app-register")]
         public async Task<IActionResult> RegisterDevice([FromBody] DeviceTokenModel model)
         {
-            var user = await _userManager.FindByIdAsync(model.UserId!);
+            string? userId = _currentUser.UserId;
+            var user = await _userManager.FindByIdAsync(userId!);
             if (user == null) return BadRequest();
 
             user.DeviceToken = model.DeviceToken;
-            user.UpdatedBy = $"Updated by: {model.UserId}";
+            user.UpdatedBy = $"Updated by: {userId}";
             user.UpdatedDate = DateTimeProvider.NowIST;
             await _userManager.UpdateAsync(user);
 

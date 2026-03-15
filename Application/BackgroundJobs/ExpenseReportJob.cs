@@ -1,5 +1,6 @@
 ﻿
 using Serilog;
+using System.Text.RegularExpressions;
 
 namespace Services.BackgroundJobs
 {
@@ -93,6 +94,7 @@ namespace Services.BackgroundJobs
 
         private byte[] GenerateUserPdfReport(ApplicationUser user, DateTime referenceDate)
         {
+            var culture = new CultureInfo("en-IN");
             var expensesByRoom = _context.Expenses
                 .Where(e => e.Member.ApplicationUserId == user.Id &&
                             (e.IsDeleted == false || e.IsDeleted == null) &&
@@ -197,7 +199,8 @@ namespace Services.BackgroundJobs
 
                                         table.Cell().Element(c => TableDataCell(c, bgColor)).Text(expense.Item);
                                         table.Cell().Element(c => TableDataCell(c, bgColor)).AlignCenter().Text(expense.Date.ToString("MMM dd, yyyy"));
-                                        table.Cell().Element(c => TableDataCell(c, bgColor)).AlignRight().Text(expense.Amount.ToString("N2"));
+                                        table.Cell().Element(c => TableDataCell(c, bgColor)).AlignRight().Text(expense.Amount.ToString("C2", culture));
+
                                     }
                                 });
 
@@ -220,13 +223,13 @@ namespace Services.BackgroundJobs
                         {
                             row.RelativeItem().Column(col => {
                                 col.Item().Text("Report Status: Completed").Style(TextStyle.Default.FontSize(9).FontColor(darkGrey));
-                                col.Item().Text($"Generated on {DateTime.Now:g}").Style(TextStyle.Default.FontSize(9).FontColor(darkGrey));
+                                col.Item().Text($"Generated on {DateTimeProvider.NowIST:g}").Style(TextStyle.Default.FontSize(9).FontColor(darkGrey));
                             });
 
                             row.RelativeItem().AlignRight().Column(col =>
                             {
                                 col.Item().Text("GRAND TOTAL").Style(TotalLabelStyle).FontSize(14);
-                                col.Item().Text(grandTotal.ToString("C2")).Style(TotalValueStyle).FontSize(20);
+                                col.Item().Text(grandTotal.ToString("C2", culture)).Style(TotalValueStyle).FontSize(20);
                             });
                         });
                     });

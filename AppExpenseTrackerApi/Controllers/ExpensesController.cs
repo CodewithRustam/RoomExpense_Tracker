@@ -1,4 +1,6 @@
-﻿namespace AppExpenseTracker.Controllers
+﻿using FluentValidation;
+
+namespace AppExpenseTracker.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
@@ -9,19 +11,18 @@
         private readonly IRoomServices roomServices;
         private readonly IExpenseServices expenseServices;
         private readonly ISettlementServices settlementServices;
-        private readonly ILogger<ExpensesController> _logger;
-
+        private readonly IValidator<ExpenseViewModel> _validator;
         public ExpensesController(IMemberServices memberServices,
             IRoomServices roomServices,
             IExpenseServices expenseServices,
             ISettlementServices settlementServices,
-            ILogger<ExpensesController> logger)
+            IValidator<ExpenseViewModel> validator)
         {
             this.memberServices = memberServices;
             this.roomServices = roomServices;
             this.expenseServices = expenseServices;
             this.settlementServices = settlementServices;
-            _logger = logger;
+            _validator = validator;
         }
         [HttpGet("get-userexpesne-months")]
         public async Task<IActionResult> GetMonths(int roomId)
@@ -32,6 +33,12 @@
         [HttpPost("add-expense")]
         public async Task<IActionResult> Add([FromBody] ExpenseViewModel expViewModel)
         {
+            var validationResult = await _validator.ValidateAsync(expViewModel);
+            if (!validationResult.IsValid)
+            {
+                var errorMessage = validationResult.Errors.FirstOrDefault()?.ErrorMessage ?? "Validation failed.";
+                return BadRequest(ApiResponse.Fail(errorMessage));
+            }
             ApiResponse apiResponse = await expenseServices.AddExpenses(expViewModel);
             return Ok(apiResponse);
         }
@@ -39,6 +46,12 @@
         [HttpPost("update-expense")]
         public async Task<IActionResult> UpdateExpense([FromBody] ExpenseViewModel expenseViewModel)
         {
+            var validationResult = await _validator.ValidateAsync(expenseViewModel);
+            if (!validationResult.IsValid)
+            {
+                var errorMessage = validationResult.Errors.FirstOrDefault()?.ErrorMessage ?? "Validation failed.";
+                return BadRequest(ApiResponse.Fail(errorMessage));
+            }
             ApiResponse apiResponse = await expenseServices.UpdateExpenses(expenseViewModel);
             return Ok(apiResponse);
         }

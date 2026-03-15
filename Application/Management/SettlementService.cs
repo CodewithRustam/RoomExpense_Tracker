@@ -143,7 +143,27 @@ namespace Services.Management
 
                 if (newSettlement.SettlementId > 0)
                 {
-                    await SendSettlementEmailAsync(payer, receiver, request.SettlementAmount, settlementMonth, roomId);
+                    var payerUser = await _userManager.FindByIdAsync(payer.ApplicationUserId!);
+                    var receiverUser = await _userManager.FindByIdAsync(receiver.ApplicationUserId!);
+
+                    SettlementEmailVM settlementEmailVM = new SettlementEmailVM()
+                    {
+                        PayerEmail = payerUser!.Email,
+                        PayerUserName = payerUser!.UserName,
+                        PayerName = payer.Name,
+
+                        ReceiverEmail = receiverUser!.Email,
+                        ReceiverUserName = receiverUser!.UserName,
+                        ReceiverName = receiver.Name,
+
+                        Amount = request.SettlementAmount,
+                        SettlementForMonth = settlementMonth,
+                        RoomId = roomId
+                    };
+                    _ = Task.Run(async () =>
+                    {
+                        await SendSettlementEmailAsync(settlementEmailVM);
+                    });
                     return (true, $"Successfully settled ₹{request.SettlementAmount:F2} with {receiverName}.");
                 }
                 return (true, $"Settlement failed ₹{request.SettlementAmount:F2} with {receiverName}.");
@@ -153,39 +173,35 @@ namespace Services.Management
                 throw new NotFoundException("An unexpected error occurred while settling expenses. Please try again.");
             }
         }
-        public async Task SendSettlementEmailAsync(Member payer, Member receiver, decimal amount, DateTime settlementForMonth, int roomId)
+        public async Task SendSettlementEmailAsync(SettlementEmailVM settlementEmailVM)
         {
-            if (payer == null || receiver == null || string.IsNullOrWhiteSpace(payer.ApplicationUserId) || string.IsNullOrWhiteSpace(receiver.ApplicationUserId))
-            {
-                //_logger.LogWarning("SendSettlementEmailAsync skipped: payer or receiver info missing.");
-                return;
-            }
+            //if (payer == null || receiver == null || string.IsNullOrWhiteSpace(payer.ApplicationUserId) || string.IsNullOrWhiteSpace(receiver.ApplicationUserId))
+            //{
+            //    //_logger.LogWarning("SendSettlementEmailAsync skipped: payer or receiver info missing.");
+            //    return;
+            //}
 
-            var payerUser = await _userManager.FindByIdAsync(payer.ApplicationUserId);
-            var receiverUser = await _userManager.FindByIdAsync(receiver.ApplicationUserId);
-
-            if (receiverUser != null && !string.IsNullOrWhiteSpace(receiverUser.Email))
+            if (!string.IsNullOrWhiteSpace(settlementEmailVM.ReceiverEmail))
             {
-                string receiverEmailSubject = $"Settlement Received - {settlementForMonth:MMMM yyyy}";
+                string receiverEmailSubject = $"Settlement Received - {settlementEmailVM.SettlementForMonth:MMMM yyyy}";
                 string receiverEmailBody = EmailTemplates.GetSettlementEmailTemplate(
-                    receiverUser.UserName!,
-                    $"{payer.Name} has settled ₹{amount:F2} with you for {settlementForMonth:MMMM yyyy}.",
-                    "Settlement Received",roomId
+                    settlementEmailVM.ReceiverUserName!,
+                    $"{settlementEmailVM.PayerName} has settled ₹{settlementEmailVM.Amount:F2} with you for {settlementEmailVM.SettlementForMonth:MMMM yyyy}.",
+                    "Settlement Received", settlementEmailVM.RoomId
                 );
 
-                await _emailSender.SendEmailAsync(receiverUser.Email, receiverEmailSubject, receiverEmailBody);
+                await _emailSender.SendEmailAsync(settlementEmailVM.ReceiverEmail, receiverEmailSubject, receiverEmailBody);
             }
 
-            if (payerUser != null && !string.IsNullOrWhiteSpace(payerUser.Email))
+            if (!string.IsNullOrWhiteSpace(settlementEmailVM.PayerEmail))
             {
-                string payerEmailSubject = $"Settlement Paid - {settlementForMonth:MMMM yyyy}";
+                string payerEmailSubject = $"Settlement Paid - {settlementEmailVM.SettlementForMonth:MMMM yyyy}";
                 string payerEmailBody = EmailTemplates.GetSettlementEmailTemplate(
-                    payerUser.UserName!,
-                    $"You have successfully settled ₹{amount:F2} to {receiver.Name} for {settlementForMonth:MMMM yyyy}.",
-                    "Settlement Paid",roomId
+                    settlementEmailVM.PayerUserName!,
+                    $"You have successfully settled ₹{settlementEmailVM.Amount:F2} to {settlementEmailVM.ReceiverName} for {settlementEmailVM.SettlementForMonth:MMMM yyyy}.",
+                    "Settlement Paid", settlementEmailVM.RoomId
                 );
-
-                await _emailSender.SendEmailAsync(payerUser.Email, payerEmailSubject, payerEmailBody);
+                await _emailSender.SendEmailAsync(settlementEmailVM.PayerEmail, payerEmailSubject, payerEmailBody);
             }
         }
     }

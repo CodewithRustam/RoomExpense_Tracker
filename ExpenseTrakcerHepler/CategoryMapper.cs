@@ -8,27 +8,27 @@ namespace ExpenseTrakcerHepler
         {
             ["Non-Veg"] = new HashSet<string>
             {
-                "chicken", "chiken", "gost", "beef", "mutton", "fish", "meat", "prawn", "egg", "anda",
+                "chicken", "chiken", "gost", "beef", "mutton", "fish", "meat", "prawn", "egg","eggs", "anda",
                 "lamb", "turkey", "bacon", "shrimp", "crab", "lobster", "duck", "goat", "veal", "sausage",
                 "ham", "salmon", "tuna", "murga", "maas", "machli", "keema"
             },
 
             ["Dairy"] = new HashSet<string>
             {
-                "milk", "doodh", "curd", "dahi", "butter", "makhan", "cheese", "cream", "paneer", "yogurt",
+                "milk", "doodh","dudh", "curd", "dahi", "butter", "makhan", "cheese", "cream", "paneer", "yogurt",
                 "ghee", "khoa", "khoya", "condensed milk", "lassi", "malai", "dairy"
             },
 
             ["Pulses"] = new HashSet<string>
             {
                 "dal", "dhal", "rajma", "chana", "moong", "arhar", "urad", "lentil", "masoor", "peas",
-                "kidney beans", "black gram", "toor dal", "kabuli chana", "chole"
+                "kidney beans", "black gram", "toor dal", "kabuli chana", "chole","daal"
             },
 
             ["Grains"] = new HashSet<string>
             {
                 "rice", "chawal", "aata", "atta", "wheat", "gehu", "barley", "corn", "makka", "jowar",
-                "bajra", "ragi", "millet", "suji", "daliya", "poha", "flattened rice"
+                "bajra", "ragi", "millet", "suji", "daliya", "poha", "flattened rice","Choora","chura","chuda"
             },
 
             ["Cooking Essentials"] = new HashSet<string>
@@ -36,31 +36,31 @@ namespace ExpenseTrakcerHepler
                 "oil", "mustard oil", "cooking oil", "jeera", "masala", "spice", "salt", "sugar", "vinegar",
                 "turmeric", "haldi", "chili powder", "mirch", "ginger", "adrak", "garlic", "lahsun",
                 "cardamom", "elaichi", "cinnamon", "dalchini", "bay leaf", "tejpatta", "clove", "laung",
-                "pepper", "kali mirch", "hing", "asafoetida"
+                "pepper", "kali mirch", "hing", "asafoetida", "sarso ka tel","tel","gud","mitha"
             },
 
             ["Vegetables"] = new HashSet<string>
             {
-                "vegetable", "sabzi", "carrot", "gajar", "potato", "aloo", "onion", "pyaz", "tomato", "tamatar",
+                "vegetable", "sabzi", "carrot", "gajar", "potato", "aloo", "onion","payaz", "piyaz", "pyaz", "tomato", "tamatar",
                 "spinach", "palak", "beans", "cabbage", "band gobi", "bhindi", "okra", "gobi","gobhi", "cauliflower",
                 "kaddu", "pumpkin", "mushroom", "peas", "matar", "brinjal", "baingan", "capsicum", "shimla mirch",
                 "lettuce", "zucchini", "pudina", "karela", "lauki", "tinda","matar", "coriander", "dhaniya","aaloo",
                 "cucumber", "kheera", "radish", "mooli", "sweet potato", "shakarkandi", "turnip","muli","mooli",
-                "Aalu","dhanya"
+                "Aalu","dhanya", "lemon", "nimbu"
             },
 
             ["Fruits"] = new HashSet<string>
             {
-                "apple", "seb", "banana", "kela", "orange", "santra", "mango", "aam", "grape", "angoor",
-                "papaya", "pineapple", "watermelon", "tarbooj", "lemon", "nimbu", "berry", "strawberry",
-                "blueberry", "pomegranate", "anar", "guava", "amrood", "pear", "cherry", "kiwi", "coconut", "nariyal"
+                "apple", "seb", "banana", "kela", "orange", "santra", "mango", "aam", "grape", "angoor","fruits","fruit",
+                "papaya", "pineapple", "watermelon", "tarbooj", "berry", "strawberry",
+                "blueberry", "pomegranate", "anar", "guava", "amrood", "amrud", "pear", "cherry", "kiwi", "coconut", "nariyal"
             },
 
             ["Beverages"] = new HashSet<string>
             {
                 "tea", "chai", "chaipatti", "chai patti", "tea powder", "coffee", "juice", "ras", "milkshake",
                 "cola", "soft drink", "water", "pani", "soda", "lemonade", "sharbat","paani", "energy drink", "smoothie",
-                "cold drink", "beverages","coke", "pepsi", "sprite", "fanta", "thums up", "maaza", "slice", "nimbu pani",
+                "cold drink", "beverages","coke", "pepsi", "sprite", "fanta", "thums up", "maaza", "slice", "nimbu pani"
             },
 
             ["Ready-made Food"] = new HashSet<string>
@@ -71,7 +71,7 @@ namespace ExpenseTrakcerHepler
 
             ["Prepared Food"] = new HashSet<string>
             {
-                "biryani", "shawarma", "naan", "roti", "roll", "lunch", "curry", "sabzi", "thali", "meal","fried rice","veg pulao",
+                "biryani", "shawarma", "Kadahi_Chiken","naan", "roti", "roll", "lunch", "curry", "sabzi", "thali", "meal","fried rice","veg pulao",
                 "dal makhani", "butter chicken", "chole bhature", "pav bhaji", "rajma chawal", "masala dosa", "idli", "vada", "pulao"
             },
 
@@ -188,35 +188,29 @@ namespace ExpenseTrakcerHepler
             item = Preprocess(item);
             var tokens = Tokenize(item);
 
-            // Dictionary to store match counts per category
             var categoryScores = new Dictionary<string, int>();
 
             foreach (var category in categoryKeywords.Keys)
             {
                 var keywords = categoryKeywords[category];
-                // Count how many words belong to this category
                 int score = tokens.Count(token => keywords.Contains(token));
                 categoryScores[category] = score;
             }
 
-            // Weighted logic: if majority of matched words belong to a certain category
             int totalMatches = categoryScores.Values.Sum();
 
             if (totalMatches == 0)
                 return "Miscellaneous";
 
-            // Pick category with highest match count
             var bestCategory = categoryScores
                 .OrderByDescending(kv => kv.Value)
                 .First();
 
-            // If tie, choose category with higher keyword density or known preference
             var topCategories = categoryScores
                 .Where(kv => kv.Value == bestCategory.Value)
                 .Select(kv => kv.Key)
                 .ToList();
 
-            // Return Vegetables if tie includes it (since it's more common)
             if (topCategories.Count > 1 && topCategories.Contains("Vegetables"))
                 return "Vegetables";
 
