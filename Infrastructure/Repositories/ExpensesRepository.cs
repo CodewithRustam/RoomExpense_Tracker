@@ -2,27 +2,27 @@
 {
     public class ExpensesRepository : Repository<Expense>, IExpenseRepository
     {
-        private readonly AppDbContext _context;
-        private readonly IMemoryCache cache;
-        private readonly string _connectionString;
+        private readonly IMemoryCache _cache;
 
-
-        public ExpensesRepository(AppDbContext context, IMemoryCache _cache, IConfiguration configuration) : base(context)
+        public ExpensesRepository(AppDbContext context, IMemoryCache cache) : base(context)
         {
-            _context = context;
-            cache = _cache;
-            _connectionString = configuration.GetConnectionString("DefaultConnection") ?? string.Empty;
+            _cache = cache ?? throw new ArgumentNullException(nameof(cache));
         }
 
-        public async Task<List<ExpenseRecordDto>> GetMonthlyExpenses(int roomId, DateTime selectedMonth)
+        /// <summary>
+        /// Optimized with a continuous range query instead of .Month/.Year to enable index usage.
+        /// </summary>
+        public async Task<IReadOnlyList<ExpenseRecordDto>> GetMonthlyExpenses(int roomId, DateTime selectedMonth)
         {
-            int year = selectedMonth.Year;
-            int month = selectedMonth.Month;
+            var startOfMonth = new DateTime(selectedMonth.Year, selectedMonth.Month, 1);
+            var endOfMonth = startOfMonth.AddMonths(1);
 
-            return await (from exp in _context.Expenses
-                          join mem in _context.Members
-                          on exp.MemberId equals mem.MemberId
-                          where exp.RoomId == roomId && (exp.IsDeleted == false || exp.IsDeleted == null) && exp.Date.Month == month && exp.Date.Year == year
+            return await (from exp in _context.Expenses.AsNoTracking()
+                          join mem in _context.Members.AsNoTracking() on exp.MemberId equals mem.MemberId
+                          where exp.RoomId == roomId
+                                && (exp.IsDeleted == false || exp.IsDeleted == null)
+                                && exp.Date >= startOfMonth && exp.Date < endOfMonth
+                          orderby exp.ExpenseId descending
                           select new ExpenseRecordDto
                           {
                               ApplicationUserId = mem.ApplicationUserId ?? string.Empty,
@@ -34,44 +34,10 @@
                               Amount = exp.Amount,
                               Date = exp.Date,
                               Category = exp.Category ?? string.Empty,
-                          }).OrderByDescending(x => x.ExpenseId).ToListAsync();
+                          }).ToListAsync();
         }
 
-        public async Task<bool> IsExpenseExist(Expense expense)
-        {
-            return await AnyAsync(e => e.RoomId == expense.RoomId &&
-                                       e.MemberId == expense.MemberId &&
-                                       e.Item == expense.Item &&
-                                       e.Date == expense.Date && e.Amount == expense.Amount);
-        }
-
-        public async Task<bool> IsExpenseExistForUser(Expense expense)
-        {
-            return await AnyAsync(x =>
-                x.ExpenseId == expense.ExpenseId &&
-                x.RoomId == expense.RoomId &&
-                (x.IsDeleted == false || x.IsDeleted == null));
-        }
-        public async Task<decimal> GetTotalRoomExpenses(int roomId, DateTime start, DateTime end)
-        {
-                return await _context.Expenses.Where(e => e.RoomId == roomId && 
-                                                          (e.IsDeleted == false || e.IsDeleted == null) && 
-                                                          e.Date >= start && e.Date <= end).SumAsync(e => e.Amount);
-        }
-        public async Task<List<string>> GetExpenseMonths(int roomId)
-        {
-            return await _context.Expenses
-                .AsNoTracking()
-                .Where(e => e.RoomId == roomId && e.IsDeleted == false || e.IsDeleted == null)
-                .Select(e => new { e.Date.Year, e.Date.Month })
-                .Distinct()
-                .OrderByDescending(x => x.Year)
-                .ThenByDescending(x => x.Month)
-                .Select(x => $"{x.Year:D4}-{x.Month:D2}") 
-                .ToListAsync();
-        }
-
-        public async Task<List<UserExpenseDto>> GetUserExpenses(string userId, DateTime month)
+        public async Task<IReadOnlyList<UserExpenseDto>> GetUserExpenses(string userId, DateTime month)
         {
             var startOfMonth = new DateTime(month.Year, month.Month, 1);
             var endOfMonth = startOfMonth.AddMonths(1);
@@ -91,80 +57,55 @@
                               MemberName = m.Name,
                               RoomName = r.Name,
                               Category = e.Category
-                          })
-                         .ToListAsync();
+                          }).ToListAsync();
         }
 
-        public List<string?> GetDeviceToken(int roomId, string? userId)
+        public async Task<IReadOnlyList<Expense>> GetExpensesForMembers(int roomId, int payerMemberId, int receiverMemberId, DateTime monthStart, DateTime monthEnd)
         {
-           return _context.Members
-                  .Where(m => m.RoomId == roomId && m.ApplicationUserId != userId &&
-                  
-                  m.ApplicationUser!.DeviceToken != null)
-                  .Select(m => m.ApplicationUser!.DeviceToken)
-                  .ToList();
-        }
-
-        public async Task<List<Expense>> GetExpensesForMembers(int roomId, int payerMemberId, int receiverMemberId, DateTime monthStart, DateTime monthEnd)
-        {
-            var memberIds = new[] { payerMemberId, receiverMemberId };
-
             return await _context.Expenses
+                .AsNoTracking()
                 .Where(e => e.RoomId == roomId
-                            && memberIds.Contains(e.MemberId)
+                            && (e.MemberId == payerMemberId || e.MemberId == receiverMemberId)
                             && (e.IsDeleted == false || e.IsDeleted == null)
                             && e.Date >= monthStart
                             && e.Date <= monthEnd)
                 .ToListAsync();
         }
-        public async Task<(List<MemberExpensesDto> Members, List<CategoryExpenseDto> Categories, List<CategoryExpenseDto> TopSpends)> GetMonthlyExpensesTrendAsync(int roomId, DateTime targetMonth)
+
+        public async Task<IReadOnlyList<Expense>> GetHomeExpenseTrends(int roomId, DateTime startDate)
         {
-            string cacheKey = $"MonthlyExpensesTrend_{roomId}_{targetMonth:yyyyMM}";
-            var currentMonth = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1);
-
-            //Don't cache current month (it changes frequently)
-            if (targetMonth != currentMonth && cache.TryGetValue(cacheKey, out (List<MemberExpensesDto>, List<CategoryExpenseDto>, List<CategoryExpenseDto>) cachedData))
-            {
-                return cachedData;
-            }
-
-            using var connection = new SqlConnection(_connectionString);
-
-            using (var multi = await connection.QueryMultipleAsync(
-                "GetMonthlyExpensesTrend",
-                new { RoomId = roomId, MonthDate = targetMonth },
-                commandType: CommandType.StoredProcedure))
-            {
-                var members = (await multi.ReadAsync<MemberExpensesDto>()).ToList();
-                var categories = (await multi.ReadAsync<CategoryExpenseDto>()).ToList();
-                var topSpends = (await multi.ReadAsync<CategoryExpenseDto>()).ToList();
-
-                var result = (members, categories, topSpends);
-
-                if (targetMonth != currentMonth)
-                {
-                    cache.Set(cacheKey, result, new MemoryCacheEntryOptions
-                    {
-                        AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(12)
-                    });
-                }
-
-                return result;
-            }
+            return await _context.Expenses
+                .AsNoTracking()
+                .Where(e => e.RoomId == roomId &&
+                            (e.IsDeleted == false || e.IsDeleted == null) &&
+                            e.Date >= startDate)
+                .ToListAsync();
         }
 
-        public async Task<List<string>> GetExpenseMonthsByUserId(string userId)
+        public async Task<IReadOnlyList<string>> GetExpenseMonths(int roomId)
         {
-            // Get all MemberIds for this user
+            return await _context.Expenses
+                .AsNoTracking()
+                .Where(e => e.RoomId == roomId && (e.IsDeleted == false || e.IsDeleted == null))
+                .Select(e => new { e.Date.Year, e.Date.Month })
+                .Distinct()
+                .OrderByDescending(x => x.Year)
+                .ThenByDescending(x => x.Month)
+                .Select(x => $"{x.Year:D4}-{x.Month:D2}")
+                .ToListAsync();
+        }
+
+        public async Task<IReadOnlyList<string>> GetExpenseMonthsByUserId(string userId)
+        {
             var memberIds = await _context.Members
+                .AsNoTracking()
                 .Where(m => m.ApplicationUserId == userId)
                 .Select(m => m.MemberId)
                 .ToListAsync();
 
-            if (memberIds == null || memberIds.Count == 0)
-                return new List<string>();
+            if (memberIds.Count == 0)
+                return Array.Empty<string>();
 
-            // Fetch all distinct Year-Month combinations from Expenses for these members
             return await _context.Expenses
                 .AsNoTracking()
                 .Where(e => memberIds.Contains(e.MemberId) && (e.IsDeleted == false || e.IsDeleted == null))
@@ -175,13 +116,67 @@
                 .Select(x => $"{x.Year:D4}-{x.Month:D2}")
                 .ToListAsync();
         }
-        public async Task<List<Expense>> GetHomeExpenseTrends(int roomId, DateTime startDate)
+
+        /// <summary>
+        /// Reuses the existing EF Db Connection for Dapper and handles clean mapping.
+        /// </summary>
+        public async Task<(IReadOnlyList<MemberExpensesDto> Members, IReadOnlyList<CategoryExpenseDto> Categories, IReadOnlyList<CategoryExpenseDto> TopSpends)> GetMonthlyExpensesTrendAsync(int roomId, DateTime targetMonth)
+        {
+            string cacheKey = $"MonthlyExpensesTrend_{roomId}_{targetMonth:yyyyMM}";
+            var currentMonth = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1);
+
+            if (targetMonth != currentMonth && _cache.TryGetValue(cacheKey, out (IReadOnlyList<MemberExpensesDto>, IReadOnlyList<CategoryExpenseDto>, IReadOnlyList<CategoryExpenseDto>) cachedData))
+            {
+                return cachedData;
+            }
+
+            var connection = _context.Database.GetDbConnection();
+
+            using var multi = await connection.QueryMultipleAsync(
+                "GetMonthlyExpensesTrend",
+                new { RoomId = roomId, MonthDate = targetMonth },
+                commandType: CommandType.StoredProcedure);
+
+            var members = (await multi.ReadAsync<MemberExpensesDto>()).ToList();
+            var categories = (await multi.ReadAsync<CategoryExpenseDto>()).ToList();
+            var topSpends = (await multi.ReadAsync<CategoryExpenseDto>()).ToList();
+
+            var result = (members, categories, topSpends);
+
+            if (targetMonth != currentMonth)
+            {
+                _cache.Set(cacheKey, result, new MemoryCacheEntryOptions
+                {
+                    AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(12)
+                });
+            }
+
+            return result;
+        }
+
+        public async Task<decimal> GetTotalRoomExpenses(int roomId, DateTime start, DateTime end)
         {
             return await _context.Expenses
                 .Where(e => e.RoomId == roomId &&
                             (e.IsDeleted == false || e.IsDeleted == null) &&
-                            e.Date >= startDate)
-                .ToListAsync();
+                            e.Date >= start && e.Date <= end)
+                .SumAsync(e => e.Amount);
+        }
+
+        public Task<bool> IsExpenseExist(Expense expense)
+        {
+            return AnyAsync(e => e.RoomId == expense.RoomId &&
+                                 e.MemberId == expense.MemberId &&
+                                 e.Item == expense.Item &&
+                                 e.Date == expense.Date &&
+                                 e.Amount == expense.Amount);
+        }
+
+        public Task<bool> IsExpenseExistForUser(Expense expense)
+        {
+            return AnyAsync(x => x.ExpenseId == expense.ExpenseId &&
+                                 x.RoomId == expense.RoomId &&
+                                 (x.IsDeleted == false || x.IsDeleted == null));
         }
     }
 }

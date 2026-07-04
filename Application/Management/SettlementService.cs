@@ -1,34 +1,37 @@
-﻿using Domain.Entities;
-using Infrastructure;
-using Services.ViewModels;
-
-namespace Services.Management
+﻿namespace Services.Management
 {
     public class SettlementService : ISettlementServices
     {
         private readonly IUnitOfWork _uow;
-
         private readonly IMemberRepository _memberRepo;
         private readonly IExpenseRepository _expenseRepo;
         private readonly ISettlementRepository _settlementRepo;
         private readonly IRoomRepository _roomRepo;
-        private readonly ICurrentUserService currentUser;
-        private readonly IEmailSender _emailSender;
-        private readonly IMemoryCache _cache;
-        private readonly UserManager<ApplicationUser> _userManager;
-        private readonly AppDbContext _context;
 
-        public SettlementService(IMemberRepository memberRepo, IExpenseRepository expenseRepo,ISettlementRepository settlementRepo, IRoomRepository roomRepo, IEmailSender emailSender, IMemoryCache cache, ICurrentUserService _currentUser, UserManager<ApplicationUser> userManager, AppDbContext context, IUnitOfWork uow)
+        private readonly ICurrentUserService _currentUser;
+        private readonly ILogger<SettlementService> _logger;
+        private readonly ISettlementCacheService _cacheService;
+        private readonly ISettlementNotificationService _notificationService;
+
+        public SettlementService(
+            IMemberRepository memberRepo,
+            IExpenseRepository expenseRepo,
+            ISettlementRepository settlementRepo,
+            IRoomRepository roomRepo,
+            ICurrentUserService currentUser,
+            ILogger<SettlementService> logger,
+            ISettlementCacheService cacheService,
+            ISettlementNotificationService notificationService,
+            IUnitOfWork uow)
         {
             _memberRepo = memberRepo;
             _expenseRepo = expenseRepo;
             _settlementRepo = settlementRepo;
             _roomRepo = roomRepo;
-            _emailSender = emailSender;
-            _cache = cache;
-            currentUser = _currentUser;
-            _userManager = userManager;
-            _context = context;
+            _currentUser = currentUser;
+            _logger = logger;
+            _cacheService = cacheService;
+            _notificationService = notificationService;
             _uow = uow;
         }
 
@@ -36,45 +39,50 @@ namespace Services.Management
         {
             try
             {
-                if (request.RoomId <= 0)
-                    return (false, "Invalid room ID.");
+                // 1. Fast, memory-only validation
+                if (request.RoomId <= 0) return (false, SettlementMessages.InvalidRoomId);
+                if (string.IsNullOrWhiteSpace(request.PayerName)) return (false, SettlementMessages.InvalidPayer);
+                if (string.IsNullOrWhiteSpace(request.ReceiverName)) return (false, SettlementMessages.InvalidReceiver);
+                if (request.SettlementAmount <= 0) return (false, SettlementMessages.InvalidAmount);
 
-                if (string.IsNullOrWhiteSpace(request.PayerName))
-                    return (false, "Invalid payer name.");
-
-                if (string.IsNullOrWhiteSpace(request.ReceiverName))
-                    return (false, "Invalid receiver name.");
-
-                if (request.SettlementAmount <= 0)
-                    return (false, "Settlement amount must be greater than zero.");
-
-                var userId = currentUser.UserId;
+                var userId = _currentUser.UserId;
                 var roomId = request.RoomId;
-                var payerName = request.PayerName;
-                var receiverName = request.ReceiverName;
                 var settlementMonth = request.SettlementMonth ?? DateTime.UtcNow;
 
-                if (!await _roomRepo.AnyAsync(r => r.RoomId == roomId))
-                    return (false, "Room not found.");
+                // 2. Fetch payer and receiver CONCURRENTLY (Saves DB time)
+                var payerTask = _memberRepo.GetLoggedInMemberDetails(roomId, request.PayerName, userId);
+                var receiverTask = _memberRepo.GetRecipientMemberDetails(roomId, request.ReceiverName);
 
-                var payer = await _memberRepo.GetLoggedInMemberDetails(roomId, payerName, userId);
-                if (payer == null)
-                    return (false, "Payer not found.");
+                await Task.WhenAll(payerTask, receiverTask);
 
-                var receiver = await _memberRepo.GetRecipientMemberDetails(roomId, receiverName);
-                if (receiver == null)
-                    return (false, "Receiver not found.");
+                var payer = await payerTask;
+                var receiver = await receiverTask;
 
-                if (payer.MemberId == receiver.MemberId)
-                    return (false, "You cannot settle with yourself.");
+                // Note: We removed the Room Exists check because if members exist, the room exists.
+                if (payer == null) return (false, SettlementMessages.PayerNotFound);
+                if (receiver == null) return (false, SettlementMessages.ReceiverNotFound);
+                if (payer.MemberId == receiver.MemberId) return (false, SettlementMessages.SelfSettlement);
 
+                // Date calculations
                 var monthStart = new DateTime(settlementMonth.Year, settlementMonth.Month, 1);
-                var monthEnd = monthStart.AddMonths(1).AddTicks(-1);
+                var monthEnd = monthStart.AddMonths(1).AddTicks(-1); // Keep if repo strictly relies on <=
 
-                var memberExpenses = await _expenseRepo.GetExpensesForMembers(roomId, payer.MemberId, receiver.MemberId, monthStart, monthEnd);
-                var memberSettlements = await _settlementRepo.GetSettlementsForMembers(roomId, payer.MemberId, receiver.MemberId, monthStart, monthEnd);
+                // 3. Fetch all required math data CONCURRENTLY (Massive performance boost)
+                var memberExpensesTask = _expenseRepo.GetExpensesForMembers(roomId, payer.MemberId, receiver.MemberId, monthStart, monthEnd);
+                var memberSettlementsTask = _settlementRepo.GetSettlementsForMembers(roomId, payer.MemberId, receiver.MemberId, monthStart, monthEnd);
+                var totalRoomExpensesTask = _expenseRepo.GetTotalRoomExpenses(roomId, monthStart, monthEnd);
+                var totalMembersTask = _memberRepo.GetMemberCountAsync(roomId);
 
+                await Task.WhenAll(memberExpensesTask, memberSettlementsTask, totalRoomExpensesTask, totalMembersTask);
 
+                var memberExpenses = await memberExpensesTask;
+                var memberSettlements = await memberSettlementsTask;
+                decimal totalRoomExpenses = await totalRoomExpensesTask;
+                int totalMembers = await totalMembersTask;
+
+                if (totalMembers <= 0) return (false, SettlementMessages.NoMembers);
+
+                // 4. Local Math Processing
                 decimal payerTotalExpenses = memberExpenses.Where(e => e.MemberId == payer.MemberId).Sum(e => e.Amount);
                 decimal payerTotalPaid = memberSettlements.Where(s => s.MemberId == payer.MemberId).Sum(s => s.Amount);
                 decimal payerTotalReceived = memberSettlements.Where(s => s.PaidToMemberId == payer.MemberId).Sum(s => s.Amount);
@@ -83,13 +91,7 @@ namespace Services.Management
                 decimal receiverTotalPaid = memberSettlements.Where(s => s.MemberId == receiver.MemberId).Sum(s => s.Amount);
                 decimal receiverTotalReceived = memberSettlements.Where(s => s.PaidToMemberId == receiver.MemberId).Sum(s => s.Amount);
 
-                decimal totalRoomExpenses = await _expenseRepo.GetTotalRoomExpenses(roomId, monthStart, monthEnd);
-                int totalMembers = await _memberRepo.GetMemberCount(roomId);
-
-                if (totalMembers <= 0)
-                    return (false, "No members found in this room.");
-
-                decimal avgExpensePerMember = Math.Round(totalRoomExpenses / totalMembers,2);
+                decimal avgExpensePerMember = Math.Round(totalRoomExpenses / totalMembers, 2);
 
                 decimal payerNetBalance = payerTotalExpenses + payerTotalPaid - payerTotalReceived;
                 decimal receiverNetBalance = receiverTotalExpenses + receiverTotalPaid - receiverTotalReceived;
@@ -97,17 +99,16 @@ namespace Services.Management
                 decimal payerOwes = Math.Round(avgExpensePerMember - payerNetBalance, 2);
                 decimal receiverIsOwed = Math.Round(receiverNetBalance - avgExpensePerMember, 2);
 
-                if (payerOwes <= 0)
-                    return (false, "You do not owe any amount.");
+                if (payerOwes <= 0) return (false, SettlementMessages.PayerDoesNotOwe);
+                if (receiverIsOwed <= 0) return (false, SettlementMessages.ReceiverNotOwed);
 
-                if (receiverIsOwed <= 0)
-                    return (false, "Receiver is not owed any amount.");
-
+                // 5. Bug Fix: Direct comparison with a 1-cent grace buffer to avoid floating point strictness
                 decimal allowedMaxSettlement = Math.Min(payerOwes, receiverIsOwed);
-                bool isSettlementAmountExceed = Math.Truncate(request.SettlementAmount) > Math.Truncate(allowedMaxSettlement);
-                if (isSettlementAmountExceed)
-                    return (false, $"Settlement cannot exceed ₹{allowedMaxSettlement:F2}");
 
+                if (request.SettlementAmount > allowedMaxSettlement + 0.01m)
+                    return (false, SettlementMessages.ExceedsMax(allowedMaxSettlement));
+
+                // 6. Persistence
                 var newSettlement = new Settlement
                 {
                     MemberId = payer.MemberId,
@@ -120,88 +121,29 @@ namespace Services.Management
 
                 await _settlementRepo.AddAsync(newSettlement);
                 await _uow.SaveAsync();
-                //await transaction.CommitAsync();
-
-                string cacheKey = CacheHelper.GetCacheKey(roomId, settlementMonth);
-                _cache.Remove(cacheKey);
-                string roomuserCacheKey = CacheHelper.GetRoomsUserKey(userId);
-                _cache.Remove(roomuserCacheKey);
-                string monthlyTrendsCacheKey = CacheHelper.GetMonthlyExpenseTrendKey(roomId, settlementMonth);
-                _cache.Remove(monthlyTrendsCacheKey);
-                string userExpensecacheKey = CacheHelper.GetUserExpensesKey(userId, settlementMonth);
-                _cache.Remove(userExpensecacheKey);
-                string settlementCacheKey = CacheHelper.GetSettlementCacheKey(roomId, payer.MemberId, settlementMonth);
-                _cache.Remove(settlementCacheKey);
-                string settlCacheKey = CacheHelper.GetSettlementCacheKey(roomId, receiver.MemberId, settlementMonth);
-                _cache.Remove(settlCacheKey);
-
-                foreach (var isMemberInclude in new[] { true, false })
-                {
-                    string expenseDetails = CacheHelper.GetMonthlyExpensesKey(roomId, settlementMonth, isMemberInclude);
-                    _cache.Remove(expenseDetails);
-                }
 
                 if (newSettlement.SettlementId > 0)
                 {
-                    var payerUser = await _userManager.FindByIdAsync(payer.ApplicationUserId!);
-                    var receiverUser = await _userManager.FindByIdAsync(receiver.ApplicationUserId!);
+                    _cacheService.ClearCachesAfterSettlement(roomId, payer.MemberId, receiver.MemberId, userId!, settlementMonth);
 
-                    SettlementEmailVM settlementEmailVM = new SettlementEmailVM()
-                    {
-                        PayerEmail = payerUser!.Email,
-                        PayerUserName = payerUser!.UserName,
-                        PayerName = payer.Name,
+                    _notificationService.FireAndForgetSettlementEmail(
+                        roomId,
+                        payer.ApplicationUserId!,
+                        payer.Name,
+                        receiver.ApplicationUserId!,
+                        receiver.Name,
+                        request.SettlementAmount,
+                        settlementMonth);
 
-                        ReceiverEmail = receiverUser!.Email,
-                        ReceiverUserName = receiverUser!.UserName,
-                        ReceiverName = receiver.Name,
-
-                        Amount = request.SettlementAmount,
-                        SettlementForMonth = settlementMonth,
-                        RoomId = roomId
-                    };
-                    _ = Task.Run(async () =>
-                    {
-                        await SendSettlementEmailAsync(settlementEmailVM);
-                    });
-                    return (true, $"Successfully settled ₹{request.SettlementAmount:F2} with {receiverName}.");
+                    return (true, SettlementMessages.Success(request.SettlementAmount, request.ReceiverName));
                 }
-                return (true, $"Settlement failed ₹{request.SettlementAmount:F2} with {receiverName}.");
-            }
-            catch (Exception)
-            {
-                throw new NotFoundException("An unexpected error occurred while settling expenses. Please try again.");
-            }
-        }
-        public async Task SendSettlementEmailAsync(SettlementEmailVM settlementEmailVM)
-        {
-            //if (payer == null || receiver == null || string.IsNullOrWhiteSpace(payer.ApplicationUserId) || string.IsNullOrWhiteSpace(receiver.ApplicationUserId))
-            //{
-            //    //_logger.LogWarning("SendSettlementEmailAsync skipped: payer or receiver info missing.");
-            //    return;
-            //}
 
-            if (!string.IsNullOrWhiteSpace(settlementEmailVM.ReceiverEmail))
-            {
-                string receiverEmailSubject = $"Settlement Received - {settlementEmailVM.SettlementForMonth:MMMM yyyy}";
-                string receiverEmailBody = EmailTemplates.GetSettlementEmailTemplate(
-                    settlementEmailVM.ReceiverUserName!,
-                    $"{settlementEmailVM.PayerName} has settled ₹{settlementEmailVM.Amount:F2} with you for {settlementEmailVM.SettlementForMonth:MMMM yyyy}.",
-                    "Settlement Received", settlementEmailVM.RoomId
-                );
-
-                await _emailSender.SendEmailAsync(settlementEmailVM.ReceiverEmail, receiverEmailSubject, receiverEmailBody);
+                return (false, SettlementMessages.Failed(request.SettlementAmount, request.ReceiverName));
             }
-
-            if (!string.IsNullOrWhiteSpace(settlementEmailVM.PayerEmail))
+            catch (Exception ex)
             {
-                string payerEmailSubject = $"Settlement Paid - {settlementEmailVM.SettlementForMonth:MMMM yyyy}";
-                string payerEmailBody = EmailTemplates.GetSettlementEmailTemplate(
-                    settlementEmailVM.PayerUserName!,
-                    $"You have successfully settled ₹{settlementEmailVM.Amount:F2} to {settlementEmailVM.ReceiverName} for {settlementEmailVM.SettlementForMonth:MMMM yyyy}.",
-                    "Settlement Paid", settlementEmailVM.RoomId
-                );
-                await _emailSender.SendEmailAsync(settlementEmailVM.PayerEmail, payerEmailSubject, payerEmailBody);
+                _logger.LogError(ex, "Failed to settle expense for RoomId: {RoomId}", request.RoomId);
+                return (false, SettlementMessages.UnexpectedError);
             }
         }
     }

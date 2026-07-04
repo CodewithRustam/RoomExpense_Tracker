@@ -2,6 +2,6 @@
 {
     public interface IMemberServices
     {
-        Task<int> GetMemberId(int roomId);
+        Task<int> GetMemberIdAsync(int roomId);
     }
 }

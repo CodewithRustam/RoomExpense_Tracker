@@ -1,99 +1,53 @@
-﻿using AppExpenseTracker.Controllers;
-using Domain.Entities;
-using Microsoft.AspNetCore.Identity;
-
-namespace AppExpenseTrackerApi.Controllers
+﻿namespace AppExpenseTrackerApi.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
     [Authorize]
     public class NotificationsController : ControllerBase
     {
-        private readonly AppDbContext _context;
-        private readonly UserManager<ApplicationUser> _userManager;
-        private readonly ICurrentUserService _currentUser;
+        private readonly INotificationServices _notificationServices;
 
-        public NotificationsController(AppDbContext context, UserManager<ApplicationUser> userManager, ICurrentUserService currentUser)
+        public NotificationsController(INotificationServices notificationServices)
         {
-            _context = context;
-            _userManager = userManager;
-            _currentUser = currentUser;
-        }
-
-        [HttpPost("send")]
-        public async Task<IActionResult> SendNotification([FromBody] UserNotificationVM userNotificationVM)
-        {
-            //var usersInRoom = await _context.Members.Where(r => r.RoomId == userNotificationVM.RoomId).Select(r => r.ApplicationUserId).ToListAsync();
-
-            //foreach (var userId in usersInRoom)
-            //{
-            //    _context.Notifications.Add(new PushNotification
-            //    {
-            //        UserId = userId ?? string.Empty,
-            //        Title = userNotificationVM.Title,
-            //        Body = userNotificationVM.Body,
-            //        SentAt = DateTimeProvider.NowIST,
-            //        IsRead = false
-            //    });
-            //}
-
-            //await _context.SaveChangesAsync();
-
-            return Ok(ApiResponse.SuccessRes("Notification added"));
+            _notificationServices = notificationServices;
         }
 
         [HttpGet("get-notifications")]
         public async Task<IActionResult> GetNotifications()
         {
-            var list = await _context.Notifications
-                .Where(n => n.UserId == _currentUser.UserId)
-                .OrderByDescending(n => n.SentAt)
-                .ToListAsync();
-
-            return Ok(list);
+            var response = await _notificationServices.GetNotificationsAsync();
+            return response.Success ? Ok(response) : BadRequest(response);
         }
 
         [HttpPut("mark-all-read")]
-        public async Task<IActionResult> MarkAllRead(string userId)
+        public async Task<IActionResult> MarkAllRead()
         {
-            var notes = _context.Notifications.Where(n => n.UserId == userId);
-            foreach (var n in notes) n.IsRead = true;
-            await _context.SaveChangesAsync();
-            return Ok();
+            var response = await _notificationServices.MarkAllReadAsync();
+            return response.Success ? Ok(response) : BadRequest(response);
         }
 
         [HttpDelete("clear-all")]
-        public async Task<IActionResult> ClearAll(string userId)
+        public async Task<IActionResult> ClearAll()
         {
-            var notes = _context.Notifications.Where(n => n.UserId == userId);
-            _context.Notifications.RemoveRange(notes);
-            await _context.SaveChangesAsync();
-            return Ok();
+            var response = await _notificationServices.ClearAllAsync();
+            return response.Success ? Ok(response) : BadRequest(response);
         }
-        [HttpDelete("delete-notification")]
+
+        [HttpDelete("delete-notification/{notificationId}")]
         public async Task<IActionResult> DeleteNotification(int notificationId)
         {
-            var notification = _context.Notifications.Where(n => n.Id == notificationId).FirstOrDefault();
-            if (notification != null)
-            {
-                _context.Notifications.Remove(notification);
-                await _context.SaveChangesAsync();
-            }
-            return Ok();
+            var response = await _notificationServices.DeleteNotificationAsync(notificationId);
+            return response.Success ? Ok(response) : BadRequest(response);
         }
+
         [HttpPost("app-register")]
         public async Task<IActionResult> RegisterDevice([FromBody] DeviceTokenModel model)
         {
-            string? userId = _currentUser.UserId;
-            var user = await _userManager.FindByIdAsync(userId!);
-            if (user == null) return BadRequest();
+            if (model == null || string.IsNullOrWhiteSpace(model.DeviceToken))
+                return BadRequest(ApiResponse.Fail("Device token is required."));
 
-            user.DeviceToken = model.DeviceToken;
-            user.UpdatedBy = $"Updated by: {userId}";
-            user.UpdatedDate = DateTimeProvider.NowIST;
-            await _userManager.UpdateAsync(user);
-
-            return Ok();
+            var response = await _notificationServices.RegisterDeviceAsync(model.DeviceToken);
+            return response.Success ? Ok(response) : BadRequest(response);
         }
     }
 }

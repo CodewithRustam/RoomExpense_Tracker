@@ -2,40 +2,41 @@
 {
     public class Repository<T> : IRepository<T> where T : class
     {
-        private readonly AppDbContext _context;
-        private readonly DbSet<T> _dbSet;
+        protected readonly AppDbContext _context;
+        protected readonly DbSet<T> _dbSet;
 
         public Repository(AppDbContext context)
         {
-            _context = context;
+            _context = context ?? throw new ArgumentNullException(nameof(context));
             _dbSet = _context.Set<T>();
         }
 
-        public async Task<IEnumerable<T>> GetAllAsync() => await _dbSet.ToListAsync();
-        public async Task<T?> GetByIdAsync(int id) => await _dbSet.FindAsync(id);
-        public async Task AddAsync(T entity) => await _dbSet.AddAsync(entity);
-        public async Task Update(T entity) => _dbSet.Update(entity);
-        public void Delete(T entity) => _dbSet.Remove(entity);
-        public async Task<T?> FirstOrDefaultAsync(Expression<Func<T, bool>> predicate)
+        public async Task<IReadOnlyList<T>> GetAllAsync(Expression<Func<T, bool>>? predicate = null)
         {
-            return await _dbSet.FirstOrDefaultAsync(predicate);
-        }
-        public async Task<bool> AnyAsync(Expression<Func<T, bool>> predicate)
-        {
-            return await _dbSet.AnyAsync(predicate);
-        }
+            IQueryable<T> query = _dbSet.AsNoTracking();
 
-        public async Task<List<T>> GetAllAsync(Expression<Func<T, bool>>? predicate = null)
-        {
             if (predicate != null)
-                return await _dbSet.Where(predicate).ToListAsync();
+                query = query.Where(predicate);
 
-            return await _dbSet.ToListAsync();
+            return await query.ToListAsync();
         }
 
-        public async Task AddRangeAsync(IEnumerable<T> entities)
-        {
-            await _dbSet.AddRangeAsync(entities);
-        }
+        public async Task<T?> GetByIdAsync(int id) => await _dbSet.FindAsync(id);
+
+        public async Task<T?> FirstOrDefaultAsync(Expression<Func<T, bool>> predicate)
+            => await _dbSet.AsNoTracking().FirstOrDefaultAsync(predicate);
+
+        public async Task<bool> AnyAsync(Expression<Func<T, bool>> predicate)
+            => await _dbSet.AnyAsync(predicate);
+
+        public Task AddAsync(T entity) => _dbSet.AddAsync(entity).AsTask();
+
+        public Task AddRangeAsync(IEnumerable<T> entities) => _dbSet.AddRangeAsync(entities);
+
+        public void Update(T entity) => _dbSet.Update(entity);
+
+        public void Delete(T entity) => _dbSet.Remove(entity);
+
+        public IQueryable<T> GetQueryable() => _dbSet.AsNoTracking();
     }
 }

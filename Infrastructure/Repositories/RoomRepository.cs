@@ -2,43 +2,57 @@
 {
     public class RoomRepository : Repository<Room>, IRoomRepository
     {
-        private readonly AppDbContext _context;
         public RoomRepository(AppDbContext context) : base(context)
         {
-            _context = context;
         }
-        public async Task<List<Room>> GetRoomsForCurrentUser(string? userId)
-        {
-            return await _context.Rooms.Where(r => r.Members.Any(m => m.ApplicationUserId == userId) && !r.IsDeleted)
-                                       .Include(r => r.Members)
-                                       .Include(r => r.Expenses).AsNoTracking().ToListAsync();
 
+        /// <summary>
+        /// Retrieves all non-deleted rooms for a specific user with members and expenses eagerly loaded.
+        /// </summary>
+        public async Task<IReadOnlyList<Room>> GetRoomsForCurrentUser(string? userId)
+        {
+            if (string.IsNullOrEmpty(userId)) return Array.Empty<Room>();
+
+            return await _context.Rooms
+                .AsNoTracking()
+                .Where(r => !r.IsDeleted && r.Members.Any(m => m.ApplicationUserId == userId))
+                .Include(r => r.Members)
+                .Include(r => r.Expenses)
+                .ToListAsync();
         }
+
+        /// <summary>
+        /// Gets room details including member data and related expense mappings.
+        /// </summary>
         public async Task<Room?> GetRoomDetails(int roomId, string? userId)
         {
-            return await _context.Rooms.Include(r => r.Members)
-                                       .Include(r => r.Expenses)
-                                       .ThenInclude(e => e.Member)
-                                       .FirstOrDefaultAsync(r => r.RoomId == roomId && r.Members.Any(m => m.ApplicationUserId == userId));
-        }
-        public async Task AddMembersAsync(IEnumerable<Member> members)
-        {
-            await _context.Members.AddRangeAsync(members);
-            //await SaveChangesAsync();
+            if (string.IsNullOrEmpty(userId)) return null;
+
+            return await _context.Rooms
+                .AsNoTracking()
+                .Include(r => r.Members)
+                .Include(r => r.Expenses)
+                    .ThenInclude(e => e.Member)
+                .FirstOrDefaultAsync(r => r.RoomId == roomId && r.Members.Any(m => m.ApplicationUserId == userId));
         }
 
-        public async Task<bool> MemberExistsAsync(int roomId, string userName)
+        /// <summary>
+        /// Asynchronously fetches only the room's name projection.
+        /// </summary>
+        public async Task<string?> GetRoomNameAsync(int roomId)
         {
-            return await _context.Members.AnyAsync(m => m.RoomId == roomId && m.Name == userName);
+            return await _context.Rooms
+                .Where(x => x.RoomId == roomId)
+                .Select(x => x.Name)
+                .FirstOrDefaultAsync();
         }
 
-        public  string? GetRoomName(int roomId)
-        {
-            return _context.Rooms.Where(x=>x.RoomId == roomId).Select(x=>x.Name).FirstOrDefault();
-        }
+        /// <summary>
+        /// Leverages the base repository's AnyAsync logic to validate room existence.
+        /// </summary>
         public Task<bool> IsValidRoomAsync(int roomId)
         {
-            return AnyAsync(x=>x.RoomId == roomId);
+            return AnyAsync(x => x.RoomId == roomId);
         }
     }
 }

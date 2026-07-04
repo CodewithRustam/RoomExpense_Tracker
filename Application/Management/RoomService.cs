@@ -2,143 +2,114 @@
 {
     public class RoomService : IRoomServices
     {
-        private readonly IRoomRepository roomRepository;
-        private readonly ICurrentUserService currentUser;
+        private readonly IUnitOfWork _uow;
+        private readonly IRoomRepository _roomRepository;
+        private readonly IMemberRepository _memberRepository;
+        private readonly ICurrentUserService _currentUser;
         private readonly UserManager<ApplicationUser> _userManager;
-        private readonly IMemoryCache cache;
 
-        public RoomService(IRoomRepository _roomRepository, ICurrentUserService _currentUser, UserManager<ApplicationUser> userManager, IMemoryCache _cache) 
+        private readonly IRoomMapper _mapper;
+        private readonly IRoomCacheService _cacheService;
+
+        public RoomService(
+            IUnitOfWork uow,
+            IRoomRepository roomRepository,
+            IMemberRepository memberRepository,
+            ICurrentUserService currentUser,
+            UserManager<ApplicationUser> userManager,
+            IRoomMapper mapper,
+            IRoomCacheService cacheService)
         {
-            roomRepository = _roomRepository;
-            currentUser = _currentUser;
+            _uow = uow;
+            _roomRepository = roomRepository;
+            _memberRepository = memberRepository; 
+            _currentUser = currentUser;
             _userManager = userManager;
-            cache = _cache;
+            _mapper = mapper;
+            _cacheService = cacheService;
         }
 
         public async Task<List<RoomResponse>> GetRoomsForCurrentUser()
         {
-            string? userId = currentUser.UserId;
-            string cacheKey = CacheHelper.GetRoomsUserKey(userId);
+            string? userId = _currentUser.UserId;
 
-            //if (cache.TryGetValue(cacheKey, out List<RoomResponse>? cachedRooms))
-            //{
-            //    return cachedRooms ?? new List<RoomResponse>();
-            //}
+            if (_cacheService.TryGetRooms(userId!, out var cachedRooms))
+                return cachedRooms!.ToList();
 
-            var rooms = await roomRepository.GetRoomsForCurrentUser(userId);
+            var rooms = await _roomRepository.GetRoomsForCurrentUser(userId);
 
-            var roomResponses = rooms.Select(r =>
-            {
-                if (r.Expenses == null || !r.Expenses.Any())
-                {
-                    return new RoomResponse
-                    {
-                        RoomId = r.RoomId,
-                        Name = r.Name ?? string.Empty,
-                        CreatedByUserId = r.CreatedByUserId,
-                        CreatedDate = r.CreatedDate,
-                        MemberNames = string.Join(", ", r.Members.Select(m => m.Name)),
-                        TotalAmount = 0,
-                        Type = "Private",
-                        IconName = string.Empty,
-                        Status = r.IsDeleted ? "Deleted" : "Active"
-                    };
-                }
+            var roomResponses = _mapper.MapToRoomResponses(rooms).ToList();
 
-                var lastExpenseDate = r.Expenses.Max(e => e.Date);
-                int targetMonth = lastExpenseDate.Month;
-                int targetYear = lastExpenseDate.Year;
+            _cacheService.SetRooms(userId!, roomResponses);
 
-                var totalAmount = r.Expenses
-                    .Where(e => e.Date.Month == targetMonth && e.Date.Year == targetYear && (e.IsDeleted == false || e.IsDeleted == null))
-                    .Sum(e => e.Amount);
-
-                return new RoomResponse
-                {
-                    RoomId = r.RoomId,
-                    Name = r.Name ?? string.Empty,
-                    CreatedByUserId = r.CreatedByUserId,
-                    CreatedDate = r.CreatedDate,
-                    MemberNames = string.Join(", ", r.Members.Select(m => m.Name)),
-                    TotalAmount = totalAmount,
-                    Type = "Private",
-                    IconName = string.Empty,
-                    Status = r.IsDeleted ? "Deleted" : "Active",
-                    Month = new DateTime(targetYear, targetMonth, 1).ToString("yyyy-MMM")
-                };
-            }).ToList();
-
-            //cache.Set(cacheKey, roomResponses, TimeSpan.FromDays(30));
             return roomResponses;
         }
+
         public async Task<bool> IsValidRoomAsync(int roomId)
         {
-           return await roomRepository.IsValidRoomAsync(roomId);
+            return await _roomRepository.IsValidRoomAsync(roomId);
         }
+
         public async Task<RoomDetailsViewModel?> GetRoomDetails(int roomId, string? month, bool isFromSettled)
         {
-            string? userId = currentUser.UserId;
-            var room = await roomRepository.GetRoomDetails(roomId, userId);
+            var room = await _roomRepository.GetRoomDetails(roomId, _currentUser.UserId);
 
-            if (room == null)
-                return null;
-
-            var months = room.Expenses.Select(e => e.Date.ToString("yyyy-MM")).Distinct().OrderByDescending(m => m).ToList();
-
-            return new RoomDetailsViewModel
-            {
-                Room = room,
-                AvailableMonths = months,
-                SelectedMonth = month ?? months.FirstOrDefault(),
-                IsFromSettled = isFromSettled
-            };
+            return _mapper.MapToRoomDetailsViewModel(room, month, isFromSettled);
         }
+
         public async Task<(bool success, string message)> CreateRoomAsync(RoomViewModel viewModel)
         {
-            string? userId = currentUser.UserId;
-            if (string.IsNullOrEmpty(userId)) return (false, "User not found.");
+            string? userId = _currentUser.UserId;
+            if (string.IsNullOrEmpty(userId)) return (false, RoomMessages.UserNotFound);
 
             var user = await _userManager.FindByIdAsync(userId);
-            if (user == null || string.IsNullOrEmpty(user.UserName)) return (false, "Invalid user.");
+            if (user == null || string.IsNullOrEmpty(user.UserName)) return (false, RoomMessages.InvalidUser);
 
             var room = new Room
             {
                 Name = viewModel.Name,
-                CreatedByUserId = userId
+                CreatedByUserId = userId,
+                Members = new List<Member>
+                {
+                    new Member
+                    {
+                        Name = user.UserName,
+                        ApplicationUserId = userId
+                    }
+                }
             };
 
-            await roomRepository.AddAsync(room);
+            // Process additional members
+            var requestedUsernames = viewModel.MemberUserNames
+                .Where(u => !string.IsNullOrWhiteSpace(u) && u != user.UserName)
+                .Distinct()
+                .ToList();
 
-            var members = new List<Member>
-                              {
-                                  new Member
-                                  {
-                                      Name = user.UserName,
-                                      RoomId = room.RoomId,
-                                      ApplicationUserId = userId
-                                  }
-                              };
-
-            foreach (var username in viewModel.MemberUserNames.Where(u => !string.IsNullOrWhiteSpace(u)))
+            if (requestedUsernames.Any())
             {
-                var existingUser = await _userManager.FindByNameAsync(username);
-                if (existingUser == null)
-                    return (false, $"User {username} does not exist.");
-
-                if (!await roomRepository.MemberExistsAsync(room.RoomId, username))
+                foreach (var username in requestedUsernames)
                 {
-                    members.Add(new Member
+                    var existingUser = await _userManager.FindByNameAsync(username);
+                    if (existingUser == null)
+                        return (false, RoomMessages.UserDoesNotExist(username));
+
+                    room.Members.Add(new Member
                     {
                         Name = username,
-                        RoomId = room.RoomId,
                         ApplicationUserId = existingUser.Id
                     });
                 }
             }
 
-            await roomRepository.AddMembersAsync(members);
+            await _roomRepository.AddAsync(room);
 
-            return (true, "Room created successfully.");
+            if (await _uow.SaveAsync() > 0)
+            {
+                _cacheService.ClearRoomsCache(userId);
+                return (true, RoomMessages.RoomCreated);
+            }
+
+            return (false, RoomMessages.RoomCreationFailed);
         }
     }
 }

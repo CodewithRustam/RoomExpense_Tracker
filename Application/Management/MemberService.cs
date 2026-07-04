@@ -2,18 +2,23 @@
 {
     public class MemberService : IMemberServices
     {
-        private readonly IMemberRepository memberRepository;
-        private readonly ICurrentUserService currentUser;
+        private readonly IMemberRepository _memberRepository;
+        private readonly ICurrentUserService _currentUser;
 
-        public MemberService(IMemberRepository _memberRepository, ICurrentUserService _currentUser) 
+        public MemberService(IMemberRepository memberRepository, ICurrentUserService currentUser)
         {
-            memberRepository = _memberRepository;
-            currentUser = _currentUser;
+            _memberRepository = memberRepository ?? throw new ArgumentNullException(nameof(memberRepository));
+            _currentUser = currentUser ?? throw new ArgumentNullException(nameof(currentUser));
         }
-        public async Task<int> GetMemberId(int roomId)
+
+        public async Task<int> GetMemberIdAsync(int roomId)
         {
-            string? userId = currentUser.UserId;
-            return await memberRepository.GetMemberId(userId, roomId);
+            string? userId = _currentUser.UserId;
+            if (string.IsNullOrEmpty(userId))
+            {
+                return 0;
+            }
+            return await _memberRepository.GetMemberIdAsync(userId, roomId);
         }
     }
 }

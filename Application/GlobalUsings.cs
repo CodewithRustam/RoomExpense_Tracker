@@ -21,6 +21,7 @@ global using Domain.Entities;
 global using Domain.Interfaces;
 global using Domain.Entities.Dto;
 global using Domain.Exceptions;
+global using Domain.Constants;
 
 global using Services.ViewModels.ApiViewModels;
 global using Services.ViewModels.ApiReponse;
@@ -30,5 +31,6 @@ global using Services.ViewModels;
 global using ExpenseTrakcerHepler;
 global using FirebaseAdmin.Messaging;
 
+global using Infrastructure;
 global using Infrastructure.Data;
 global using Infrastructure.Email;

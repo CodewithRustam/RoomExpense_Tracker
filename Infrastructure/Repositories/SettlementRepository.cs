@@ -2,25 +2,31 @@
 {
     public class SettlementRepository : Repository<Settlement>, ISettlementRepository
     {
-        private readonly AppDbContext _context;
-        private readonly IMemoryCache cache;
-        private readonly string _connectionString;
-        public SettlementRepository(AppDbContext context, IMemoryCache _cache, IConfiguration configuration) : base(context)
+
+        public SettlementRepository(AppDbContext context) : base(context)
         {
-            _context = context;
-            cache = _cache;
-            _connectionString = configuration.GetConnectionString("DefaultConnection") ?? string.Empty;
-        }
-        public async Task<List<Settlement>> GetMonthlySettlements(int roomId, DateTime selectedMonth)
-        {
-            int year = selectedMonth.Year;
-            int month = selectedMonth.Month;
-            return await GetAllAsync(x => x.RoomId == roomId && x.SettlementForDate.Year == year && x.SettlementForDate.Month == month);
         }
 
-        public async Task<List<MonthlySettlementDto>> GetMonthlySettlementsDetails(int roomId, DateTime? targetMonth = null)
+        /// <summary>
+        /// Retrieves settlements for a specific room and month using an index-friendly date range.
+        /// </summary>
+        public async Task<IReadOnlyList<Settlement>> GetMonthlySettlements(int roomId, DateTime selectedMonth)
         {
-            using var connection = new SqlConnection(_connectionString);
+            var startOfMonth = new DateTime(selectedMonth.Year, selectedMonth.Month, 1);
+            var endOfMonth = startOfMonth.AddMonths(1);
+
+            return await GetAllAsync(x => x.RoomId == roomId
+                                       && x.SettlementForDate >= startOfMonth
+                                       && x.SettlementForDate < endOfMonth);
+        }
+
+        /// <summary>
+        /// Executes a stored procedure using Dapper by reusing EF Core's underlying connection.
+        /// </summary>
+        public async Task<IReadOnlyList<MonthlySettlementDto>> GetMonthlySettlementsDetails(int roomId, DateTime? targetMonth = null)
+        {
+            // Reuses the database connection owned by the DbContext context instance
+            var connection = _context.Database.GetDbConnection();
 
             var parameters = new
             {
@@ -34,30 +40,34 @@
                 commandType: System.Data.CommandType.StoredProcedure
             );
 
-            return result.ToList();
+            return result as IReadOnlyList<MonthlySettlementDto> ?? result.ToList();
         }
 
-        public async Task<List<Settlement>> GetSettlementsForMembers(int roomId, int payerMemberId, int receiverMemberId, DateTime monthStart, DateTime monthEnd)
+        /// <summary>
+        /// Query structured to allow the database optimizer to use indexes on RoomId and SettlementForDate cleanly.
+        /// </summary>
+        public async Task<IReadOnlyList<Settlement>> GetSettlementsForMembers(int roomId, int payerMemberId, int receiverMemberId, DateTime monthStart, DateTime monthEnd)
         {
-            var memberIds = new[] { payerMemberId, receiverMemberId };
-
             return await _context.Settlements
+                .AsNoTracking()
                 .Where(s => s.RoomId == roomId
-                            && (memberIds.Contains(s.MemberId) || memberIds.Contains(s.PaidToMemberId))
+                            && (s.MemberId == payerMemberId || s.MemberId == receiverMemberId || s.PaidToMemberId == payerMemberId || s.PaidToMemberId == receiverMemberId)
                             && s.SettlementForDate >= monthStart
                             && s.SettlementForDate <= monthEnd)
                 .ToListAsync();
         }
+
+        /// <summary>
+        /// Optimized check to see if a month is settled without pulling back any entity data.
+        /// </summary>
         public async Task<bool> IsMonthSettledForRoomAsync(int roomId, DateTime month)
         {
             var startOfMonth = new DateTime(month.Year, month.Month, 1);
             var endOfMonth = startOfMonth.AddMonths(1);
 
-            return await _context.Settlements
-                .AsNoTracking()
-                .AnyAsync(s => s.RoomId == roomId &&
-                               s.SettlementForDate >= startOfMonth &&
-                               s.SettlementForDate < endOfMonth);
+            return await _context.Settlements.AsNoTracking().AnyAsync(s => s.RoomId == roomId 
+                                                                        && s.SettlementForDate >= startOfMonth
+                                                                        && s.SettlementForDate < endOfMonth);
         }
     }
 }
