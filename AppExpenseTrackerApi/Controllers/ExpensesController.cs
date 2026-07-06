@@ -27,7 +27,7 @@ namespace AppExpenseTracker.Controllers
             _validator = validator;
         }
 
-        [HttpGet("get-user-expense-months")]
+        [HttpGet("get-userexpesne-months")]
         public async Task<IActionResult> GetMonths()
         {
             var months = await _expenseServices.GetExpenseMonthsByUserId();

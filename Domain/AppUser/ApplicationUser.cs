@@ -1,7 +1,4 @@
-﻿using Domain.Entities;
-using Microsoft.AspNetCore.Identity;
-
-namespace Domain.AppUser
+﻿namespace Domain.AppUser
 {
     public class ApplicationUser: IdentityUser
     {

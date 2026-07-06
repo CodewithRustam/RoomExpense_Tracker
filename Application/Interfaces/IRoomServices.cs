@@ -5,6 +5,6 @@
         Task<List<RoomResponse>> GetRoomsForCurrentUser();
         Task<bool> IsValidRoomAsync(int roomId);
         Task<RoomDetailsViewModel?> GetRoomDetails(int roomId, string? month, bool isFromSettled);
-        Task<(bool success, string message)> CreateRoomAsync(RoomViewModel viewModel);
+        Task<ApiResponse<int>> CreateRoomAsync(RoomViewModel viewModel, string currentUserId);
     }
 }

@@ -10,9 +10,11 @@
 
         private readonly IRoomMapper _mapper;
         private readonly IRoomCacheService _cacheService;
+        private readonly AppDbContext _context;
 
         public RoomService(
             IUnitOfWork uow,
+            AppDbContext context,
             IRoomRepository roomRepository,
             IMemberRepository memberRepository,
             ICurrentUserService currentUser,
@@ -27,6 +29,7 @@
             _userManager = userManager;
             _mapper = mapper;
             _cacheService = cacheService;
+            _context = context;
         }
 
         public async Task<List<RoomResponse>> GetRoomsForCurrentUser()
@@ -56,60 +59,79 @@
 
             return _mapper.MapToRoomDetailsViewModel(room, month, isFromSettled);
         }
-
-        public async Task<(bool success, string message)> CreateRoomAsync(RoomViewModel viewModel)
+        public async Task<ApiResponse<int>> CreateRoomAsync(RoomViewModel viewModel, string currentUserId)
         {
-            string? userId = _currentUser.UserId;
-            if (string.IsNullOrEmpty(userId)) return (false, RoomMessages.UserNotFound);
+            using var transaction = await _context.Database.BeginTransactionAsync();
 
-            var user = await _userManager.FindByIdAsync(userId);
-            if (user == null || string.IsNullOrEmpty(user.UserName)) return (false, RoomMessages.InvalidUser);
-
-            var room = new Room
+            try
             {
-                Name = viewModel.Name,
-                CreatedByUserId = userId,
-                Members = new List<Member>
+                // 1. Create the new room
+                var room = new Room
                 {
-                    new Member
+                    Name = viewModel.Name,
+                    CreatedByUserId = currentUserId,
+                    CreatedDate = DateTime.UtcNow,
+                    IsDeleted = false
+                };
+
+                _context.Rooms.Add(room);
+                await _context.SaveChangesAsync();
+
+                var creatorUser = await _userManager.FindByIdAsync(currentUserId);
+
+                var creatorMember = new Member
+                {
+                    RoomId = room.RoomId,
+                    ApplicationUserId = currentUserId,
+                    Name = creatorUser?.UserName, 
+                    Email = creatorUser?.Email,
+                    IsPending = false
+                };
+
+                _context.Members.Add(creatorMember);
+
+                if (viewModel.Members != null && viewModel.Members.Any())
+                {
+                    foreach (var invitee in viewModel.Members)
                     {
-                        Name = user.UserName,
-                        ApplicationUserId = userId
+                        var existingUser = await _userManager.FindByEmailAsync(invitee.Email);
+
+                        if (existingUser != null)
+                        {
+                            var newMember = new Member
+                            {
+                                RoomId = room.RoomId,
+                                ApplicationUserId = existingUser.Id,
+                                Name = invitee.Name,
+                                Email = invitee.Email,
+                                IsPending = false
+                            };
+                            _context.Members.Add(newMember);
+                        }
+                        else
+                        {
+                            var pendingMember = new Member
+                            {
+                                RoomId = room.RoomId,
+                                Name = invitee.Name,
+                                Email = invitee.Email,
+                                IsPending = true
+                            };
+                            _context.Members.Add(pendingMember);
+                        }
                     }
                 }
-            };
 
-            // Process additional members
-            var requestedUsernames = viewModel.MemberUserNames
-                .Where(u => !string.IsNullOrWhiteSpace(u) && u != user.UserName)
-                .Distinct()
-                .ToList();
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
 
-            if (requestedUsernames.Any())
-            {
-                foreach (var username in requestedUsernames)
-                {
-                    var existingUser = await _userManager.FindByNameAsync(username);
-                    if (existingUser == null)
-                        return (false, RoomMessages.UserDoesNotExist(username));
-
-                    room.Members.Add(new Member
-                    {
-                        Name = username,
-                        ApplicationUserId = existingUser.Id
-                    });
-                }
+                return ApiResponse<int>.SuccessRes(room.RoomId, "Room created and invitations processed successfully.");
             }
-
-            await _roomRepository.AddAsync(room);
-
-            if (await _uow.SaveAsync() > 0)
+            catch (Exception)
             {
-                _cacheService.ClearRoomsCache(userId);
-                return (true, RoomMessages.RoomCreated);
+                await transaction.RollbackAsync();
+                return ApiResponse<int>.Fail(0, "An error occurred while creating the room and processing invitations.");
             }
-
-            return (false, RoomMessages.RoomCreationFailed);
         }
     }
 }

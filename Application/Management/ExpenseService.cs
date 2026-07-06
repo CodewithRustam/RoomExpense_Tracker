@@ -145,17 +145,10 @@
                 return ApiResponse.Fail(ExpenseMessages.InvalidMonthFormat);
             }
 
-            var expensesTask = _expenseRepo.GetMonthlyExpenses(roomId, currentExpenseMonth);
-            var settlementsTask = _settlementRepo.GetMonthlySettlements(roomId, currentExpenseMonth);
-            var membersTask = _memberRepo.GetMembersByRoomId(roomId, _currentUser.UserId);
-            var roomNameTask = _roomRepo.GetRoomNameAsync(roomId);
-            var isSettledTask = _settlementRepo.IsMonthSettledForRoomAsync(roomId, currentExpenseMonth);
-
-            await Task.WhenAll(expensesTask, settlementsTask, membersTask, roomNameTask, isSettledTask);
-
-            var expenses = await expensesTask;
-            bool isSettled = await isSettledTask;
-            var members = await membersTask;
+            var expenses = await _expenseRepo.GetMonthlyExpenses(roomId, currentExpenseMonth);
+            var settlements = await _settlementRepo.GetMonthlySettlements(roomId, currentExpenseMonth);
+            var members = await _memberRepo.GetMembersByRoomId(roomId, _currentUser.UserId);
+            var isSettled = await _settlementRepo.IsMonthSettledForRoomAsync(roomId, currentExpenseMonth);
 
             var response = new RoomExpenseResponse
             {
@@ -167,19 +160,18 @@
 
             response.MembersSummary = _calculatorService.CalculateMemberExpenseSummary(
                 expenses,
-                (await settlementsTask).ToList(),
+                settlements.ToList(),
                 members,
                 _currentUser.UserId);
 
             if (includeRoomInfo && members.Count > 0)
             {
-                response.RoomName = (await roomNameTask) ?? string.Empty;
+                response.RoomName = (await _roomRepo.GetRoomNameAsync(roomId)) ?? string.Empty;
                 response.AvailableMonths = (await _expenseRepo.GetExpenseMonths(roomId)).ToList();
             }
 
             return ApiResponse<RoomExpenseResponse>.SuccessRes(response, ExpenseMessages.SuccessFetch);
         }
-
         public async Task<ApiResponse> GetMonthlyExpensesTrend(int roomId, string month)
         {
             if (!DateTimeParser.ParseMonthYear(month, out var targetMonth))

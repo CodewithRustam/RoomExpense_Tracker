@@ -29,12 +29,17 @@
             if (!ModelState.IsValid)
                 return BadRequest(ApiResponse.Fail("Invalid room data."));
 
-            var (success, message) = await _roomServices.CreateRoomAsync(viewModel);
+            var currentUserId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
 
-            if (!success)
-                return BadRequest(ApiResponse.Fail(message));
+            if (string.IsNullOrEmpty(currentUserId))
+                return Unauthorized(ApiResponse.Fail("User is not authenticated."));
 
-            return Ok(ApiResponse.SuccessRes(message));
+            var response = await _roomServices.CreateRoomAsync(viewModel, currentUserId);
+
+            if (!response.Success)
+                return BadRequest(response);
+
+            return Ok(response);
         }
 
         [HttpGet("details/{id}")]

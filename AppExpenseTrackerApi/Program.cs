@@ -48,10 +48,10 @@ namespace AppExpenseTrackerApi
                 .WriteTo.Console()
                 .WriteTo.Logger(lc => lc
                     .Filter.ByIncludingOnly(e => e.Level == LogEventLevel.Information || e.Level == LogEventLevel.Warning)
-                    .WriteTo.MSSqlServer(connectionString, sinkOptions: new MSSqlServerSinkOptions { TableName = "RequestLogs", AutoCreateSqlTable = false }, columnOptions: requestLogColumns))
+                    .WriteTo.MSSqlServer(connectionString, sinkOptions: new MSSqlServerSinkOptions { TableName = "RequestLogs", AutoCreateSqlTable = true }, columnOptions: requestLogColumns))
                 .WriteTo.Logger(lc => lc
                     .Filter.ByIncludingOnly(e => e.Level == LogEventLevel.Error || e.Level == LogEventLevel.Fatal)
-                    .WriteTo.MSSqlServer(connectionString, sinkOptions: new MSSqlServerSinkOptions { TableName = "ErrorLog", AutoCreateSqlTable = false }, columnOptions: errorLogColumns))
+                    .WriteTo.MSSqlServer(connectionString, sinkOptions: new MSSqlServerSinkOptions { TableName = "ErrorLog", AutoCreateSqlTable = true }, columnOptions: errorLogColumns))
                 .CreateLogger();
 
             #endregion
@@ -68,7 +68,7 @@ namespace AppExpenseTrackerApi
 
                 #region Database, Caching & Identity
 
-                builder.Services.AddDbContext<AppDbContext>(options =>
+                builder.Services.AddDbContextPool<AppDbContext>(options =>
                 {
                     options.UseSqlServer(connectionString, sqlOptions =>
                     {

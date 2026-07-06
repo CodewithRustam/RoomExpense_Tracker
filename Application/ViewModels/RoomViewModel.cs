@@ -3,8 +3,16 @@
     public class RoomViewModel
     {
         [Required]
-        public string? Name { get; set; }
+        public string Name { get; set; }
 
-        public List<string> MemberUserNames { get; set; } = new(); 
+        public List<InviteMemberViewModel> Members { get; set; } = new();
+    }
+
+    public class InviteMemberViewModel
+    {
+        public string Name { get; set; }
+        [Required]
+        [EmailAddress]
+        public string Email { get; set; }
     }
 }

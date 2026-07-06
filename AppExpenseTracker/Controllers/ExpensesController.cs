@@ -35,15 +35,15 @@ namespace AppExpenseTracker.Controllers
             {
                 if (viewModel is not null)
                 {
-                    roomId = viewModel.RoomId;
-                    var memberId = await memberServices.GetMemberId(roomId);
-                    if (memberId == 0)
-                    {
-                        message = "Member not found for the current user.";
-                    }
+                    //roomId = viewModel.RoomId;
+                    //var memberId = await memberServices.GetMemberId(roomId);
+                    //if (memberId == 0)
+                    //{
+                    //    message = "Member not found for the current user.";
+                    //}
 
-                    //viewModel.Expense.MemberId = memberId;
-                    //viewModel.Expense.Date = viewModel.Expense.Date.Date;
+                    ////viewModel.Expense.MemberId = memberId;
+                    ////viewModel.Expense.Date = viewModel.Expense.Date.Date;
 
                     message = string.Empty;//await expenseServices.AddExpenses(viewModel);
                 }
