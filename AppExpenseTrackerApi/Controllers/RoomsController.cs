@@ -29,12 +29,7 @@
             if (!ModelState.IsValid)
                 return BadRequest(ApiResponse.Fail("Invalid room data."));
 
-            var currentUserId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-
-            if (string.IsNullOrEmpty(currentUserId))
-                return Unauthorized(ApiResponse.Fail("User is not authenticated."));
-
-            var response = await _roomServices.CreateRoomAsync(viewModel, currentUserId);
+            var response = await _roomServices.CreateRoomAsync(viewModel);
 
             if (!response.Success)
                 return BadRequest(response);
@@ -51,6 +46,38 @@
                 return NotFound(ApiResponse.Fail("Room not found."));
 
             return Ok(ApiResponse<RoomDetailsViewModel>.SuccessRes(roomDetails, "Room details retrieved successfully."));
+        }
+        [HttpPost("add-member")]
+        public async Task<IActionResult> AddMember([FromBody] AddMemberViewModel viewModel)
+        {
+            if (!ModelState.IsValid)
+                return BadRequest(ApiResponse.Fail("Invalid member data."));
+
+            var response = await _roomServices.AddMemberAsync(viewModel);
+
+            if (!response.Success)
+                return BadRequest(response);
+
+            return Ok(response);
+        }
+        [HttpDelete("remove-member/{roomId}/{memberId}")]
+        public async Task<IActionResult> RemoveMember(int roomId, int memberId)
+        {
+            var response = await _roomServices.RemoveMemberAsync(roomId, memberId);
+            if (!response.Success)
+                return BadRequest(response);
+
+            return Ok(response);
+        }
+
+        [HttpDelete("delete/{roomId}")]
+        public async Task<IActionResult> DeleteGroup(int roomId)
+        {
+            var response = await _roomServices.DeleteRoomAsync(roomId);
+            if (!response.Success)
+                return BadRequest(response);
+
+            return Ok(response);
         }
     }
 }
