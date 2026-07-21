@@ -15,7 +15,7 @@
 
             return await _context.Rooms
                 .AsNoTracking()
-                .Where(r => !r.IsDeleted && r.Members.Any(m => m.ApplicationUserId == userId))
+                .Where(r => !r.IsDeleted && r.Members.Any(m => m.ApplicationUserId == userId && !m.IsDeleted))
                 .Include(r => r.Members)
                 .Include(r => r.Expenses)
                 .ToListAsync();

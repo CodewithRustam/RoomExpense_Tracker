@@ -166,6 +166,7 @@
 
             if (includeRoomInfo && members.Count > 0)
             {
+                response.CreatedByUserId = _roomRepo.GetQueryable().Where(r => r.RoomId == roomId && !r.IsDeleted).Select(r => r.CreatedByUserId).FirstOrDefault();
                 response.RoomName = (await _roomRepo.GetRoomNameAsync(roomId)) ?? string.Empty;
                 response.AvailableMonths = (await _expenseRepo.GetExpenseMonths(roomId)).ToList();
             }

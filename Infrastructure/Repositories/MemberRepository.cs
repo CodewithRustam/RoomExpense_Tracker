@@ -12,7 +12,7 @@
         /// </summary>
         public async Task<int> GetMemberCountAsync(int roomId)
         {
-            return await _context.Members.CountAsync(m => m.RoomId == roomId);
+            return await _context.Members.CountAsync(m => m.RoomId == roomId && !m.IsDeleted);
         }
 
         /// <summary>
@@ -25,7 +25,7 @@
 
             return await _context.Members
                 .AsNoTracking()
-                .Where(m => m.ApplicationUserId == userId && m.RoomId == roomId)
+                .Where(m => m.ApplicationUserId == userId && m.RoomId == roomId && !m.IsDeleted)
                 .Select(m => m.MemberId)
                 .FirstOrDefaultAsync();
         }
@@ -37,7 +37,7 @@
         {
             return await _context.Members
                 .AsNoTracking()
-                .Where(m => m.RoomId == roomId)
+                .Where(m => m.RoomId == roomId && !m.IsDeleted)
                 .OrderByDescending(m => m.ApplicationUserId == userId)
                 .ThenBy(m => m.Name)
                 .ToListAsync();
@@ -45,14 +45,14 @@
 
         public async Task<Member?> GetRecipientMemberDetails(int roomId, string paidToMemberName)
         {
-            return await FirstOrDefaultAsync(m => m.Name == paidToMemberName && m.RoomId == roomId);
+            return await FirstOrDefaultAsync(m => m.Name == paidToMemberName && m.RoomId == roomId && !m.IsDeleted);
         }
 
         public async Task<Member?> GetLoggedInMemberDetails(int roomId, string memberName, string? userId)
         {
             if (string.IsNullOrEmpty(userId)) return null;
 
-            return await FirstOrDefaultAsync(m => m.Name == memberName && m.RoomId == roomId && m.ApplicationUserId == userId);
+            return await FirstOrDefaultAsync(m => m.Name == memberName && m.RoomId == roomId && m.ApplicationUserId == userId && !m.IsDeleted);
         }
 
         /// <summary>
@@ -69,14 +69,14 @@
         public async Task<bool> MemberExistsAsync(int roomId, string username)
         {
             return await _context.Members
-                .AnyAsync(m => m.RoomId == roomId && m.Name == username);
+                .AnyAsync(m => m.RoomId == roomId && m.Name == username && !m.IsDeleted);
         }
 
         public async Task<IReadOnlyList<string?>> GetDeviceTokensAsync(int roomId, string? userId)
         {
             return await _context.Members
                    .AsNoTracking()
-                   .Where(m => m.RoomId == roomId && m.ApplicationUserId != userId && m.ApplicationUser!.DeviceToken != null)
+                   .Where(m => m.RoomId == roomId && m.ApplicationUserId != userId && m.ApplicationUser!.DeviceToken != null && !m.IsDeleted)
                    .Select(m => m.ApplicationUser!.DeviceToken)
                    .ToListAsync();
         }

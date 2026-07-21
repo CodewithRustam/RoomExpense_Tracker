@@ -7,6 +7,7 @@
         public List<string> AvailableMonths { get; set; } = new();
         public string SelectedMonth { get; set; } = null!;
         public decimal TotalMontlyExpense { get; set; }
+        public string? CreatedByUserId { get; set; }
         public List<MemberExpenseSummary> MembersSummary { get; set; } = new();
         public List<ExpenseDetailResponse> Expenses { get; set; } = new();
     }

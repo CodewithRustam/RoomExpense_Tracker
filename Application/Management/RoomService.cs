@@ -228,13 +228,12 @@ namespace Services.Management
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
-                var membership = await _context.Members
-                    .FirstOrDefaultAsync(rm => rm.RoomId == roomId && rm.MemberId == memberId);
+                var membership = await _context.Members.FirstOrDefaultAsync(rm => rm.RoomId == roomId && rm.MemberId == memberId && !rm.IsDeleted);
 
                 if (membership == null)
                     return ApiResponse.Fail("Member not found in this room.");
 
-                _context.Members.Remove(membership);
+                membership.IsDeleted = true;
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
 
@@ -244,8 +243,10 @@ namespace Services.Management
                     _cacheService.ClearRoomsCache(member.ApplicationUserId);
                 }
 
-                _cacheService.ClearRoomsCache(_currentUser.UserId!);
-
+                foreach (var memberData in _context.Members.Where(m => m.RoomId == roomId && !string.IsNullOrEmpty(m.ApplicationUserId)))
+                {
+                    _cacheService.ClearRoomsCache(memberData.ApplicationUserId!);
+                }
                 return ApiResponse.SuccessRes("Member removed successfully.");
             }
             catch (Exception)
@@ -273,8 +274,11 @@ namespace Services.Management
                     .Select(m => m.ApplicationUserId)
                     .ToListAsync();
 
-                _context.Members.RemoveRange(room.Members);
-                _context.Rooms.Remove(room);
+                foreach (var member in room.Members)
+                {
+                    member.IsDeleted = true;
+                }
+                room.IsDeleted = true;
 
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();

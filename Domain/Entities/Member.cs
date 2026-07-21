@@ -9,6 +9,7 @@ namespace Domain.Entities
         public int RoomId { get; set; }
         public Room Room { get; set; }
         public string? ApplicationUserId { get; set; }
+        public bool IsDeleted { get; set; }
         public ApplicationUser? ApplicationUser { get; set; }
         public ICollection<Settlement>? Settlements { get; set; }
     }

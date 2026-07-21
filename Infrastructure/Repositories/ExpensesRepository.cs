@@ -22,11 +22,12 @@
                           where exp.RoomId == roomId
                                 && (exp.IsDeleted == false || exp.IsDeleted == null)
                                 && exp.Date >= startOfMonth && exp.Date < endOfMonth
+                                && !mem.IsDeleted
                           orderby exp.ExpenseId descending
                           select new ExpenseRecordDto
                           {
                               ApplicationUserId = mem.ApplicationUserId ?? string.Empty,
-                              PayerName = mem.Name,
+                              PayerName = mem.Name!,
                               PayerId = mem.MemberId,
                               ExpenseId = exp.ExpenseId,
                               RoomId = exp.RoomId,
@@ -48,14 +49,16 @@
                           where m.ApplicationUserId == userId
                                 && e.Date >= startOfMonth && e.Date < endOfMonth
                                 && (e.IsDeleted == false || e.IsDeleted == null)
+                                && !m.IsDeleted
+                                && !r.IsDeleted
                           orderby e.Date descending
                           select new UserExpenseDto
                           {
                               Item = e.Item ?? string.Empty,
                               Amount = e.Amount,
                               ExpenseDate = e.Date,
-                              MemberName = m.Name,
-                              RoomName = r.Name,
+                              MemberName = m.Name!,
+                              RoomName = r.Name!,
                               Category = e.Category
                           }).ToListAsync();
         }
@@ -99,7 +102,7 @@
         {
             var memberIds = await _context.Members
                 .AsNoTracking()
-                .Where(m => m.ApplicationUserId == userId)
+                .Where(m => m.ApplicationUserId == userId && !m.IsDeleted)
                 .Select(m => m.MemberId)
                 .ToListAsync();
 
