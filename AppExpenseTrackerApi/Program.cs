@@ -200,9 +200,11 @@ namespace AppExpenseTrackerApi
 
                 #region External Services (Firebase & Hangfire)
 
+                var firebaseJson = builder.Configuration["Firebase__ServiceAccountJson"];
+
                 FirebaseApp.Create(new AppOptions
                 {
-                    Credential = GoogleCredential.FromFile("serviceAccountKey.json"),
+                    Credential = GoogleCredential.FromJson(firebaseJson),
                     ProjectId = "splitx-c010d"
                 });
 
