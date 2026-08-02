@@ -9,7 +9,7 @@ namespace AppExpenseTrackerApi
             Serilog.Debugging.SelfLog.Enable(msg => Console.WriteLine(msg));
             var configuration = new ConfigurationBuilder()
                                    .SetBasePath(AppContext.BaseDirectory)
-                                   .AddJsonFile("appsettings.json", optional: true)
+                                   .AddJsonFile("appsettings.json", optional: true, reloadOnChange: false)
                                    .AddEnvironmentVariables()
                                    .Build();
             var connectionString = configuration.GetConnectionString("DefaultConnection");
