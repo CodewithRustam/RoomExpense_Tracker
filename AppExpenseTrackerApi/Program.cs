@@ -200,15 +200,7 @@ namespace AppExpenseTrackerApi
 
                 #region External Services (Firebase & Hangfire)
 
-                var firebaseJson = builder.Configuration["Firebase__ServiceAccountJson"];
-
-                Console.WriteLine($"Firebase JSON exists: {!string.IsNullOrWhiteSpace(builder.Configuration["Firebase__ServiceAccountJson"])}");
-                Console.WriteLine($"Env exists: {!string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("Firebase__ServiceAccountJson"))}");
-
-                if (string.IsNullOrWhiteSpace(firebaseJson))
-                {
-                    throw new Exception("Firebase__ServiceAccountJson environment variable is missing.");
-                }
+                var firebaseJson = Environment.GetEnvironmentVariable("Firebase__ServiceAccountJson");
 
                 FirebaseApp.Create(new AppOptions
                 {
