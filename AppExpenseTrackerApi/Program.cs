@@ -153,7 +153,7 @@ namespace AppExpenseTrackerApi
                 {
                     options.AddPolicy("AllowIonic", policy =>
                     {
-                        policy.WithOrigins("https://localhost", "http://localhost:8100", "https://splitx-exp.netlify.app")
+                        policy.WithOrigins("https://localhost", "http://localhost:8100", "https://splitx-exp.netlify.app", "https://expense-tracker-extu.onrender.com")
                               .AllowAnyHeader()
                               .AllowAnyMethod()
                               .AllowCredentials();
