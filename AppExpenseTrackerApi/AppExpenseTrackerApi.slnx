@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="../Application/Services.csproj" />
+  <Project Path="../Domain/Domain.csproj" />
+  <Project Path="../ExpenseTrakcerHepler/ExpenseTrakcerHepler.csproj" />
+  <Project Path="../Infrastructure/Infrastructure.csproj" />
+  <Project Path="AppExpenseTrackerApi.csproj" />
+</Solution>
