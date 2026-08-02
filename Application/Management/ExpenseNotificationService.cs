@@ -22,7 +22,7 @@ namespace Services.Management
                     using var scope = _scopeFactory.CreateScope();
                     var config = scope.ServiceProvider.GetRequiredService<IConfiguration>();
 
-                    if (!Convert.ToBoolean(config["EnableNotifications"])) return;
+                    if (!Convert.ToBoolean(Environment.GetEnvironmentVariable("EnableNotifications") ?? "false")) return;
 
                     var notifService = scope.ServiceProvider.GetRequiredService<NotificationService>();
                     var memberRepo = scope.ServiceProvider.GetRequiredService<IMemberRepository>();

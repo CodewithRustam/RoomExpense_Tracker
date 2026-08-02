@@ -173,9 +173,9 @@ namespace AppExpenseTrackerApi
                         ValidateAudience = true,
                         ValidateLifetime = true,
                         ValidateIssuerSigningKey = true,
-                        ValidIssuer = builder.Configuration["Jwt:Issuer"],
-                        ValidAudience = builder.Configuration["Jwt:Audience"],
-                        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"] ?? string.Empty))
+                        ValidIssuer = Environment.GetEnvironmentVariable("Jwt__Issuer"),
+                        ValidAudience = Environment.GetEnvironmentVariable("Jwt__Audience"),
+                        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(Environment.GetEnvironmentVariable("Jwt__Key")!))
                     };
                 });
 
@@ -254,9 +254,8 @@ namespace AppExpenseTrackerApi
                     c.RoutePrefix = "swagger";
                 });
 
-                // Security Fix: Hangfire credentials pulled from appsettings.json
-                var hangfireUser = builder.Configuration["HangfireSettings:User"] ?? "admin";
-                var hangfirePass = builder.Configuration["HangfireSettings:Password"] ?? "admin";
+                var hangfireUser = Environment.GetEnvironmentVariable("HangfireSettings__User") ?? "admin";
+                var hangfirePass = Environment.GetEnvironmentVariable("HangfireSettings__Password")   ?? "admin";
 
                 app.UseHangfireDashboard("/hangfire", new DashboardOptions
                 {
