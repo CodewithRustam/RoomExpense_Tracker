@@ -282,6 +282,7 @@ namespace AppExpenseTrackerApi
                 app.UseHttpsRedirection();
                 app.UseDefaultFiles();
                 app.UseStaticFiles();
+                app.UseRouting();
                 app.UseCors("AllowIonic");
 
                 app.UseAuthentication();
