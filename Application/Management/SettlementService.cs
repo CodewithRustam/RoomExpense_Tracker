@@ -49,14 +49,9 @@
                 var roomId = request.RoomId;
                 var settlementMonth = request.SettlementMonth ?? DateTime.UtcNow;
 
-                // 2. Fetch payer and receiver CONCURRENTLY (Saves DB time)
-                var payerTask = _memberRepo.GetLoggedInMemberDetails(roomId, request.PayerName, userId);
-                var receiverTask = _memberRepo.GetRecipientMemberDetails(roomId, request.ReceiverName);
-
-                await Task.WhenAll(payerTask, receiverTask);
-
-                var payer = await payerTask;
-                var receiver = await receiverTask;
+                // 2. Fetch payer and receiver SEQUENTIALLY to prevent DbContext threading crashes
+                var payer = await _memberRepo.GetLoggedInMemberDetails(roomId, request.PayerName, userId);
+                var receiver = await _memberRepo.GetRecipientMemberDetails(roomId, request.ReceiverName);
 
                 // Note: We removed the Room Exists check because if members exist, the room exists.
                 if (payer == null) return (false, SettlementMessages.PayerNotFound);
@@ -67,18 +62,11 @@
                 var monthStart = new DateTime(settlementMonth.Year, settlementMonth.Month, 1);
                 var monthEnd = monthStart.AddMonths(1).AddTicks(-1); // Keep if repo strictly relies on <=
 
-                // 3. Fetch all required math data CONCURRENTLY (Massive performance boost)
-                var memberExpensesTask = _expenseRepo.GetExpensesForMembers(roomId, payer.MemberId, receiver.MemberId, monthStart, monthEnd);
-                var memberSettlementsTask = _settlementRepo.GetSettlementsForMembers(roomId, payer.MemberId, receiver.MemberId, monthStart, monthEnd);
-                var totalRoomExpensesTask = _expenseRepo.GetTotalRoomExpenses(roomId, monthStart, monthEnd);
-                var totalMembersTask = _memberRepo.GetMemberCountAsync(roomId);
-
-                await Task.WhenAll(memberExpensesTask, memberSettlementsTask, totalRoomExpensesTask, totalMembersTask);
-
-                var memberExpenses = await memberExpensesTask;
-                var memberSettlements = await memberSettlementsTask;
-                decimal totalRoomExpenses = await totalRoomExpensesTask;
-                int totalMembers = await totalMembersTask;
+                // 3. Fetch all required math data SEQUENTIALLY to prevent DbContext threading crashes
+                var memberExpenses = await _expenseRepo.GetExpensesForMembers(roomId, payer.MemberId, receiver.MemberId, monthStart, monthEnd);
+                var memberSettlements = await _settlementRepo.GetSettlementsForMembers(roomId, payer.MemberId, receiver.MemberId, monthStart, monthEnd);
+                decimal totalRoomExpenses = await _expenseRepo.GetTotalRoomExpenses(roomId, monthStart, monthEnd);
+                int totalMembers = await _memberRepo.GetMemberCountAsync(roomId);
 
                 if (totalMembers <= 0) return (false, SettlementMessages.NoMembers);
 
