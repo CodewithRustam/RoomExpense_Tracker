@@ -91,18 +91,29 @@ namespace AppExpenseTracker.Controllers
 
             try
             {
-                var emailNormalized = model.Email!.Trim().ToLowerInvariant();
-                string rateLimitKey = $"RateLimit_ForgotPassword_{emailNormalized}";
+                // 1. IP-based Rate Limit: Protect server & database against spam/DDoS from fake emails
+                string clientIp = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown_ip";
+                string ipRateLimitKey = $"RateLimit_ForgotPassword_IP_{clientIp}";
 
-                if (_rateLimitService.IsRateLimited(rateLimitKey, 1, TimeSpan.FromMinutes(1)))
+                if (_rateLimitService.IsRateLimited(ipRateLimitKey, 5, TimeSpan.FromMinutes(1)))
                 {
-                    return BadRequest(ApiResponse.Fail("Please wait 1 minute before requesting another password reset email."));
+                    return BadRequest(ApiResponse.Fail("Too many requests from your connection. Please wait 1 minute."));
                 }
 
+                // 2. Database User Lookup: Verify email existence
+                var emailNormalized = model.Email!.Trim().ToLowerInvariant();
                 var user = await _userManager.FindByEmailAsync(emailNormalized);
 
                 if (user == null || string.IsNullOrEmpty(user.Email))
-                    return Ok(ApiResponse.SuccessRes("If the email exists, a password reset link has been sent."));
+                    return BadRequest(ApiResponse.Fail("User with this email address does not exist."));
+
+                // 3. Per-Email Rate Limit: Protect user's inbox from multiple emails
+                string emailRateLimitKey = $"RateLimit_ForgotPassword_Email_{emailNormalized}";
+
+                if (_rateLimitService.IsRateLimited(emailRateLimitKey, 1, TimeSpan.FromMinutes(1)))
+                {
+                    return BadRequest(ApiResponse.Fail("Please wait 1 minute before requesting another password reset email."));
+                }
 
                 string shortCode = await _passwordResetLinkService.AddPasswordResetLink(user.Email);
 
