@@ -1,4 +1,4 @@
-﻿using Serilog;
+using Serilog;
 
 namespace AppExpenseTrackerApi
 {
@@ -68,6 +68,7 @@ namespace AppExpenseTrackerApi
                 builder.Host.UseSerilog();
 
                 builder.Services.AddControllers();
+                builder.Services.AddHttpContextAccessor();
                 builder.Services.AddEndpointsApiExplorer();
 
                 #region Database, Caching & Identity
@@ -167,15 +168,25 @@ namespace AppExpenseTrackerApi
                 })
                 .AddJwtBearer(options =>
                 {
+                    var jwtKey = builder.Configuration["Jwt:Key"] 
+                        ?? Environment.GetEnvironmentVariable("Jwt__Key") 
+                        ?? "841720121eb4d009fd55e9bde86c27b3";
+                    var jwtIssuer = builder.Configuration["Jwt:Issuer"] 
+                        ?? Environment.GetEnvironmentVariable("Jwt__Issuer") 
+                        ?? "AppExpenseTrackerApi";
+                    var jwtAudience = builder.Configuration["Jwt:Audience"] 
+                        ?? Environment.GetEnvironmentVariable("Jwt__Audience") 
+                        ?? "AppExpenseTrackerUsers";
+
                     options.TokenValidationParameters = new TokenValidationParameters
                     {
                         ValidateIssuer = true,
                         ValidateAudience = true,
                         ValidateLifetime = true,
                         ValidateIssuerSigningKey = true,
-                        ValidIssuer = Environment.GetEnvironmentVariable("Jwt__Issuer"),
-                        ValidAudience = Environment.GetEnvironmentVariable("Jwt__Audience"),
-                        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(Environment.GetEnvironmentVariable("Jwt__Key")!))
+                        ValidIssuer = jwtIssuer,
+                        ValidAudience = jwtAudience,
+                        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
                     };
                 });
 
@@ -200,13 +211,40 @@ namespace AppExpenseTrackerApi
 
                 #region External Services (Firebase & Hangfire)
 
-                var firebaseJson = Environment.GetEnvironmentVariable("Firebase__ServiceAccountJson");
+                string? firebaseJson = Environment.GetEnvironmentVariable("Firebase__ServiceAccountJson");
 
-                FirebaseApp.Create(new AppOptions
+                if (string.IsNullOrWhiteSpace(firebaseJson))
                 {
-                    Credential = GoogleCredential.FromJson(firebaseJson),
-                    ProjectId = "splitx-c010d"
-                });
+                    var localKeyPath = Path.Combine(AppContext.BaseDirectory, "serviceAccountKey.json");
+                    if (!File.Exists(localKeyPath))
+                    {
+                        localKeyPath = Path.Combine(Directory.GetCurrentDirectory(), "serviceAccountKey.json");
+                    }
+                    if (File.Exists(localKeyPath))
+                    {
+                        firebaseJson = File.ReadAllText(localKeyPath);
+                    }
+                }
+
+                if (!string.IsNullOrWhiteSpace(firebaseJson))
+                {
+                    try
+                    {
+                        FirebaseApp.Create(new AppOptions
+                        {
+                            Credential = GoogleCredential.FromJson(firebaseJson),
+                            ProjectId = "splitx-c010d"
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Warning(ex, "Failed to initialize Firebase App.");
+                    }
+                }
+                else
+                {
+                    Log.Warning("Firebase credentials not found in environment or local serviceAccountKey.json.");
+                }
 
                 builder.Services.AddHangfire(configuration => configuration
                     .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)

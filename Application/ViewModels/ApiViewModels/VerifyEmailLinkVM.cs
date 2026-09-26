@@ -1,7 +1,8 @@
-﻿namespace Services.ViewModels.ApiViewModels
+namespace Services.ViewModels.ApiViewModels
 {
     public class VerifyEmailLinkVM
     {
-        public string ShortCode { get; set; }
+        [Required(ErrorMessage = "Reset code is required.")]
+        public string? Code { get; set; }
     }
 }

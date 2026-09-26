@@ -1,4 +1,4 @@
-﻿namespace Services.Management
+namespace Services.Management
 {
     public class PasswordResetLinkService : IPasswordResetLinkService
     {
@@ -13,7 +13,9 @@
         public async Task<string> AddPasswordResetLink(string Email)
         {
             var user = await _userManager.FindByEmailAsync(Email);
-            var token = await _userManager.GeneratePasswordResetTokenAsync(user!);
+            if (user == null) return string.Empty;
+
+            var token = await _userManager.GeneratePasswordResetTokenAsync(user);
 
             var shortCode = Guid.NewGuid().ToString("N").Substring(0, 8);
 
@@ -32,6 +34,11 @@
         public async Task<PasswordResetLink?> GetPasswordResetDetailsByShortCode(string code)
         {
             return await passwordResetLinkRepository.GetPasswordResetDetailsByShortCode(code);
+        }
+
+        public async Task DeletePasswordResetLink(PasswordResetLink passwordResetLink)
+        {
+            await passwordResetLinkRepository.DeletePasswordResetLink(passwordResetLink);
         }
     }
 }

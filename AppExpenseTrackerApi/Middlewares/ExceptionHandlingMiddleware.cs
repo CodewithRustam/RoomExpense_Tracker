@@ -1,4 +1,4 @@
-﻿using Domain.Exceptions;
+using Domain.Exceptions;
 using System.Text.Json;
 
 namespace AppExpenseTrackerApi.Middlewares
@@ -83,7 +83,7 @@ namespace AppExpenseTrackerApi.Middlewares
 
                 default:
                     statusCode = StatusCodes.Status500InternalServerError;
-                    response = ApiResponse.Fail("An unexpected error occurred.");
+                    response = ApiResponse.Fail($"An unexpected error occurred: {ex.Message}");
                     logger.LogError(ex, "Unhandled exception");
                     break;
             }

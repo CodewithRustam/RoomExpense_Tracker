@@ -1,4 +1,4 @@
-﻿namespace AppExpenseTracker.Controllers
+namespace AppExpenseTracker.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
@@ -10,6 +10,7 @@
         private readonly IPasswordResetLinkService _passwordResetLinkService;
         private readonly IConfiguration _configuration;
         private readonly ITokenService _tokenService;
+        private readonly IRateLimitService _rateLimitService;
 
         public AccountController(
             SignInManager<ApplicationUser> signInManager,
@@ -17,7 +18,8 @@
             IEmailSender emailSender,
             IPasswordResetLinkService passwordResetLinkService,
             IConfiguration configuration,
-            ITokenService tokenService)
+            ITokenService tokenService,
+            IRateLimitService rateLimitService)
         {
             _signInManager = signInManager;
             _userManager = userManager;
@@ -25,6 +27,7 @@
             _passwordResetLinkService = passwordResetLinkService;
             _configuration = configuration;
             _tokenService = tokenService;
+            _rateLimitService = rateLimitService;
         }
 
         [HttpPost("login")]
@@ -86,31 +89,53 @@
             if (!ModelState.IsValid)
                 return BadRequest(ApiResponse<List<string>>.Fail(GetModelStateErrors(), "Validation failed."));
 
-            var user = await _userManager.FindByEmailAsync(model.Email!);
+            try
+            {
+                var emailNormalized = model.Email!.Trim().ToLowerInvariant();
+                string rateLimitKey = $"RateLimit_ForgotPassword_{emailNormalized}";
 
-            if (user == null || string.IsNullOrEmpty(user.Email))
-                return Ok(ApiResponse.SuccessRes("If the email exists, a password reset link has been sent."));
+                if (_rateLimitService.IsRateLimited(rateLimitKey, 1, TimeSpan.FromMinutes(1)))
+                {
+                    return BadRequest(ApiResponse.Fail("Please wait 1 minute before requesting another password reset email."));
+                }
 
-            string shortCode = await _passwordResetLinkService.AddPasswordResetLink(model.Email!);
+                var user = await _userManager.FindByEmailAsync(emailNormalized);
 
-            var baseUrl = _configuration["FrontendSettings:BaseUrl"] ?? "https://splitx-exp.netlify.app";
-            string resetUrl = $"{baseUrl}/reset/reset-password?code={shortCode}";
+                if (user == null || string.IsNullOrEmpty(user.Email))
+                    return Ok(ApiResponse.SuccessRes("If the email exists, a password reset link has been sent."));
 
-            string memberName = string.IsNullOrEmpty(user.UserName) ? "User" : user.UserName;
-            string body = EmailTemplates.GetPasswordResetEmail(resetUrl, memberName);
+                string shortCode = await _passwordResetLinkService.AddPasswordResetLink(user.Email);
 
-            await _emailSender.SendEmailAsync(model.Email!, "Reset Your Password", body);
+                if (string.IsNullOrEmpty(shortCode))
+                    return BadRequest(ApiResponse.Fail("Could not generate password reset link."));
 
-            return Ok(ApiResponse.SuccessRes("Password reset link sent successfully."));
+                var baseUrl = _configuration["FrontendSettings:BaseUrl"] ?? "https://splitx-exp.netlify.app";
+                string resetUrl = $"{baseUrl}/reset/reset-password?code={shortCode}";
+
+                string memberName = string.IsNullOrEmpty(user.UserName) ? "User" : user.UserName;
+                string body = EmailTemplates.GetPasswordResetEmail(resetUrl, memberName);
+
+                await _emailSender.SendEmailAsync(user.Email, "Reset Your Password", body);
+
+                return Ok(ApiResponse.SuccessRes("Password reset link sent successfully."));
+            }
+            catch (Exception ex)
+            {
+                Serilog.Log.Error(ex, "Error in ForgotPassword for email {Email}", model?.Email);
+                return BadRequest(ApiResponse.Fail("Failed to process password reset request. Please try again later."));
+            }
         }
 
         [HttpPost("reset-password")]
         public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordVM model)
         {
             if (!ModelState.IsValid)
-                return BadRequest(ApiResponse.Fail("Invalid request data."));
+            {
+                var validationErrors = GetModelStateErrors();
+                return BadRequest(ApiResponse<List<string>>.Fail(validationErrors, string.Join(", ", validationErrors)));
+            }
 
-            var resetLink = await _passwordResetLinkService.GetPasswordResetDetailsByShortCode(model.Token!);
+            var resetLink = await _passwordResetLinkService.GetPasswordResetDetailsByShortCode(model.Code!);
 
             if (resetLink == null)
                 return BadRequest(ApiResponse.Fail("Invalid password reset link."));
@@ -125,10 +150,13 @@
             var result = await _userManager.ResetPasswordAsync(user, resetLink.Token!, model.Password!);
 
             if (result.Succeeded)
+            {
+                await _passwordResetLinkService.DeletePasswordResetLink(resetLink);
                 return Ok(ApiResponse.SuccessRes("Password reset successful"));
+            }
 
             var errors = result.Errors.Select(e => e.Description).ToList();
-            return BadRequest(ApiResponse<object>.Fail(null, string.Join(", ", errors)));
+            return BadRequest(ApiResponse<List<string>>.Fail(errors, string.Join(", ", errors)));
         }
 
         [HttpPost("verify-resetpassword-link")]
@@ -137,7 +165,7 @@
             if (!ModelState.IsValid)
                 return BadRequest(ApiResponse.Fail("Invalid request data."));
 
-            var resetLink = await _passwordResetLinkService.GetPasswordResetDetailsByShortCode(verifyEmailLink.ShortCode!);
+            var resetLink = await _passwordResetLinkService.GetPasswordResetDetailsByShortCode(verifyEmailLink.Code!);
 
             if (resetLink == null)
                 return BadRequest(ApiResponse.Fail("Invalid password reset link."));
