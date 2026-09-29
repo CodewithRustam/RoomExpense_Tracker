@@ -1,4 +1,4 @@
-﻿using Services.Management.AuthService;
+using Services.Management.AuthService;
 
 namespace Services.Management
 {
@@ -233,7 +233,21 @@ namespace Services.Management
                 if (membership == null)
                     return ApiResponse.Fail("Member not found in this room.");
 
-                membership.IsDeleted = true;
+                var hasFinancialRecords = await _context.Expenses.AnyAsync(e => (e.MemberId == memberId || e.ExpenseSplits.Any(s => s.MemberId == memberId)) && e.RoomId == roomId)
+                    || await _context.Settlements.AnyAsync(s => (s.MemberId == memberId || s.PaidToMemberId == memberId) && s.RoomId == roomId);
+
+                if (hasFinancialRecords)
+                {
+                    // Soft offboard: preserve full historical audit but mark as departed so they are excluded from future expenses
+                    membership.LeftDate = DateTime.UtcNow;
+                }
+                else
+                {
+                    // Member was added accidentally and has zero financial transactions
+                    membership.IsDeleted = true;
+                    membership.LeftDate = DateTime.UtcNow;
+                }
+
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
 

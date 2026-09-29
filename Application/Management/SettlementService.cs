@@ -1,4 +1,4 @@
-﻿namespace Services.Management
+namespace Services.Management
 {
     public class SettlementService : ISettlementServices
     {
@@ -12,6 +12,7 @@
         private readonly ILogger<SettlementService> _logger;
         private readonly ISettlementCacheService _cacheService;
         private readonly ISettlementNotificationService _notificationService;
+        private readonly ISettlementCalculatorService _calculatorService;
 
         public SettlementService(
             IMemberRepository memberRepo,
@@ -22,6 +23,7 @@
             ILogger<SettlementService> logger,
             ISettlementCacheService cacheService,
             ISettlementNotificationService notificationService,
+            ISettlementCalculatorService calculatorService,
             IUnitOfWork uow)
         {
             _memberRepo = memberRepo;
@@ -32,6 +34,7 @@
             _logger = logger;
             _cacheService = cacheService;
             _notificationService = notificationService;
+            _calculatorService = calculatorService;
             _uow = uow;
         }
 
@@ -58,39 +61,42 @@
                 if (receiver == null) return (false, SettlementMessages.ReceiverNotFound);
                 if (payer.MemberId == receiver.MemberId) return (false, SettlementMessages.SelfSettlement);
 
-                // Date calculations
-                var monthStart = new DateTime(settlementMonth.Year, settlementMonth.Month, 1);
-                var monthEnd = monthStart.AddMonths(1).AddTicks(-1); // Keep if repo strictly relies on <=
+                // 3. Fetch monthly expenses, settlements, and room members
+                var expenses = await _expenseRepo.GetMonthlyExpenses(roomId, settlementMonth);
+                var settlements = await _settlementRepo.GetMonthlySettlements(roomId, settlementMonth);
+                var allMembers = await _memberRepo.GetMembersByRoomId(roomId, userId);
 
-                // 3. Fetch all required math data SEQUENTIALLY to prevent DbContext threading crashes
-                var memberExpenses = await _expenseRepo.GetExpensesForMembers(roomId, payer.MemberId, receiver.MemberId, monthStart, monthEnd);
-                var memberSettlements = await _settlementRepo.GetSettlementsForMembers(roomId, payer.MemberId, receiver.MemberId, monthStart, monthEnd);
-                decimal totalRoomExpenses = await _expenseRepo.GetTotalRoomExpenses(roomId, monthStart, monthEnd);
-                int totalMembers = await _memberRepo.GetMemberCountAsync(roomId);
+                if (allMembers.Count <= 0) return (false, SettlementMessages.NoMembers);
 
-                if (totalMembers <= 0) return (false, SettlementMessages.NoMembers);
+                var startOfMonth = new DateTime(settlementMonth.Year, settlementMonth.Month, 1);
+                var endOfMonth = startOfMonth.AddMonths(1);
 
-                // 4. Local Math Processing
-                decimal payerTotalExpenses = memberExpenses.Where(e => e.MemberId == payer.MemberId).Sum(e => e.Amount);
-                decimal payerTotalPaid = memberSettlements.Where(s => s.MemberId == payer.MemberId).Sum(s => s.Amount);
-                decimal payerTotalReceived = memberSettlements.Where(s => s.PaidToMemberId == payer.MemberId).Sum(s => s.Amount);
+                var monthMembers = allMembers.Where(m =>
+                    (m.JoinedDate.Date < endOfMonth.Date && (m.LeftDate == null || m.LeftDate.Value.Date >= startOfMonth.Date)) ||
+                    expenses.Any(e => e.PayerId == m.MemberId || (e.Splits != null && e.Splits.Any(s => s.MemberId == m.MemberId))) ||
+                    settlements.Any(s => s.MemberId == m.MemberId || s.PaidToMemberId == m.MemberId)
+                ).ToList();
 
-                decimal receiverTotalExpenses = memberExpenses.Where(e => e.MemberId == receiver.MemberId).Sum(e => e.Amount);
-                decimal receiverTotalPaid = memberSettlements.Where(s => s.MemberId == receiver.MemberId).Sum(s => s.Amount);
-                decimal receiverTotalReceived = memberSettlements.Where(s => s.PaidToMemberId == receiver.MemberId).Sum(s => s.Amount);
+                // 4. Calculate member expense summary using split ledger and joined dates
+                var memberSummaries = _calculatorService.CalculateMemberExpenseSummary(
+                    expenses,
+                    settlements.ToList(),
+                    monthMembers,
+                    userId);
 
-                decimal avgExpensePerMember = Math.Round(totalRoomExpenses / totalMembers, 2);
+                var payerSummary = memberSummaries.FirstOrDefault(m => m.MemberId == payer.MemberId);
+                var receiverSummary = memberSummaries.FirstOrDefault(m => m.MemberId == receiver.MemberId);
 
-                decimal payerNetBalance = payerTotalExpenses + payerTotalPaid - payerTotalReceived;
-                decimal receiverNetBalance = receiverTotalExpenses + receiverTotalPaid - receiverTotalReceived;
+                if (payerSummary == null || payerSummary.NetBalance >= 0)
+                    return (false, SettlementMessages.PayerDoesNotOwe);
 
-                decimal payerOwes = Math.Round(avgExpensePerMember - payerNetBalance, 2);
-                decimal receiverIsOwed = Math.Round(receiverNetBalance - avgExpensePerMember, 2);
+                if (receiverSummary == null || receiverSummary.NetBalance <= 0)
+                    return (false, SettlementMessages.ReceiverNotOwed);
 
-                if (payerOwes <= 0) return (false, SettlementMessages.PayerDoesNotOwe);
-                if (receiverIsOwed <= 0) return (false, SettlementMessages.ReceiverNotOwed);
+                decimal payerOwes = Math.Abs(payerSummary.NetBalance);
+                decimal receiverIsOwed = receiverSummary.NetBalance;
 
-                // 5. Bug Fix: Direct comparison with a 1-cent grace buffer to avoid floating point strictness
+                // 5. Direct comparison with a 1-cent grace buffer to avoid floating point strictness
                 decimal allowedMaxSettlement = Math.Min(payerOwes, receiverIsOwed);
 
                 if (request.SettlementAmount > allowedMaxSettlement + 0.01m)

@@ -10,6 +10,8 @@ namespace Domain.Entities
         public Room Room { get; set; }
         public string? ApplicationUserId { get; set; }
         public bool IsDeleted { get; set; }
+        public DateTime JoinedDate { get; set; } = DateTime.UtcNow;
+        public DateTime? LeftDate { get; set; }
         public ApplicationUser? ApplicationUser { get; set; }
         public ICollection<Settlement>? Settlements { get; set; }
     }

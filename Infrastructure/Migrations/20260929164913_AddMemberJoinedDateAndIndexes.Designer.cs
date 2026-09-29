@@ -4,6 +4,7 @@ using Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260929164913_AddMemberJoinedDateAndIndexes")]
+    partial class AddMemberJoinedDateAndIndexes
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -177,8 +180,6 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("MemberId");
 
-                    b.HasIndex("RoomId");
-
                     b.HasIndex("RoomId", "Date");
 
                     b.ToTable("Expenses");
@@ -210,8 +211,6 @@ namespace Infrastructure.Migrations
                         .HasColumnType("float");
 
                     b.HasKey("ExpenseSplitId");
-
-                    b.HasIndex("ExpenseId");
 
                     b.HasIndex("MemberId");
 
@@ -245,9 +244,6 @@ namespace Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("datetime2")
                         .HasDefaultValueSql("GETUTCDATE()");
-
-                    b.Property<DateTime?>("LeftDate")
-                        .HasColumnType("datetime2");
 
                     b.Property<string>("Name")
                         .HasColumnType("nvarchar(max)");

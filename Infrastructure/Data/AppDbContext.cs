@@ -41,13 +41,21 @@ namespace Infrastructure.Data
 
                 entity.Property(e => e.Amount)
                       .HasPrecision(18, 2);
+
+                entity.HasIndex(e => e.RoomId);
+                entity.HasIndex(e => new { e.RoomId, e.Date });
             });
 
-            modelBuilder.Entity<Member>()
-                .HasOne(m => m.Room)
-                .WithMany(r => r.Members)
-                .HasForeignKey(m => m.RoomId)
-                .OnDelete(DeleteBehavior.Cascade);
+            modelBuilder.Entity<Member>(entity =>
+            {
+                entity.HasOne(m => m.Room)
+                    .WithMany(r => r.Members)
+                    .HasForeignKey(m => m.RoomId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.Property(m => m.JoinedDate)
+                    .HasDefaultValueSql("GETUTCDATE()");
+            });
 
             modelBuilder.Entity<Room>()
                 .HasOne(r => r.CreatedByUser)
@@ -74,6 +82,10 @@ namespace Infrastructure.Data
 
                 entity.Property(es => es.Percentage)
                       .HasPrecision(18, 2);
+
+                entity.HasIndex(es => es.ExpenseId);
+                entity.HasIndex(es => new { es.ExpenseId, es.MemberId })
+                      .IsUnique();
             });
 
             modelBuilder.Entity<Settlement>()

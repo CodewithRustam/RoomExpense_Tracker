@@ -86,15 +86,31 @@ namespace Services.Management
                 }
                 else
                 {
-                    decimal fallbackShare = totalMemberCount > 0 ? Math.Round(exp.Amount / totalMemberCount, 2) : 0m;
-                    decimal totalAllocated = fallbackShare * totalMemberCount;
+                    // Fallback for legacy expenses that have no write-time splits:
+                    // Only divide among members who were in the room on this expense date!
+                    var eligibleMembers = members.Where(m =>
+                        m.JoinedDate.Date <= exp.Date.Date &&
+                        (m.LeftDate == null || m.LeftDate.Value.Date >= exp.Date.Date)
+                    ).ToList();
+                    if (eligibleMembers.Count == 0) eligibleMembers = members.ToList();
+
+                    int eligibleCount = eligibleMembers.Count;
+                    decimal fallbackShare = eligibleCount > 0 ? Math.Round(exp.Amount / eligibleCount, 2) : 0m;
+                    decimal totalAllocated = fallbackShare * eligibleCount;
                     decimal remainder = exp.Amount - totalAllocated;
 
-                    for (int i = 0; i < members.Count; i++)
+                    for (int i = 0; i < eligibleMembers.Count; i++)
                     {
-                        var mId = members[i].MemberId;
+                        var mId = eligibleMembers[i].MemberId;
                         decimal mShare = fallbackShare + (i == 0 ? remainder : 0m);
-                        memberOwedShares[mId] += mShare;
+                        if (memberOwedShares.ContainsKey(mId))
+                        {
+                            memberOwedShares[mId] += mShare;
+                        }
+                        else
+                        {
+                            memberOwedShares[mId] = mShare;
+                        }
                     }
                 }
             }
@@ -115,6 +131,8 @@ namespace Services.Management
                 {
                     MemberId = member.MemberId,
                     MemberName = member.Name,
+                    JoinedDate = member.JoinedDate,
+                    LeftDate = member.LeftDate,
                     TotalMemberExpense = totalMemberExpense,
                     AmountPaid = amountPaid,
                     AmountReceived = amountReceived,

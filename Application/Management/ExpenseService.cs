@@ -62,6 +62,41 @@ namespace Services.Management
 
             var expense = _mapper.MapToExpense(model, memberId);
 
+            // Fetch room members to ensure splits are only created for members who were in the room on this expense date
+            var roomMembers = await _memberRepo.GetMembersByRoomId(model.RoomId, userId);
+            var eligibleMembers = roomMembers.Where(m =>
+                m.JoinedDate.Date <= model.Date.Date &&
+                (m.LeftDate == null || m.LeftDate.Value.Date >= model.Date.Date)
+            ).ToList();
+            if (eligibleMembers.Count == 0) eligibleMembers = roomMembers.ToList();
+
+            // If equal split, or if splits not provided: ensure write-time immutable splits are generated
+            if (model.SplitType == (int)SplitType.Equal || expense.ExpenseSplits.Count == 0)
+            {
+                expense.ExpenseSplits.Clear();
+
+                var selectedEligible = (model.Splits != null && model.Splits.Count > 0)
+                    ? eligibleMembers.Where(m => model.Splits.Any(s => s.MemberId == m.MemberId)).ToList()
+                    : eligibleMembers;
+
+                if (selectedEligible.Count == 0) selectedEligible = eligibleMembers;
+
+                decimal baseShare = Math.Round(model.Amount / selectedEligible.Count, 2);
+                decimal remainder = model.Amount - (baseShare * selectedEligible.Count);
+
+                for (int i = 0; i < selectedEligible.Count; i++)
+                {
+                    var m = selectedEligible[i];
+                    expense.ExpenseSplits.Add(new ExpenseSplit
+                    {
+                        MemberId = m.MemberId,
+                        OwedAmount = baseShare + (i == 0 ? remainder : 0m),
+                        Percentage = Math.Round(100m / selectedEligible.Count, 2),
+                        Shares = 1
+                    });
+                }
+            }
+
             if (await _expenseRepo.IsExpenseExist(expense))
                 return ApiResponse.Fail(ExpenseMessages.ExpenseExists);
 
@@ -102,7 +137,38 @@ namespace Services.Management
                 splitRepo.Delete(oldSplit);
             }
 
-            if (model.Splits != null && model.Splits.Count > 0)
+            var roomMembers = await _memberRepo.GetMembersByRoomId(model.RoomId, _currentUser.UserId);
+            var eligibleMembers = roomMembers.Where(m =>
+                m.JoinedDate.Date <= model.Date.Date &&
+                (m.LeftDate == null || m.LeftDate.Value.Date >= model.Date.Date)
+            ).ToList();
+            if (eligibleMembers.Count == 0) eligibleMembers = roomMembers.ToList();
+
+            if (model.SplitType == (int)SplitType.Equal || model.Splits == null || model.Splits.Count == 0)
+            {
+                var selectedEligible = (model.Splits != null && model.Splits.Count > 0)
+                    ? eligibleMembers.Where(m => model.Splits.Any(s => s.MemberId == m.MemberId)).ToList()
+                    : eligibleMembers;
+
+                if (selectedEligible.Count == 0) selectedEligible = eligibleMembers;
+
+                decimal baseShare = Math.Round(model.Amount / selectedEligible.Count, 2);
+                decimal remainder = model.Amount - (baseShare * selectedEligible.Count);
+
+                for (int i = 0; i < selectedEligible.Count; i++)
+                {
+                    var m = selectedEligible[i];
+                    await splitRepo.AddAsync(new ExpenseSplit
+                    {
+                        ExpenseId = existingExpense.ExpenseId,
+                        MemberId = m.MemberId,
+                        OwedAmount = baseShare + (i == 0 ? remainder : 0m),
+                        Percentage = Math.Round(100m / selectedEligible.Count, 2),
+                        Shares = 1
+                    });
+                }
+            }
+            else
             {
                 foreach (var split in model.Splits)
                 {
@@ -174,8 +240,17 @@ namespace Services.Management
 
             var expenses = await _expenseRepo.GetMonthlyExpenses(roomId, currentExpenseMonth);
             var settlements = await _settlementRepo.GetMonthlySettlements(roomId, currentExpenseMonth);
-            var members = await _memberRepo.GetMembersByRoomId(roomId, _currentUser.UserId);
+            var allMembers = await _memberRepo.GetMembersByRoomId(roomId, _currentUser.UserId);
             var isSettled = await _settlementRepo.IsMonthSettledForRoomAsync(roomId, currentExpenseMonth);
+
+            var startOfMonth = new DateTime(currentExpenseMonth.Year, currentExpenseMonth.Month, 1);
+            var endOfMonth = startOfMonth.AddMonths(1);
+
+            var monthMembers = allMembers.Where(m =>
+                (m.JoinedDate.Date < endOfMonth.Date && (m.LeftDate == null || m.LeftDate.Value.Date >= startOfMonth.Date)) ||
+                expenses.Any(e => e.PayerId == m.MemberId || (e.Splits != null && e.Splits.Any(s => s.MemberId == m.MemberId))) ||
+                settlements.Any(s => s.MemberId == m.MemberId || s.PaidToMemberId == m.MemberId)
+            ).ToList();
 
             var response = new RoomExpenseResponse
             {
@@ -188,10 +263,10 @@ namespace Services.Management
             response.MembersSummary = _calculatorService.CalculateMemberExpenseSummary(
                 expenses,
                 settlements.ToList(),
-                members,
+                monthMembers,
                 _currentUser.UserId);
 
-            if (includeRoomInfo && members.Count > 0)
+            if (includeRoomInfo && allMembers.Count > 0)
             {
                 response.CreatedByUserId = _roomRepo.GetQueryable().Where(r => r.RoomId == roomId && !r.IsDeleted).Select(r => r.CreatedByUserId).FirstOrDefault();
                 response.RoomName = (await _roomRepo.GetRoomNameAsync(roomId)) ?? string.Empty;
@@ -234,8 +309,8 @@ namespace Services.Management
             if (roomId <= 0 || !await _roomRepo.IsValidRoomAsync(roomId))
                 return ApiResponse.Fail(ExpenseMessages.InvalidRoomId);
 
-            var members = await _memberRepo.GetMembersByRoomId(roomId, _currentUser.UserId);
-            if (members.Count == 0)
+            var allMembers = await _memberRepo.GetMembersByRoomId(roomId, _currentUser.UserId);
+            if (allMembers.Count == 0)
                 return ApiResponse.Fail(ExpenseMessages.NoMembersFound);
 
             var expenses = await _expenseRepo.GetMonthlyExpenses(roomId, targetMonth);
@@ -244,15 +319,24 @@ namespace Services.Management
             if (expenses.Count == 0 && settlements.Count == 0)
                 return ApiResponse.Fail(ExpenseMessages.NoSettlementData);
 
+            var startOfMonth = new DateTime(targetMonth.Year, targetMonth.Month, 1);
+            var endOfMonth = startOfMonth.AddMonths(1);
+
+            var monthMembers = allMembers.Where(m =>
+                (m.JoinedDate.Date < endOfMonth.Date && (m.LeftDate == null || m.LeftDate.Value.Date >= startOfMonth.Date)) ||
+                expenses.Any(e => e.PayerId == m.MemberId || (e.Splits != null && e.Splits.Any(s => s.MemberId == m.MemberId))) ||
+                settlements.Any(s => s.MemberId == m.MemberId || s.PaidToMemberId == m.MemberId)
+            ).ToList();
+
             var memberSummaries = _calculatorService.CalculateMemberExpenseSummary(
                 expenses,
                 settlements.ToList(),
-                members,
+                monthMembers,
                 _currentUser.UserId);
 
             var balancesDict = memberSummaries.ToDictionary(m => m.MemberId, m => m.NetBalance);
 
-            var settlementDetails = _calculatorService.ComputeSettlementsForMember(balancesDict, members, memberId);
+            var settlementDetails = _calculatorService.ComputeSettlementsForMember(balancesDict, monthMembers, memberId);
 
             return ApiResponse<SettlementData>.SuccessRes(new SettlementData
             {
