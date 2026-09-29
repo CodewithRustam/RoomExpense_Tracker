@@ -1,4 +1,4 @@
-﻿namespace Services.ViewModels.ApiViewModels
+namespace Services.ViewModels.ApiViewModels
 {
     public class RoomExpenseResponse
     {
@@ -24,6 +24,8 @@
         public string Category { get; set; } = null!;
         public string IconName { get; set; } = null!;
         public bool IsEditShow { get; set; }
+        public int SplitType { get; set; }
+        public List<ExpenseSplitDto> Splits { get; set; } = new();
     }
     public class MemberExpenseSummary
     {

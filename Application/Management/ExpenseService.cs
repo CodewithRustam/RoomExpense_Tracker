@@ -1,4 +1,4 @@
-﻿namespace Services.Management
+namespace Services.Management
 {
     public class ExpenseService : IExpenseServices
     {
@@ -84,19 +84,46 @@
             if (await _settlementRepo.IsMonthSettledForRoomAsync(model.RoomId, model.Date))
                 return ApiResponse.Fail(ExpenseMessages.MonthSettled);
 
-            var expense = _mapper.MapToExpense(model, model.MemberId);
-            expense.ExpenseId = model.ExpenseId ?? 0;
-
-            if (!await _expenseRepo.IsExpenseExistForUser(expense))
+            var existingExpense = await _expenseRepo.GetByIdAsync(model.ExpenseId ?? 0);
+            if (existingExpense == null)
                 return ApiResponse.Fail(ExpenseMessages.ExpenseNotFound);
 
-            _expenseRepo.Update(expense);
+            existingExpense.Item = model.Item?.Trim();
+            existingExpense.Amount = model.Amount;
+            existingExpense.Date = model.Date.Date;
+            existingExpense.SplitType = (SplitType)model.SplitType;
+            existingExpense.Category = CategoryMapper.GetCategoryFromItem(model.Item ?? string.Empty);
+
+            var splitRepo = _uow.Repository<ExpenseSplit>();
+
+            var oldSplits = await splitRepo.GetAllAsync(es => es.ExpenseId == existingExpense.ExpenseId);
+            foreach (var oldSplit in oldSplits)
+            {
+                splitRepo.Delete(oldSplit);
+            }
+
+            if (model.Splits != null && model.Splits.Count > 0)
+            {
+                foreach (var split in model.Splits)
+                {
+                    await splitRepo.AddAsync(new ExpenseSplit
+                    {
+                        ExpenseId = existingExpense.ExpenseId,
+                        MemberId = split.MemberId,
+                        OwedAmount = Math.Round(split.OwedAmount, 2),
+                        Percentage = split.Percentage,
+                        Shares = split.Shares
+                    });
+                }
+            }
+
+            _expenseRepo.Update(existingExpense);
 
             if (await _uow.SaveAsync() <= 0)
                 return ApiResponse.Fail(ExpenseMessages.UpdateFailed);
 
             _cacheService.ClearCachesOnAddOrUpdate(model.RoomId, model.Date, _currentUser.UserId!, model.MemberId);
-            _notificationService.FireAndForgetExpenseNotification(expense, _currentUser.UserId!, _currentUser.UserName!, isUpdate: true);
+            _notificationService.FireAndForgetExpenseNotification(existingExpense, _currentUser.UserId!, _currentUser.UserName!, isUpdate: true);
 
             return ApiResponse.SuccessRes(ExpenseMessages.SuccessUpdate);
         }
@@ -211,11 +238,19 @@
             if (members.Count == 0)
                 return ApiResponse.Fail(ExpenseMessages.NoMembersFound);
 
-            var monthlyBalances = await _settlementRepo.GetMonthlySettlementsDetails(roomId, targetMonth);
-            if (monthlyBalances.Count == 0)
+            var expenses = await _expenseRepo.GetMonthlyExpenses(roomId, targetMonth);
+            var settlements = await _settlementRepo.GetMonthlySettlements(roomId, targetMonth);
+
+            if (expenses.Count == 0 && settlements.Count == 0)
                 return ApiResponse.Fail(ExpenseMessages.NoSettlementData);
 
-            var balancesDict = monthlyBalances.ToDictionary(m => m.MemberId, m => m.NetBalance);
+            var memberSummaries = _calculatorService.CalculateMemberExpenseSummary(
+                expenses,
+                settlements.ToList(),
+                members,
+                _currentUser.UserId);
+
+            var balancesDict = memberSummaries.ToDictionary(m => m.MemberId, m => m.NetBalance);
 
             var settlementDetails = _calculatorService.ComputeSettlementsForMember(balancesDict, members, memberId);
 

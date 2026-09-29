@@ -1,4 +1,4 @@
-﻿namespace Services.Management
+namespace Services.Management
 {
     public class ExpenseMapper : IExpenseMapper
     {
@@ -6,7 +6,7 @@
         {
             if (model == null) return new Expense();
 
-            return new Expense
+            var expense = new Expense
             {
                 ExpenseId = model.ExpenseId ?? 0,
                 MemberId = memberId,
@@ -14,8 +14,25 @@
                 Item = model.Item?.Trim(),
                 Amount = model.Amount,
                 Date = model.Date.Date,
-                Category = CategoryMapper.GetCategoryFromItem(model.Item ?? string.Empty)
+                Category = CategoryMapper.GetCategoryFromItem(model.Item ?? string.Empty),
+                SplitType = (SplitType)model.SplitType
             };
+
+            if (model.Splits != null && model.Splits.Count > 0)
+            {
+                foreach (var split in model.Splits)
+                {
+                    expense.ExpenseSplits.Add(new ExpenseSplit
+                    {
+                        MemberId = split.MemberId,
+                        OwedAmount = Math.Round(split.OwedAmount, 2),
+                        Percentage = split.Percentage,
+                        Shares = split.Shares
+                    });
+                }
+            }
+
+            return expense;
         }
 
         public List<ExpenseDetailResponse> MapToExpenseDetailResponses(IEnumerable<ExpenseRecordDto> expenses, string currentUserId, bool isMonthSettled)
@@ -33,7 +50,16 @@
                 PayerId = e.PayerId,
                 Category = e.Category ?? string.Empty,
                 IconName = CategoryMapper.GetIconForCategory(e.Category ?? string.Empty),
-                IsEditShow = e.ApplicationUserId == currentUserId && !isMonthSettled
+                IsEditShow = e.ApplicationUserId == currentUserId && !isMonthSettled,
+                SplitType = (int)e.SplitType,
+                Splits = e.Splits?.Select(s => new ExpenseSplitDto
+                {
+                    MemberId = s.MemberId,
+                    MemberName = s.MemberName,
+                    OwedAmount = s.OwedAmount,
+                    Percentage = s.Percentage,
+                    Shares = s.Shares
+                }).ToList() ?? new List<ExpenseSplitDto>()
             }).ToList();
         }
 

@@ -18,7 +18,9 @@ namespace Domain.Entities
         public int? OwedToMemberId { get; set; }
         public int? OweToMemberId { get; set; }
         public string? Category { get; set; }
+        public SplitType SplitType { get; set; } = SplitType.Equal;
         public Room Room { get; set; }
         public Member Member { get; set; }
+        public ICollection<ExpenseSplit> ExpenseSplits { get; set; } = new List<ExpenseSplit>();
     }
 }

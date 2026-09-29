@@ -1,4 +1,4 @@
-﻿namespace Domain.Entities.Dto
+namespace Domain.Entities.Dto
 {
     public class ExpenseRecordDto
     {
@@ -11,6 +11,16 @@
         public decimal Amount { get; set; }
         public DateTime Date { get; set; }
         public string Category { get; set; } = null!;
+        public SplitType SplitType { get; set; }
+        public List<ExpenseSplitRecordDto> Splits { get; set; } = new();
     }
 
+    public class ExpenseSplitRecordDto
+    {
+        public int MemberId { get; set; }
+        public string MemberName { get; set; } = string.Empty;
+        public decimal OwedAmount { get; set; }
+        public decimal? Percentage { get; set; }
+        public double? Shares { get; set; }
+    }
 }

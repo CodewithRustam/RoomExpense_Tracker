@@ -64,8 +64,40 @@ namespace Services.Management
             var summaries = new List<MemberExpenseSummary>();
             if (members == null || !members.Any()) return summaries;
 
-            var totalExpenses = expenses.Sum(e => e.Amount);
-            var avgShare = members.Count > 0 ? Math.Round(totalExpenses / members.Count, 2) : 0m;
+            int totalMemberCount = members.Count;
+            var memberOwedShares = new Dictionary<int, decimal>();
+            foreach (var m in members) memberOwedShares[m.MemberId] = 0m;
+
+            foreach (var exp in expenses)
+            {
+                if (exp.Splits != null && exp.Splits.Count > 0)
+                {
+                    foreach (var split in exp.Splits)
+                    {
+                        if (memberOwedShares.ContainsKey(split.MemberId))
+                        {
+                            memberOwedShares[split.MemberId] += split.OwedAmount;
+                        }
+                        else
+                        {
+                            memberOwedShares[split.MemberId] = split.OwedAmount;
+                        }
+                    }
+                }
+                else
+                {
+                    decimal fallbackShare = totalMemberCount > 0 ? Math.Round(exp.Amount / totalMemberCount, 2) : 0m;
+                    decimal totalAllocated = fallbackShare * totalMemberCount;
+                    decimal remainder = exp.Amount - totalAllocated;
+
+                    for (int i = 0; i < members.Count; i++)
+                    {
+                        var mId = members[i].MemberId;
+                        decimal mShare = fallbackShare + (i == 0 ? remainder : 0m);
+                        memberOwedShares[mId] += mShare;
+                    }
+                }
+            }
 
             foreach (var member in members)
             {
@@ -73,7 +105,9 @@ namespace Services.Management
                 var amountPaid = settlements.Where(s => s.MemberId == member.MemberId).Sum(s => s.Amount);
                 var amountReceived = settlements.Where(s => s.PaidToMemberId == member.MemberId).Sum(s => s.Amount);
 
-                decimal netBalance = (totalMemberExpense + amountPaid) - amountReceived - avgShare;
+                decimal memberOwedShare = memberOwedShares.GetValueOrDefault(member.MemberId, 0m);
+
+                decimal netBalance = (totalMemberExpense + amountPaid) - amountReceived - memberOwedShare;
 
                 bool isSettled = Math.Abs(netBalance) < 0.5m;
 

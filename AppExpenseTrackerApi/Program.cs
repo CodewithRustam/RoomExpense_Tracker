@@ -263,6 +263,26 @@ namespace AppExpenseTrackerApi
 
                 #endregion
 
+                try
+                {
+                    using var sqlConn = new Microsoft.Data.SqlClient.SqlConnection(connectionString);
+                    sqlConn.Open();
+                    using var sqlCmd = sqlConn.CreateCommand();
+                    sqlCmd.CommandText = @"
+                        IF NOT EXISTS (
+                            SELECT 1 FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS 
+                            WHERE TABLE_NAME = 'Expenses' AND CONSTRAINT_TYPE = 'PRIMARY KEY'
+                        )
+                        BEGIN
+                            ALTER TABLE [Expenses] ADD CONSTRAINT [PK_Expenses] PRIMARY KEY CLUSTERED ([ExpenseId]);
+                        END";
+                    sqlCmd.ExecuteNonQuery();
+                }
+                catch (Exception pkEx)
+                {
+                    Log.Warning(pkEx, "Primary Key check for Expenses table skipped or completed with notice.");
+                }
+
                 var app = builder.Build();
 
                 #region Middleware Pipeline

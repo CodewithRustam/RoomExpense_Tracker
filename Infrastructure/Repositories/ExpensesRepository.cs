@@ -1,4 +1,4 @@
-﻿namespace Infrastructure.Repositories
+namespace Infrastructure.Repositories
 {
     public class ExpensesRepository : Repository<Expense>, IExpenseRepository
     {
@@ -17,25 +17,38 @@
             var startOfMonth = new DateTime(selectedMonth.Year, selectedMonth.Month, 1);
             var endOfMonth = startOfMonth.AddMonths(1);
 
-            return await (from exp in _context.Expenses.AsNoTracking()
-                          join mem in _context.Members.AsNoTracking() on exp.MemberId equals mem.MemberId
-                          where exp.RoomId == roomId
-                                && (exp.IsDeleted == false || exp.IsDeleted == null)
-                                && exp.Date >= startOfMonth && exp.Date < endOfMonth
-                                && !mem.IsDeleted
-                          orderby exp.ExpenseId descending
-                          select new ExpenseRecordDto
-                          {
-                              ApplicationUserId = mem.ApplicationUserId ?? string.Empty,
-                              PayerName = mem.Name!,
-                              PayerId = mem.MemberId,
-                              ExpenseId = exp.ExpenseId,
-                              RoomId = exp.RoomId,
-                              Item = exp.Item ?? string.Empty,
-                              Amount = exp.Amount,
-                              Date = exp.Date,
-                              Category = exp.Category ?? string.Empty,
-                          }).ToListAsync();
+            var expenses = await _context.Expenses.AsNoTracking()
+                .Include(e => e.Member)
+                .Include(e => e.ExpenseSplits)
+                .ThenInclude(es => es.Member)
+                .Where(exp => exp.RoomId == roomId
+                              && (exp.IsDeleted == false || exp.IsDeleted == null)
+                              && exp.Date >= startOfMonth && exp.Date < endOfMonth
+                              && exp.Member != null && !exp.Member.IsDeleted)
+                .OrderByDescending(exp => exp.ExpenseId)
+                .ToListAsync();
+
+            return expenses.Select(exp => new ExpenseRecordDto
+            {
+                ApplicationUserId = exp.Member?.ApplicationUserId ?? string.Empty,
+                PayerName = exp.Member?.Name ?? string.Empty,
+                PayerId = exp.MemberId,
+                ExpenseId = exp.ExpenseId,
+                RoomId = exp.RoomId,
+                Item = exp.Item ?? string.Empty,
+                Amount = exp.Amount,
+                Date = exp.Date,
+                Category = exp.Category ?? string.Empty,
+                SplitType = exp.SplitType,
+                Splits = exp.ExpenseSplits?.Select(es => new ExpenseSplitRecordDto
+                {
+                    MemberId = es.MemberId,
+                    MemberName = es.Member?.Name ?? string.Empty,
+                    OwedAmount = es.OwedAmount,
+                    Percentage = es.Percentage,
+                    Shares = es.Shares
+                }).ToList() ?? new List<ExpenseSplitRecordDto>()
+            }).ToList();
         }
 
         public async Task<IReadOnlyList<UserExpenseDto>> GetUserExpenses(string userId, DateTime month)

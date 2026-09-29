@@ -1,4 +1,4 @@
-﻿namespace Services.ViewModels
+namespace Services.ViewModels
 {
     public class ExpenseViewModel
     {
@@ -11,5 +11,7 @@
         [Range(0.01, double.MaxValue, ErrorMessage = "Amount must be greater than zero")]
         public decimal Amount { get; set; }
         public DateTime Date { get; set; }
+        public int SplitType { get; set; } = 0;
+        public List<ExpenseSplitDto>? Splits { get; set; }
     }
 }
