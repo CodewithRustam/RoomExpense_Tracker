@@ -344,6 +344,7 @@ namespace AppExpenseTrackerApi
                 app.UseCors("AllowIonic");
 
                 app.UseAuthentication();
+                app.UseMiddleware<DeviceBindingMiddleware>();
                 app.UseAuthorization();
                 app.UseMiddleware<LogEnrichmentMiddleware>();
                 app.MapControllers();

@@ -5,5 +5,6 @@ namespace Services.Interfaces
         bool IsRateLimited(string key, int limit, TimeSpan window);
         bool ReachedDailyDeleteLimit(string userId);
         void IncrementDailyDeleteLimit(string userId);
+        void Reset(string key);
     }
 }

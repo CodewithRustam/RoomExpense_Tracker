@@ -19,5 +19,7 @@ namespace Services.Management
             _cache.TryGetValue($"RateLimit_Delete_{userId}", out int count);
             _cache.Set($"RateLimit_Delete_{userId}", count + 1, TimeSpan.FromDays(1));
         }
+
+        public void Reset(string key) => _cache.Remove(key);
     }
 }

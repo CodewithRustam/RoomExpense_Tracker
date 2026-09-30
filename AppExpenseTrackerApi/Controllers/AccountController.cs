@@ -36,15 +36,48 @@ namespace AppExpenseTracker.Controllers
             if (!ModelState.IsValid)
                 return BadRequest(ApiResponse.Fail("Invalid request data."));
 
-            var user = await _userManager.FindByNameAsync(model.UserName!);
+            string clientIp = GetClientIpAddress();
+            string ipRateLimitKey = $"RateLimit_Login_IP_{clientIp}";
+
+            // IP Rate Limit: 10 attempts per minute
+            if (_rateLimitService.IsRateLimited(ipRateLimitKey, 10, TimeSpan.FromMinutes(1)))
+            {
+                return StatusCode(StatusCodes.Status429TooManyRequests, ApiResponse.Fail("Too many login attempts from your connection. Please wait 1 minute before trying again."));
+            }
+
+            // User-based Rate Limit: 5 failed attempts per minute
+            var identifier = model.UserName?.Trim().ToLowerInvariant() ?? string.Empty;
+            string userRateLimitKey = $"RateLimit_Login_User_{identifier}";
+
+            if (!string.IsNullOrEmpty(identifier) && _rateLimitService.IsRateLimited(userRateLimitKey, 5, TimeSpan.FromMinutes(1)))
+            {
+                return StatusCode(StatusCodes.Status429TooManyRequests, ApiResponse.Fail("Too many failed attempts for this account. Please wait 1 minute before trying again."));
+            }
+
+            var user = await _userManager.FindByNameAsync(model.UserName!) ?? await _userManager.FindByEmailAsync(model.UserName!);
 
             if (user == null || !await _userManager.CheckPasswordAsync(user, model.Password!))
                 return Unauthorized(ApiResponse.Fail("Invalid login attempt."));
 
-            var token = _tokenService.GenerateJwtToken(user);
+            // On successful login, clear the user rate limit counter
+            if (!string.IsNullOrEmpty(identifier))
+            {
+                _rateLimitService.Reset(userRateLimitKey);
+            }
 
-            // Custom response object to accommodate the token
-            return Ok(new { success = true, message = "Login successful", token });
+            string? deviceFingerprint = Request.Headers["X-Device-Fingerprint"].FirstOrDefault();
+
+            var token = _tokenService.GenerateJwtToken(user, deviceFingerprint);
+
+            if (!string.IsNullOrWhiteSpace(deviceFingerprint))
+            {
+                // Encrypt token payload with client-derived key so raw JWT is never exposed in response body
+                string encryptedToken = _tokenService.EncryptTokenForClient(token, deviceFingerprint);
+                return Ok(new { success = true, message = "Login successful", token = encryptedToken, encrypted = true });
+            }
+
+            // Fallback for Swagger or direct tools without device fingerprint
+            return Ok(new { success = true, message = "Login successful", token, encrypted = false });
         }
 
         [HttpPost("register")]
@@ -52,6 +85,15 @@ namespace AppExpenseTracker.Controllers
         {
             if (!ModelState.IsValid)
                 return BadRequest(ApiResponse<List<string>>.Fail(GetModelStateErrors(), "Validation failed."));
+
+            string clientIp = GetClientIpAddress();
+            string ipRateLimitKey = $"RateLimit_Register_IP_{clientIp}";
+
+            // IP Rate Limit: Max 3 registration attempts per 5 minutes per IP
+            if (_rateLimitService.IsRateLimited(ipRateLimitKey, 3, TimeSpan.FromMinutes(5)))
+            {
+                return StatusCode(StatusCodes.Status429TooManyRequests, ApiResponse.Fail("Too many registration attempts from this connection. Please try again in 5 minutes."));
+            }
 
             var existingUser = await _userManager.FindByEmailAsync(model.Email!);
             if (existingUser != null)
@@ -92,12 +134,12 @@ namespace AppExpenseTracker.Controllers
             try
             {
                 // 1. IP-based Rate Limit: Protect server & database against spam/DDoS from fake emails
-                string clientIp = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown_ip";
+                string clientIp = GetClientIpAddress();
                 string ipRateLimitKey = $"RateLimit_ForgotPassword_IP_{clientIp}";
 
                 if (_rateLimitService.IsRateLimited(ipRateLimitKey, 5, TimeSpan.FromMinutes(1)))
                 {
-                    return BadRequest(ApiResponse.Fail("Too many requests from your connection. Please wait 1 minute."));
+                    return StatusCode(StatusCodes.Status429TooManyRequests, ApiResponse.Fail("Too many requests from your connection. Please wait 1 minute."));
                 }
 
                 // 2. Database User Lookup: Verify email existence
@@ -112,7 +154,7 @@ namespace AppExpenseTracker.Controllers
 
                 if (_rateLimitService.IsRateLimited(emailRateLimitKey, 1, TimeSpan.FromMinutes(1)))
                 {
-                    return BadRequest(ApiResponse.Fail("Please wait 1 minute before requesting another password reset email."));
+                    return StatusCode(StatusCodes.Status429TooManyRequests, ApiResponse.Fail("Please wait 1 minute before requesting another password reset email."));
                 }
 
                 string shortCode = await _passwordResetLinkService.AddPasswordResetLink(user.Email);
@@ -146,6 +188,15 @@ namespace AppExpenseTracker.Controllers
                 return BadRequest(ApiResponse<List<string>>.Fail(validationErrors, string.Join(", ", validationErrors)));
             }
 
+            string clientIp = GetClientIpAddress();
+            string ipRateLimitKey = $"RateLimit_ResetPassword_IP_{clientIp}";
+
+            // IP Rate Limit: Max 5 reset attempts per 5 minutes per IP
+            if (_rateLimitService.IsRateLimited(ipRateLimitKey, 5, TimeSpan.FromMinutes(5)))
+            {
+                return StatusCode(StatusCodes.Status429TooManyRequests, ApiResponse.Fail("Too many password reset attempts from this connection. Please wait 5 minutes before trying again."));
+            }
+
             var resetLink = await _passwordResetLinkService.GetPasswordResetDetailsByShortCode(model.Code!);
 
             if (resetLink == null)
@@ -176,6 +227,15 @@ namespace AppExpenseTracker.Controllers
             if (!ModelState.IsValid)
                 return BadRequest(ApiResponse.Fail("Invalid request data."));
 
+            string clientIp = GetClientIpAddress();
+            string ipRateLimitKey = $"RateLimit_VerifyResetLink_IP_{clientIp}";
+
+            // IP Rate Limit: Max 10 verification attempts per 1 minute
+            if (_rateLimitService.IsRateLimited(ipRateLimitKey, 10, TimeSpan.FromMinutes(1)))
+            {
+                return StatusCode(StatusCodes.Status429TooManyRequests, ApiResponse.Fail("Too many verification attempts from this connection. Please wait 1 minute."));
+            }
+
             var resetLink = await _passwordResetLinkService.GetPasswordResetDetailsByShortCode(verifyEmailLink.Code!);
 
             if (resetLink == null)
@@ -205,6 +265,16 @@ namespace AppExpenseTracker.Controllers
                 .SelectMany(v => v.Errors)
                 .Select(e => e.ErrorMessage)
                 .ToList();
+        }
+
+        private string GetClientIpAddress()
+        {
+            if (Request.Headers.TryGetValue("X-Forwarded-For", out var forwardedFor))
+            {
+                var ip = forwardedFor.FirstOrDefault()?.Split(',').FirstOrDefault()?.Trim();
+                if (!string.IsNullOrEmpty(ip)) return ip;
+            }
+            return HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown_ip";
         }
 
         #endregion

@@ -205,6 +205,10 @@ namespace Services.Management
             if (expense == null)
                 return ApiResponse.Fail(ExpenseMessages.ExpenseNotFound);
 
+            var member = await _memberRepo.GetByIdAsync(expense.MemberId);
+            if (member == null || member.ApplicationUserId != userId)
+                return ApiResponse.Fail(ExpenseMessages.ExpenseNotFound);
+
             if (await _settlementRepo.IsMonthSettledForRoomAsync(expense.RoomId, expense.Date))
                 return ApiResponse.Fail(ExpenseMessages.MonthSettled);
 
