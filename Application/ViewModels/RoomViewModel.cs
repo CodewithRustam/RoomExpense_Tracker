@@ -26,6 +26,7 @@ namespace Services.ViewModels
         public string Status { get; set; } = string.Empty;
         public bool IsExpired { get; set; }
         public DateTime ExpiresAt { get; set; }
+        public bool IsRegisteredUser { get; set; }
     }
 
     public class AcceptInvitationRequest

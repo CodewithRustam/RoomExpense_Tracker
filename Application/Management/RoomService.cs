@@ -387,6 +387,10 @@ namespace Services.Management
                 ? await _userManager.FindByIdAsync(invitation.CreatedByUserId)
                 : invitation.Room.CreatedByUser;
 
+            var existingUser = !string.IsNullOrWhiteSpace(invitation.InvitedEmail)
+                ? await _userManager.FindByEmailAsync(invitation.InvitedEmail.Trim().ToLowerInvariant())
+                : null;
+
             var response = new InvitationDetailsResponse
             {
                 RoomId = invitation.RoomId,
@@ -396,7 +400,8 @@ namespace Services.Management
                 InvitedName = invitation.InvitedName,
                 Status = invitation.Status.ToString(),
                 IsExpired = isExpired,
-                ExpiresAt = invitation.ExpiresAt
+                ExpiresAt = invitation.ExpiresAt,
+                IsRegisteredUser = existingUser != null
             };
 
             return ApiResponse<InvitationDetailsResponse>.SuccessRes(response, "Invitation details retrieved successfully.");
