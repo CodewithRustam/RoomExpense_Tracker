@@ -1,4 +1,4 @@
-﻿namespace Services.Interfaces
+namespace Services.Interfaces
 {
     public interface IRoomServices
     {
@@ -9,5 +9,8 @@
         Task<ApiResponse> AddMemberAsync(AddMemberViewModel viewModel);
         Task<ApiResponse> RemoveMemberAsync(int roomId, int memberId);
         Task<ApiResponse> DeleteRoomAsync(int roomId);
+        Task<ApiResponse<InvitationDetailsResponse>> GetInvitationDetailsAsync(string token);
+        Task<ApiResponse> AcceptInvitationAsync(string token, string currentUserId);
+        Task ClaimPendingInvitationsAsync(string email, string userId);
     }
 }

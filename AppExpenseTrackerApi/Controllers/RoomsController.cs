@@ -1,4 +1,7 @@
-﻿namespace ExpenseTracker.Controllers
+using System.Security.Claims;
+using Services.ViewModels;
+
+namespace ExpenseTracker.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
@@ -74,6 +77,34 @@
         public async Task<IActionResult> DeleteGroup(int roomId)
         {
             var response = await _roomServices.DeleteRoomAsync(roomId);
+            if (!response.Success)
+                return BadRequest(response);
+
+            return Ok(response);
+        }
+
+        [AllowAnonymous]
+        [HttpGet("invitation/{token}")]
+        public async Task<IActionResult> GetInvitation(string token)
+        {
+            var response = await _roomServices.GetInvitationDetailsAsync(token);
+            if (!response.Success)
+                return NotFound(response);
+
+            return Ok(response);
+        }
+
+        [HttpPost("accept-invitation")]
+        public async Task<IActionResult> AcceptInvitation([FromBody] AcceptInvitationRequest request)
+        {
+            if (!ModelState.IsValid || string.IsNullOrWhiteSpace(request?.Token))
+                return BadRequest(ApiResponse.Fail("Invalid invitation request."));
+
+            var userId = User.FindFirstValue("uid") ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userId))
+                return Unauthorized(ApiResponse.Fail("You must be logged in to accept this invitation."));
+
+            var response = await _roomServices.AcceptInvitationAsync(request.Token, userId);
             if (!response.Success)
                 return BadRequest(response);
 

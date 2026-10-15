@@ -1,6 +1,8 @@
-﻿namespace Domain.Entities
+using ExpenseTrakcerHepler;
+
+namespace Domain.Entities
 {
-    public class Settlement
+    public class Settlement : IAuditableEntity
     {
         public int SettlementId { get; set; }
         [Required]
@@ -13,5 +15,10 @@
         public DateTime SettlementDate { get; set; }
         public DateTime SettlementForDate { get; set; }
         public int PaidToMemberId { get; set; }
+
+        public DateTime CreatedDate { get; set; } = DateTimeProvider.NowIST;
+        public string? CreatedByUserId { get; set; }
+        public DateTime? UpdatedDate { get; set; }
+        public string? UpdatedByUserId { get; set; }
     }
 }

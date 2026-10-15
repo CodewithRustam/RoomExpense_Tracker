@@ -1,4 +1,6 @@
-﻿namespace Infrastructure.Repositories
+using ExpenseTrakcerHepler;
+
+namespace Infrastructure.Repositories
 {
     public class SettlementRepository : Repository<Settlement>, ISettlementRepository
     {
@@ -31,7 +33,7 @@
             var parameters = new
             {
                 RoomId = roomId,
-                MonthDate = targetMonth ?? DateTime.Now
+                MonthDate = targetMonth ?? DateTimeProvider.NowIST
             };
 
             var result = await connection.QueryAsync<MonthlySettlementDto>(

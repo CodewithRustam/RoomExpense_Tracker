@@ -1,4 +1,4 @@
-﻿using FluentValidation;
+using FluentValidation;
 using System.Text.RegularExpressions;
 
 namespace AppExpenseTrackerApi.ViewModelValidator
@@ -33,7 +33,8 @@ namespace AppExpenseTrackerApi.ViewModelValidator
         }
         private bool BeAValidDate(DateTime date)
         {
-            return date <= DateTime.Now;
+            // Allow up to 10 minutes clock tolerance against Indian Standard Time
+            return date <= DateTimeProvider.NowIST.AddMinutes(10);
         }
         private bool NotHaveExcessiveRepeatingChars(string item)
         {

@@ -1,6 +1,8 @@
+using ExpenseTrakcerHepler;
+
 namespace Domain.Entities
 {
-    public class Expense
+    public class Expense : IAuditableEntity
     {
         public int ExpenseId { get; set; }
         [Required]
@@ -22,5 +24,10 @@ namespace Domain.Entities
         public Room Room { get; set; }
         public Member Member { get; set; }
         public ICollection<ExpenseSplit> ExpenseSplits { get; set; } = new List<ExpenseSplit>();
+
+        public DateTime CreatedDate { get; set; } = DateTimeProvider.NowIST;
+        public string? CreatedByUserId { get; set; }
+        public DateTime? UpdatedDate { get; set; }
+        public string? UpdatedByUserId { get; set; }
     }
 }

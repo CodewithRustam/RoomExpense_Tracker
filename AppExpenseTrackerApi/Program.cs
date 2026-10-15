@@ -73,7 +73,7 @@ namespace AppExpenseTrackerApi
 
                 #region Database, Caching & Identity
 
-                builder.Services.AddDbContextPool<AppDbContext>(options =>
+                builder.Services.AddDbContext<AppDbContext>(options =>
                 {
                     options.UseSqlServer(connectionString, sqlOptions =>
                     {
@@ -353,7 +353,7 @@ namespace AppExpenseTrackerApi
 
                 #endregion
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not HostAbortedException)
             {
                 Log.Fatal(ex, "Host terminated unexpectedly");
             }

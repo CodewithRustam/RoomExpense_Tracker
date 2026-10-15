@@ -65,9 +65,11 @@ namespace Services.Management
             // Fetch room members to ensure splits are only created for members who were in the room on this expense date
             var roomMembers = await _memberRepo.GetMembersByRoomId(model.RoomId, userId);
             var eligibleMembers = roomMembers.Where(m =>
+                !m.IsPending &&
                 m.JoinedDate.Date <= model.Date.Date &&
                 (m.LeftDate == null || m.LeftDate.Value.Date >= model.Date.Date)
             ).ToList();
+            if (eligibleMembers.Count == 0) eligibleMembers = roomMembers.Where(m => !m.IsPending).ToList();
             if (eligibleMembers.Count == 0) eligibleMembers = roomMembers.ToList();
 
             // If equal split, or if splits not provided: ensure write-time immutable splits are generated
@@ -139,9 +141,11 @@ namespace Services.Management
 
             var roomMembers = await _memberRepo.GetMembersByRoomId(model.RoomId, _currentUser.UserId);
             var eligibleMembers = roomMembers.Where(m =>
+                !m.IsPending &&
                 m.JoinedDate.Date <= model.Date.Date &&
                 (m.LeftDate == null || m.LeftDate.Value.Date >= model.Date.Date)
             ).ToList();
+            if (eligibleMembers.Count == 0) eligibleMembers = roomMembers.Where(m => !m.IsPending).ToList();
             if (eligibleMembers.Count == 0) eligibleMembers = roomMembers.ToList();
 
             if (model.SplitType == (int)SplitType.Equal || model.Splits == null || model.Splits.Count == 0)
@@ -235,7 +239,7 @@ namespace Services.Management
             if (string.IsNullOrEmpty(monthReq))
             {
                 var allExpenses = await _expenseRepo.GetAllAsync(x => x.RoomId == roomId);
-                currentExpenseMonth = allExpenses.Count > 0 ? allExpenses.Max(x => x.Date) : DateTime.UtcNow;
+                currentExpenseMonth = allExpenses.Count > 0 ? allExpenses.Max(x => x.Date) : DateTimeProvider.NowIST;
             }
             else if (!DateTimeParser.ParseMonthYear(monthReq, out currentExpenseMonth))
             {
@@ -372,7 +376,7 @@ namespace Services.Management
 
         public async Task<ApiResponse> GetHomeExpenseTrends(int roomId)
         {
-            var today = DateTime.UtcNow;
+            var today = DateTimeProvider.NowIST;
             var startDate = new DateTime(today.AddMonths(-5).Year, today.AddMonths(-5).Month, 1);
 
             var expenses = await _expenseRepo.GetHomeExpenseTrends(roomId, startDate);
@@ -396,7 +400,7 @@ namespace Services.Management
 
         private DateTime ParseTargetMonth(string? month)
         {
-            if (string.IsNullOrEmpty(month)) return new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1);
+            if (string.IsNullOrEmpty(month)) return new DateTime(DateTimeProvider.NowIST.Year, DateTimeProvider.NowIST.Month, 1);
             if (!DateTimeParser.ParseMonthYear(month, out var targetMonth)) throw new ArgumentException(ExpenseMessages.InvalidMonthFormat);
             return targetMonth;
         }

@@ -1,9 +1,16 @@
+using ExpenseTrakcerHepler;
+
 namespace Infrastructure.Data
 {
     public class AppDbContext : IdentityDbContext<ApplicationUser>, IDataProtectionKeyContext
     {
-        public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
+        private readonly ICurrentUserService? _currentUserService;
+
+        public AppDbContext(
+            DbContextOptions<AppDbContext> options,
+            ICurrentUserService? currentUserService = null) : base(options)
         {
+            _currentUserService = currentUserService;
         }
 
         public DbSet<Room> Rooms { get; set; }
@@ -14,8 +21,50 @@ namespace Infrastructure.Data
         public DbSet<Settlement> Settlements { get; set; }
         public DbSet<PasswordResetLink> PasswordResetLink { get; set; }
         public DbSet<PushNotification> Notifications { get; set; }
+        public DbSet<RoomInvitation> RoomInvitations { get; set; }
 
         public DbSet<DataProtectionKey> DataProtectionKeys { get; set; } = null!;
+
+        public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+        {
+            ApplyAuditInformation();
+            return await base.SaveChangesAsync(cancellationToken);
+        }
+
+        public override int SaveChanges()
+        {
+            ApplyAuditInformation();
+            return base.SaveChanges();
+        }
+
+        private void ApplyAuditInformation()
+        {
+            var currentUserId = _currentUserService?.UserId;
+            var now = DateTimeProvider.NowIST;
+
+            foreach (var entry in ChangeTracker.Entries<IAuditableEntity>())
+            {
+                if (entry.State == EntityState.Added)
+                {
+                    if (entry.Entity.CreatedDate == default)
+                    {
+                        entry.Entity.CreatedDate = now;
+                    }
+                    if (string.IsNullOrEmpty(entry.Entity.CreatedByUserId) && !string.IsNullOrEmpty(currentUserId))
+                    {
+                        entry.Entity.CreatedByUserId = currentUserId;
+                    }
+                }
+                else if (entry.State == EntityState.Modified)
+                {
+                    entry.Entity.UpdatedDate = now;
+                    if (!string.IsNullOrEmpty(currentUserId))
+                    {
+                        entry.Entity.UpdatedByUserId = currentUserId;
+                    }
+                }
+            }
+        }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -54,14 +103,48 @@ namespace Infrastructure.Data
                     .OnDelete(DeleteBehavior.Cascade);
 
                 entity.Property(m => m.JoinedDate)
-                    .HasDefaultValueSql("GETUTCDATE()");
+                    .HasDefaultValueSql("DATEADD(MINUTE, 330, GETUTCDATE())");
             });
 
-            modelBuilder.Entity<Room>()
-                .HasOne(r => r.CreatedByUser)
-                .WithMany()
-                .HasForeignKey(r => r.CreatedByUserId)
-                .OnDelete(DeleteBehavior.Cascade);
+            modelBuilder.Entity<Room>(entity =>
+            {
+                entity.HasOne(r => r.CreatedByUser)
+                    .WithMany()
+                    .HasForeignKey(r => r.CreatedByUserId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(r => r.UpdatedByUser)
+                    .WithMany()
+                    .HasForeignKey(r => r.UpdatedByUserId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<RoomInvitation>(entity =>
+            {
+                entity.HasKey(i => i.Id);
+
+                entity.HasOne(i => i.Room)
+                      .WithMany(r => r.Invitations)
+                      .HasForeignKey(i => i.RoomId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                entity.Property(i => i.InvitedEmail)
+                      .HasMaxLength(256)
+                      .IsRequired();
+
+                entity.Property(i => i.InvitedName)
+                      .HasMaxLength(100)
+                      .IsRequired();
+
+                entity.Property(i => i.Token)
+                      .HasMaxLength(128)
+                      .IsRequired();
+
+                entity.HasIndex(i => i.Token)
+                      .IsUnique();
+
+                entity.HasIndex(i => new { i.RoomId, i.InvitedEmail, i.Status });
+            });
 
             modelBuilder.Entity<ExpenseSplit>(entity =>
             {

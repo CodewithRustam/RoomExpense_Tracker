@@ -50,7 +50,7 @@ namespace Services.Management
 
                 var userId = _currentUser.UserId;
                 var roomId = request.RoomId;
-                var settlementMonth = request.SettlementMonth ?? DateTime.UtcNow;
+                var settlementMonth = request.SettlementMonth ?? DateTimeProvider.NowIST;
 
                 // 2. Fetch payer and receiver SEQUENTIALLY to prevent DbContext threading crashes
                 var payer = await _memberRepo.GetLoggedInMemberDetails(roomId, request.PayerName, userId);

@@ -1,3 +1,5 @@
+using ExpenseTrakcerHepler;
+
 namespace Infrastructure.Repositories
 {
     public class ExpensesRepository : Repository<Expense>, IExpenseRepository
@@ -139,7 +141,7 @@ namespace Infrastructure.Repositories
         public async Task<(IReadOnlyList<MemberExpensesDto> Members, IReadOnlyList<CategoryExpenseDto> Categories, IReadOnlyList<CategoryExpenseDto> TopSpends)> GetMonthlyExpensesTrendAsync(int roomId, DateTime targetMonth)
         {
             string cacheKey = $"MonthlyExpensesTrend_{roomId}_{targetMonth:yyyyMM}";
-            var currentMonth = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1);
+            var currentMonth = new DateTime(DateTimeProvider.NowIST.Year, DateTimeProvider.NowIST.Month, 1);
 
             if (targetMonth != currentMonth && _cache.TryGetValue(cacheKey, out (IReadOnlyList<MemberExpensesDto>, IReadOnlyList<CategoryExpenseDto>, IReadOnlyList<CategoryExpenseDto>) cachedData))
             {

@@ -33,7 +33,8 @@ namespace Services.ViewModels.ApiViewModels
         public string MemberName { get; set; } = string.Empty;
         public DateTime JoinedDate { get; set; }
         public DateTime? LeftDate { get; set; }
-        public bool IsActive => LeftDate == null;
+        public bool IsPending { get; set; }
+        public bool IsActive => LeftDate == null && !IsPending;
         public decimal TotalMemberExpense { get; set; }
         public decimal AmountReceived { get; set; }
         public decimal AmountPaid { get; set; }

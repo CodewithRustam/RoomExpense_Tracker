@@ -1,4 +1,4 @@
-﻿global using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
+global using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 global using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 global using Microsoft.Extensions.Caching.Memory;
 global using Microsoft.Extensions.Configuration;
@@ -9,6 +9,7 @@ global using Domain.Entities.Dto;
 global using Domain.Interfaces;
 global using Domain.AppUser;
 global using Domain.Entities;
+global using Domain.Common;
 
 global using System.Net;
 global using System.Data;

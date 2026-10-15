@@ -1,4 +1,8 @@
 using Services.Management.AuthService;
+using Infrastructure.Email;
+using Microsoft.Extensions.Configuration;
+using ExpenseTrakcerHepler;
+using Domain.Entities;
 
 namespace Services.Management
 {
@@ -13,6 +17,8 @@ namespace Services.Management
         private readonly IRoomMapper _mapper;
         private readonly IRoomCacheService _cacheService;
         private readonly AppDbContext _context;
+        private readonly IEmailSender _emailSender;
+        private readonly IConfiguration _configuration;
 
         public RoomService(
             IUnitOfWork uow,
@@ -22,7 +28,9 @@ namespace Services.Management
             ICurrentUserService currentUser,
             UserManager<ApplicationUser> userManager,
             IRoomMapper mapper,
-            IRoomCacheService cacheService)
+            IRoomCacheService cacheService,
+            IEmailSender emailSender,
+            IConfiguration configuration)
         {
             _uow = uow;
             _roomRepository = roomRepository;
@@ -32,6 +40,8 @@ namespace Services.Management
             _mapper = mapper;
             _cacheService = cacheService;
             _context = context;
+            _emailSender = emailSender;
+            _configuration = configuration;
         }
 
         public async Task<List<RoomResponse>> GetRoomsForCurrentUser()
@@ -83,7 +93,7 @@ namespace Services.Management
                 {
                     Name = viewModel.Name,
                     CreatedByUserId = currentUserId,
-                    CreatedDate = DateTime.UtcNow,
+                    CreatedDate = DateTimeProvider.NowIST,
                     IsDeleted = false
                 };
 
@@ -98,55 +108,86 @@ namespace Services.Management
                     ApplicationUserId = currentUserId,
                     Name = creatorUser?.UserName,
                     Email = creatorUser?.Email,
-                    IsPending = false
+                    IsPending = false,
+                    JoinedDate = DateTimeProvider.NowIST,
+                    CreatedDate = DateTimeProvider.NowIST,
+                    CreatedByUserId = currentUserId
                 };
 
                 _context.Members.Add(creatorMember);
+
+                var invitationsToSend = new List<(string Email, string Name, string Token)>();
 
                 if (viewModel.Members != null && viewModel.Members.Any())
                 {
                     foreach (var invitee in viewModel.Members)
                     {
-                        var existingUser = await _userManager.FindByEmailAsync(invitee.Email);
+                        if (string.IsNullOrWhiteSpace(invitee.Email)) continue;
 
-                        if (existingUser != null)
+                        var normalizedEmail = invitee.Email.Trim().ToLowerInvariant();
+                        var inviteeName = string.IsNullOrWhiteSpace(invitee.Name) ? "Friend" : invitee.Name.Trim();
+                        var existingUser = await _userManager.FindByEmailAsync(normalizedEmail);
+
+                        var pendingMember = new Member
                         {
-                            var newMember = new Member
-                            {
-                                RoomId = room.RoomId,
-                                ApplicationUserId = existingUser.Id,
-                                Name = invitee.Name,
-                                Email = invitee.Email,
-                                IsPending = false
-                            };
-                            _context.Members.Add(newMember);
-                        }
-                        else
+                            RoomId = room.RoomId,
+                            ApplicationUserId = existingUser?.Id,
+                            Name = inviteeName,
+                            Email = normalizedEmail,
+                            IsPending = true,
+                            JoinedDate = DateTimeProvider.NowIST,
+                            CreatedDate = DateTimeProvider.NowIST,
+                            CreatedByUserId = currentUserId
+                        };
+                        _context.Members.Add(pendingMember);
+
+                        var token = Guid.NewGuid().ToString("N");
+                        var invitation = new RoomInvitation
                         {
-                            var pendingMember = new Member
-                            {
-                                RoomId = room.RoomId,
-                                Name = invitee.Name,
-                                Email = invitee.Email,
-                                IsPending = true
-                            };
-                            _context.Members.Add(pendingMember);
-                        }
+                            RoomId = room.RoomId,
+                            InvitedEmail = normalizedEmail,
+                            InvitedName = inviteeName,
+                            Token = token,
+                            Status = InvitationStatus.Pending,
+                            ExpiresAt = DateTimeProvider.NowIST.AddDays(7),
+                            CreatedDate = DateTimeProvider.NowIST,
+                            CreatedByUserId = currentUserId
+                        };
+                        _context.RoomInvitations.Add(invitation);
+
+                        invitationsToSend.Add((normalizedEmail, inviteeName, token));
                     }
                 }
 
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
 
-                foreach (var member in room.Members.Where(m => !string.IsNullOrEmpty(m.ApplicationUserId)))
+                _cacheService.ClearRoomsCache(currentUserId);
+
+                // Dispatch invitation emails asynchronously
+                var baseUrl = _configuration["FrontendSettings:BaseUrl"] ?? "https://splitx-exp.netlify.app";
+                var inviterName = creatorUser?.UserName ?? "A friend";
+
+                foreach (var item in invitationsToSend)
                 {
-                    _cacheService.ClearRoomsCache(member.ApplicationUserId!);
+                    try
+                    {
+                        var joinUrl = $"{baseUrl}/join-room?token={item.Token}";
+                        var body = EmailTemplates.GetRoomInvitationEmail(inviterName, room.Name, joinUrl, item.Name);
+                        await _emailSender.SendEmailAsync(item.Email, $"You're invited to join '{room.Name}' on SplitX", body);
+                    }
+                    catch (Exception ex)
+                    {
+                        Serilog.Log.Error(ex, "Failed to send invitation email to {Email}", item.Email);
+                    }
                 }
-                return ApiResponse<int>.SuccessRes(room.RoomId, "Room created and invitations processed successfully.");
+
+                return ApiResponse<int>.SuccessRes(room.RoomId, "Room created and invitations sent successfully.");
             }
-            catch (Exception)
+            catch (Exception ex)
             {
                 await transaction.RollbackAsync();
+                Serilog.Log.Error(ex, "An error occurred while creating the room and processing invitations.");
                 return ApiResponse<int>.Fail(0, "An error occurred while creating the room and processing invitations.");
             }
         }
@@ -154,6 +195,11 @@ namespace Services.Management
         public async Task<ApiResponse> AddMemberAsync(AddMemberViewModel viewModel)
         {
             string currentUserId = _currentUser.UserId!;
+
+            if (string.IsNullOrWhiteSpace(viewModel.Email))
+            {
+                return ApiResponse.Fail("Email is required.");
+            }
 
             var room = await _context.Rooms
                 .Include(r => r.Members)
@@ -164,48 +210,83 @@ namespace Services.Management
                 return ApiResponse.Fail("Room not found.");
             }
 
-            if (!room.Members.Any(m => m.ApplicationUserId == currentUserId))
+            if (!room.Members.Any(m => m.ApplicationUserId == currentUserId && !m.IsDeleted))
             {
                 return ApiResponse.Fail("You are not authorized to add members to this room.");
             }
 
+            var inviterUser = await _userManager.FindByIdAsync(currentUserId);
+            var inviterName = inviterUser?.UserName ?? "A friend";
+
+            var normalizedEmail = viewModel.Email.Trim().ToLowerInvariant();
+
+            var existingMember = room.Members.FirstOrDefault(m =>
+                !m.IsDeleted && m.Email != null && m.Email.Equals(normalizedEmail, StringComparison.OrdinalIgnoreCase));
+
+            if (existingMember != null && !existingMember.IsPending)
+            {
+                return ApiResponse.Fail("This user is already an active member of the room.");
+            }
+
             using var transaction = await _context.Database.BeginTransactionAsync();
+
+            string token = Guid.NewGuid().ToString("N");
+            string inviteeName = string.IsNullOrWhiteSpace(viewModel.Name) ? (existingMember?.Name ?? "Friend") : viewModel.Name.Trim();
 
             try
             {
-                var existingMember = room.Members.FirstOrDefault(m =>
-                    m.Email != null && m.Email.Equals(viewModel.Email, StringComparison.OrdinalIgnoreCase));
+                var existingUser = await _userManager.FindByEmailAsync(normalizedEmail);
 
-                if (existingMember != null)
+                if (existingMember == null)
                 {
-                    return ApiResponse.Fail("This user is already a member of the room.");
-                }
-
-                var existingUser = await _userManager.FindByEmailAsync(viewModel.Email!);
-
-                if (existingUser != null)
-                {
-                    var newMember = new Member
+                    existingMember = new Member
                     {
                         RoomId = room.RoomId,
-                        ApplicationUserId = existingUser.Id,
-                        Name = viewModel.Name,
-                        Email = viewModel.Email,
-                        IsPending = false
+                        ApplicationUserId = existingUser?.Id,
+                        Name = inviteeName,
+                        Email = normalizedEmail,
+                        IsPending = true,
+                        JoinedDate = DateTimeProvider.NowIST,
+                        CreatedDate = DateTimeProvider.NowIST,
+                        CreatedByUserId = currentUserId
                     };
-                    _context.Members.Add(newMember);
+                    _context.Members.Add(existingMember);
                 }
                 else
                 {
-                    var pendingMember = new Member
+                    existingMember.Name = inviteeName;
+                    if (existingUser != null && string.IsNullOrEmpty(existingMember.ApplicationUserId))
                     {
-                        RoomId = room.RoomId,
-                        Name = viewModel.Name,
-                        Email = viewModel.Email,
-                        IsPending = true
-                    };
-                    _context.Members.Add(pendingMember);
+                        existingMember.ApplicationUserId = existingUser.Id;
+                    }
+                    existingMember.UpdatedDate = DateTimeProvider.NowIST;
+                    existingMember.UpdatedByUserId = currentUserId;
                 }
+
+                // Expire any previous pending invitations for this room and email
+                var existingInvitations = await _context.RoomInvitations
+                    .Where(i => i.RoomId == room.RoomId && i.InvitedEmail == normalizedEmail && i.Status == InvitationStatus.Pending)
+                    .ToListAsync();
+
+                foreach (var oldInvite in existingInvitations)
+                {
+                    oldInvite.Status = InvitationStatus.Revoked;
+                    oldInvite.UpdatedDate = DateTimeProvider.NowIST;
+                    oldInvite.UpdatedByUserId = currentUserId;
+                }
+
+                var invitation = new RoomInvitation
+                {
+                    RoomId = room.RoomId,
+                    InvitedEmail = normalizedEmail,
+                    InvitedName = inviteeName,
+                    Token = token,
+                    Status = InvitationStatus.Pending,
+                    ExpiresAt = DateTimeProvider.NowIST.AddDays(7),
+                    CreatedDate = DateTimeProvider.NowIST,
+                    CreatedByUserId = currentUserId
+                };
+                _context.RoomInvitations.Add(invitation);
 
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
@@ -214,15 +295,32 @@ namespace Services.Management
                 {
                     _cacheService.ClearRoomsCache(member.ApplicationUserId!);
                 }
-
-                return ApiResponse.SuccessRes("Member added successfully.");
             }
-            catch (Exception)
+            catch (Exception ex)
             {
                 await transaction.RollbackAsync();
+                Serilog.Log.Error(ex, "Error while adding member / creating invitation for {Email}", viewModel.Email);
                 return ApiResponse.Fail("An error occurred while adding the member.");
             }
+
+            // Send invitation email
+            var baseUrl = _configuration["FrontendSettings:BaseUrl"] ?? "https://splitx-exp.netlify.app";
+            var joinUrl = $"{baseUrl}/join-room?token={token}";
+
+            try
+            {
+                var body = EmailTemplates.GetRoomInvitationEmail(inviterName, room.Name ?? "Room", joinUrl, inviteeName);
+                await _emailSender.SendEmailAsync(normalizedEmail, $"You're invited to join '{room.Name}' on SplitX", body);
+            }
+            catch (Exception ex)
+            {
+                Serilog.Log.Error(ex, "Failed to send invitation email to {Email}", normalizedEmail);
+                return ApiResponse.SuccessRes("Member added, but could not send email notification. Please check email settings.");
+            }
+
+            return ApiResponse.SuccessRes("Invitation sent successfully! An email has been dispatched with a link to join the room.");
         }
+
         public async Task<ApiResponse> RemoveMemberAsync(int roomId, int memberId)
         {
             using var transaction = await _context.Database.BeginTransactionAsync();
@@ -239,13 +337,13 @@ namespace Services.Management
                 if (hasFinancialRecords)
                 {
                     // Soft offboard: preserve full historical audit but mark as departed so they are excluded from future expenses
-                    membership.LeftDate = DateTime.UtcNow;
+                    membership.LeftDate = DateTimeProvider.NowIST;
                 }
                 else
                 {
                     // Member was added accidentally and has zero financial transactions
                     membership.IsDeleted = true;
-                    membership.LeftDate = DateTime.UtcNow;
+                    membership.LeftDate = DateTimeProvider.NowIST;
                 }
 
                 await _context.SaveChangesAsync();
@@ -267,6 +365,160 @@ namespace Services.Management
             {
                 await transaction.RollbackAsync();
                 return ApiResponse.Fail("An error occurred while removing the member.");
+            }
+        }
+
+        public async Task<ApiResponse<InvitationDetailsResponse>> GetInvitationDetailsAsync(string token)
+        {
+            if (string.IsNullOrWhiteSpace(token))
+                return ApiResponse<InvitationDetailsResponse>.Fail(null!, "Invalid invitation token.");
+
+            var invitation = await _context.RoomInvitations
+                .Include(i => i.Room)
+                    .ThenInclude(r => r.CreatedByUser)
+                .FirstOrDefaultAsync(i => i.Token == token);
+
+            if (invitation == null)
+                return ApiResponse<InvitationDetailsResponse>.Fail(null!, "Invitation not found or invalid link.");
+
+            bool isExpired = invitation.ExpiresAt < DateTimeProvider.NowIST;
+
+            var inviter = !string.IsNullOrEmpty(invitation.CreatedByUserId)
+                ? await _userManager.FindByIdAsync(invitation.CreatedByUserId)
+                : invitation.Room.CreatedByUser;
+
+            var response = new InvitationDetailsResponse
+            {
+                RoomId = invitation.RoomId,
+                RoomName = invitation.Room.Name ?? "Unnamed Room",
+                InviterName = inviter?.UserName ?? "A friend",
+                InvitedEmail = invitation.InvitedEmail,
+                InvitedName = invitation.InvitedName,
+                Status = invitation.Status.ToString(),
+                IsExpired = isExpired,
+                ExpiresAt = invitation.ExpiresAt
+            };
+
+            return ApiResponse<InvitationDetailsResponse>.SuccessRes(response, "Invitation details retrieved successfully.");
+        }
+
+        public async Task<ApiResponse> AcceptInvitationAsync(string token, string currentUserId)
+        {
+            if (string.IsNullOrWhiteSpace(token))
+                return ApiResponse.Fail("Invalid invitation token.");
+
+            var invitation = await _context.RoomInvitations
+                .Include(i => i.Room)
+                .FirstOrDefaultAsync(i => i.Token == token);
+
+            if (invitation == null)
+                return ApiResponse.Fail("Invitation not found or invalid link.");
+
+            if (invitation.Status == InvitationStatus.Accepted)
+            {
+                return ApiResponse<int>.SuccessRes(invitation.RoomId, "You have already accepted this invitation.");
+            }
+
+            if (invitation.Status == InvitationStatus.Revoked)
+            {
+                return ApiResponse.Fail("This invitation has been revoked.");
+            }
+
+            if (invitation.ExpiresAt < DateTimeProvider.NowIST)
+            {
+                invitation.Status = InvitationStatus.Expired;
+                invitation.UpdatedDate = DateTimeProvider.NowIST;
+                invitation.UpdatedByUserId = currentUserId;
+                await _context.SaveChangesAsync();
+                return ApiResponse.Fail("This invitation link has expired. Please ask for a new invite.");
+            }
+
+            var currentUser = await _userManager.FindByIdAsync(currentUserId);
+            if (currentUser == null)
+                return ApiResponse.Fail("User not found.");
+
+            using var transaction = await _context.Database.BeginTransactionAsync();
+
+            try
+            {
+                var normalizedEmail = invitation.InvitedEmail.Trim().ToLowerInvariant();
+
+                // Find or create member in this room
+                var member = await _context.Members
+                    .FirstOrDefaultAsync(m => m.RoomId == invitation.RoomId && !m.IsDeleted &&
+                        (m.ApplicationUserId == currentUserId ||
+                         (m.Email != null && m.Email.ToLower() == normalizedEmail)));
+
+                if (member != null)
+                {
+                    member.ApplicationUserId = currentUserId;
+                    member.Email = currentUser.Email ?? normalizedEmail;
+                    if (string.IsNullOrEmpty(member.Name) || member.Name == "Friend")
+                    {
+                        member.Name = currentUser.UserName ?? invitation.InvitedName;
+                    }
+                    member.IsPending = false;
+                    member.JoinedDate = DateTimeProvider.NowIST;
+                    member.UpdatedDate = DateTimeProvider.NowIST;
+                    member.UpdatedByUserId = currentUserId;
+                }
+                else
+                {
+                    member = new Member
+                    {
+                        RoomId = invitation.RoomId,
+                        ApplicationUserId = currentUserId,
+                        Name = currentUser.UserName ?? invitation.InvitedName,
+                        Email = currentUser.Email ?? normalizedEmail,
+                        IsPending = false,
+                        JoinedDate = DateTimeProvider.NowIST,
+                        CreatedDate = DateTimeProvider.NowIST,
+                        CreatedByUserId = currentUserId
+                    };
+                    _context.Members.Add(member);
+                }
+
+                invitation.Status = InvitationStatus.Accepted;
+                invitation.AcceptedAt = DateTimeProvider.NowIST;
+                invitation.UpdatedDate = DateTimeProvider.NowIST;
+                invitation.UpdatedByUserId = currentUserId;
+
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                _cacheService.ClearRoomsCache(currentUserId);
+
+                return ApiResponse<int>.SuccessRes(invitation.RoomId, $"You have successfully joined '{invitation.Room.Name}'!");
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                Serilog.Log.Error(ex, "Failed to accept invitation for token {Token} by user {UserId}", token, currentUserId);
+                return ApiResponse.Fail("An error occurred while accepting the invitation.");
+            }
+        }
+
+        public async Task ClaimPendingInvitationsAsync(string email, string userId)
+        {
+            if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(userId)) return;
+
+            var normalizedEmail = email.Trim().ToLowerInvariant();
+
+            var pendingMembers = await _context.Members
+                .Where(m => m.Email != null && m.Email.ToLower() == normalizedEmail && string.IsNullOrEmpty(m.ApplicationUserId))
+                .ToListAsync();
+
+            foreach (var member in pendingMembers)
+            {
+                member.ApplicationUserId = userId;
+                member.UpdatedDate = DateTimeProvider.NowIST;
+                member.UpdatedByUserId = userId;
+            }
+
+            if (pendingMembers.Any())
+            {
+                await _context.SaveChangesAsync();
+                _cacheService.ClearRoomsCache(userId);
             }
         }
 

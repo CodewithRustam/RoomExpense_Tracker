@@ -1,6 +1,8 @@
+using ExpenseTrakcerHepler;
+
 namespace Domain.Entities
 {
-    public class Member
+    public class Member : IAuditableEntity
     {
         public int MemberId { get; set; }
         public string? Name { get; set; }
@@ -10,9 +12,14 @@ namespace Domain.Entities
         public Room Room { get; set; }
         public string? ApplicationUserId { get; set; }
         public bool IsDeleted { get; set; }
-        public DateTime JoinedDate { get; set; } = DateTime.UtcNow;
+        public DateTime JoinedDate { get; set; } = DateTimeProvider.NowIST;
         public DateTime? LeftDate { get; set; }
         public ApplicationUser? ApplicationUser { get; set; }
         public ICollection<Settlement>? Settlements { get; set; }
+
+        public DateTime CreatedDate { get; set; } = DateTimeProvider.NowIST;
+        public string? CreatedByUserId { get; set; }
+        public DateTime? UpdatedDate { get; set; }
+        public string? UpdatedByUserId { get; set; }
     }
 }

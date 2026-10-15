@@ -1,4 +1,4 @@
-﻿namespace Services.BackgroundJobs
+namespace Services.BackgroundJobs
 {
     public class ExpenseSummaryReportService : IHostedService, IDisposable
     {
@@ -129,7 +129,7 @@
 
                 try
                 {
-                    var pdfContent = GenerateUserPdfReport(user, DateTime.Today);
+                    var pdfContent = GenerateUserPdfReport(user, DateTimeProvider.TodayIST);
 
                     if (pdfContent != null && pdfContent.Length > 0)
                     {
@@ -247,7 +247,7 @@
                         }
                     });
 
-                    page.Footer().AlignCenter().Text($"Generated on {DateTime.Now:dd MMM yyyy HH:mm}");
+                    page.Footer().AlignCenter().Text($"Generated on {DateTimeProvider.NowIST:dd MMM yyyy HH:mm} IST");
                 });
             })
             .GeneratePdf(memoryStream);
@@ -262,7 +262,7 @@
 
         private async Task SendEmailToUserAsync(ApplicationUser user, byte[] pdfContent, CancellationToken stoppingToken)
         {
-            var subject = $"Your Monthly Expense Report - {DateTime.Today:MMMM yyyy}";
+            var subject = $"Your Monthly Expense Report - {DateTimeProvider.TodayIST:MMMM yyyy}";
             var body = "Please find your monthly expense report attached.";
 
            if(user is not null && !string.IsNullOrEmpty(user.Email))
@@ -271,7 +271,7 @@
                 var _emailSender = scope.ServiceProvider.GetRequiredService<IEmailSender>();
 
                 await _emailSender.SendEmailWithAttachmentAsync(user.Email,subject,body,pdfContent,
-                       $"MonthlyReport_{user.UserName}_{DateTime.Today:yyyy-MM}.pdf");
+                       $"MonthlyReport_{user.UserName}_{DateTimeProvider.TodayIST:yyyy-MM}.pdf");
            }
         }
 

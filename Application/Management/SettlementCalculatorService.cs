@@ -89,9 +89,11 @@ namespace Services.Management
                     // Fallback for legacy expenses that have no write-time splits:
                     // Only divide among members who were in the room on this expense date!
                     var eligibleMembers = members.Where(m =>
+                        !m.IsPending &&
                         m.JoinedDate.Date <= exp.Date.Date &&
                         (m.LeftDate == null || m.LeftDate.Value.Date >= exp.Date.Date)
                     ).ToList();
+                    if (eligibleMembers.Count == 0) eligibleMembers = members.Where(m => !m.IsPending).ToList();
                     if (eligibleMembers.Count == 0) eligibleMembers = members.ToList();
 
                     int eligibleCount = eligibleMembers.Count;
@@ -133,13 +135,14 @@ namespace Services.Management
                     MemberName = member.Name,
                     JoinedDate = member.JoinedDate,
                     LeftDate = member.LeftDate,
+                    IsPending = member.IsPending,
                     TotalMemberExpense = totalMemberExpense,
                     AmountPaid = amountPaid,
                     AmountReceived = amountReceived,
-                    NetBalance = isSettled ? 0 : netBalance,
-                    BadgeText = isSettled ? "Settled up" : (netBalance > 0 ? "Owed" : "Owe"),
-                    BadgeAmount = isSettled ? 0 : Math.Abs(netBalance),
-                    IsSettleShow = member.ApplicationUserId == currentUserId
+                    NetBalance = member.IsPending ? 0 : (isSettled ? 0 : netBalance),
+                    BadgeText = member.IsPending ? "Pending" : (isSettled ? "Settled up" : (netBalance > 0 ? "Owed" : "Owe")),
+                    BadgeAmount = (member.IsPending || isSettled) ? 0 : Math.Abs(netBalance),
+                    IsSettleShow = !member.IsPending && member.ApplicationUserId == currentUserId
                 });
             }
 

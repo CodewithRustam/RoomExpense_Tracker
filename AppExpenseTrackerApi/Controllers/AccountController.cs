@@ -1,3 +1,5 @@
+using Services.Interfaces;
+
 namespace AppExpenseTracker.Controllers
 {
     [ApiController]
@@ -11,6 +13,7 @@ namespace AppExpenseTracker.Controllers
         private readonly IConfiguration _configuration;
         private readonly ITokenService _tokenService;
         private readonly IRateLimitService _rateLimitService;
+        private readonly IRoomServices _roomServices;
 
         public AccountController(
             SignInManager<ApplicationUser> signInManager,
@@ -19,7 +22,8 @@ namespace AppExpenseTracker.Controllers
             IPasswordResetLinkService passwordResetLinkService,
             IConfiguration configuration,
             ITokenService tokenService,
-            IRateLimitService rateLimitService)
+            IRateLimitService rateLimitService,
+            IRoomServices roomServices)
         {
             _signInManager = signInManager;
             _userManager = userManager;
@@ -28,6 +32,7 @@ namespace AppExpenseTracker.Controllers
             _configuration = configuration;
             _tokenService = tokenService;
             _rateLimitService = rateLimitService;
+            _roomServices = roomServices;
         }
 
         [HttpPost("login")]
@@ -109,6 +114,9 @@ namespace AppExpenseTracker.Controllers
 
             if (result.Succeeded)
             {
+                // Auto-link any pending room memberships created for this email
+                await _roomServices.ClaimPendingInvitationsAsync(user.Email!, user.Id);
+
                 // Note: If you are strictly using JWTs, SignInManager is cookie-based and may be unnecessary here.
                 await _signInManager.SignInAsync(user, isPersistent: false);
                 return Ok(ApiResponse.SuccessRes("Registration successful."));

@@ -1,10 +1,2 @@
-﻿namespace Services.Interfaces
-{
-    public interface ICurrentUserService
-    {
-        string? UserId { get; }
-        string? Email { get; }
-        string? UserName { get; }
-    }
-
-}
+// ICurrentUserService is centralized in Domain.Interfaces.ICurrentUserService
+// to allow Domain, Infrastructure, and Application to share the same audit interface without circular dependencies.
