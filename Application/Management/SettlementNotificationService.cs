@@ -1,13 +1,18 @@
-﻿namespace Services.Management
+namespace Services.Management
 {
     public class SettlementNotificationService : ISettlementNotificationService
     {
         private readonly IServiceScopeFactory _scopeFactory;
+        private readonly IEmailTemplateService _emailTemplateService;
         private readonly ILogger<SettlementNotificationService> _logger;
 
-        public SettlementNotificationService(IServiceScopeFactory scopeFactory, ILogger<SettlementNotificationService> logger)
+        public SettlementNotificationService(
+            IServiceScopeFactory scopeFactory,
+            IEmailTemplateService emailTemplateService,
+            ILogger<SettlementNotificationService> logger)
         {
             _scopeFactory = scopeFactory;
+            _emailTemplateService = emailTemplateService;
             _logger = logger;
         }
 
@@ -23,25 +28,28 @@
 
                     var payerUser = await userManager.FindByIdAsync(payerUserId);
                     var receiverUser = await userManager.FindByIdAsync(receiverUserId);
+                    string monthFormatted = settlementMonth.ToString("MMMM yyyy");
 
                     if (receiverUser != null && !string.IsNullOrWhiteSpace(receiverUser.Email))
                     {
-                        string receiverSubject = $"Settlement Received - {settlementMonth:MMMM yyyy}";
-                        string receiverBody = EmailTemplates.GetSettlementEmailTemplate(
-                            receiverUser.UserName!,
-                            $"{payerName} has settled ₹{amount:F2} with you for {settlementMonth:MMMM yyyy}.",
-                            "Settlement Received", roomId);
+                        var (receiverSubject, receiverBody) = await _emailTemplateService.GetSettlementEmailAsync(
+                            receiverUser.UserName ?? "User",
+                            $"{payerName} has settled ₹{amount:F2} with you for {monthFormatted}.",
+                            "Settlement Received", 
+                            roomId, 
+                            monthFormatted);
 
                         await emailSender.SendEmailAsync(receiverUser.Email, receiverSubject, receiverBody);
                     }
 
                     if (payerUser != null && !string.IsNullOrWhiteSpace(payerUser.Email))
                     {
-                        string payerSubject = $"Settlement Paid - {settlementMonth:MMMM yyyy}";
-                        string payerBody = EmailTemplates.GetSettlementEmailTemplate(
-                            payerUser.UserName!,
-                            $"You have successfully settled ₹{amount:F2} to {receiverName} for {settlementMonth:MMMM yyyy}.",
-                            "Settlement Paid", roomId);
+                        var (payerSubject, payerBody) = await _emailTemplateService.GetSettlementEmailAsync(
+                            payerUser.UserName ?? "User",
+                            $"You have successfully settled ₹{amount:F2} to {receiverName} for {monthFormatted}.",
+                            "Settlement Paid", 
+                            roomId, 
+                            monthFormatted);
 
                         await emailSender.SendEmailAsync(payerUser.Email, payerSubject, payerBody);
                     }

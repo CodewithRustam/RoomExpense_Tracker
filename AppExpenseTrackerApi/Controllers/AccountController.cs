@@ -14,6 +14,7 @@ namespace AppExpenseTracker.Controllers
         private readonly ITokenService _tokenService;
         private readonly IRateLimitService _rateLimitService;
         private readonly IRoomServices _roomServices;
+        private readonly IEmailTemplateService _emailTemplateService;
 
         public AccountController(
             SignInManager<ApplicationUser> signInManager,
@@ -23,7 +24,8 @@ namespace AppExpenseTracker.Controllers
             IConfiguration configuration,
             ITokenService tokenService,
             IRateLimitService rateLimitService,
-            IRoomServices roomServices)
+            IRoomServices roomServices,
+            IEmailTemplateService emailTemplateService)
         {
             _signInManager = signInManager;
             _userManager = userManager;
@@ -33,6 +35,7 @@ namespace AppExpenseTracker.Controllers
             _tokenService = tokenService;
             _rateLimitService = rateLimitService;
             _roomServices = roomServices;
+            _emailTemplateService = emailTemplateService;
         }
 
         [HttpPost("login")]
@@ -174,7 +177,7 @@ namespace AppExpenseTracker.Controllers
                 string resetUrl = $"{baseUrl}/reset/reset-password?code={shortCode}";
 
                 string memberName = string.IsNullOrEmpty(user.UserName) ? "User" : user.UserName;
-                string body = EmailTemplates.GetPasswordResetEmail(resetUrl, memberName);
+                string body = await _emailTemplateService.GetPasswordResetEmailAsync(resetUrl, memberName);
 
                 await _emailSender.SendEmailAsync(user.Email, "Reset Your Password", body);
 

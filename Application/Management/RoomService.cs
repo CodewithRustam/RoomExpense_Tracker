@@ -19,6 +19,7 @@ namespace Services.Management
         private readonly AppDbContext _context;
         private readonly IEmailSender _emailSender;
         private readonly IConfiguration _configuration;
+        private readonly IEmailTemplateService _emailTemplateService;
 
         public RoomService(
             IUnitOfWork uow,
@@ -30,7 +31,8 @@ namespace Services.Management
             IRoomMapper mapper,
             IRoomCacheService cacheService,
             IEmailSender emailSender,
-            IConfiguration configuration)
+            IConfiguration configuration,
+            IEmailTemplateService emailTemplateService)
         {
             _uow = uow;
             _roomRepository = roomRepository;
@@ -42,6 +44,7 @@ namespace Services.Management
             _context = context;
             _emailSender = emailSender;
             _configuration = configuration;
+            _emailTemplateService = emailTemplateService;
         }
 
         public async Task<List<RoomResponse>> GetRoomsForCurrentUser()
@@ -173,8 +176,8 @@ namespace Services.Management
                     try
                     {
                         var joinUrl = $"{baseUrl}/join-room?token={item.Token}";
-                        var body = EmailTemplates.GetRoomInvitationEmail(inviterName, room.Name, joinUrl, item.Name);
-                        await _emailSender.SendEmailAsync(item.Email, $"You're invited to join '{room.Name}' on SplitX", body);
+                        var (subject, body) = await _emailTemplateService.GetRoomInvitationEmailAsync(inviterName, room.Name, joinUrl, item.Name);
+                        await _emailSender.SendEmailAsync(item.Email, subject, body);
                     }
                     catch (Exception ex)
                     {
@@ -309,8 +312,8 @@ namespace Services.Management
 
             try
             {
-                var body = EmailTemplates.GetRoomInvitationEmail(inviterName, room.Name ?? "Room", joinUrl, inviteeName);
-                await _emailSender.SendEmailAsync(normalizedEmail, $"You're invited to join '{room.Name}' on SplitX", body);
+                var (subject, body) = await _emailTemplateService.GetRoomInvitationEmailAsync(inviterName, room.Name ?? "Room", joinUrl, inviteeName);
+                await _emailSender.SendEmailAsync(normalizedEmail, subject, body);
             }
             catch (Exception ex)
             {

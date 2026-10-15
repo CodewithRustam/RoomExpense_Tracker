@@ -22,6 +22,7 @@ namespace Infrastructure.Data
         public DbSet<PasswordResetLink> PasswordResetLink { get; set; }
         public DbSet<PushNotification> Notifications { get; set; }
         public DbSet<RoomInvitation> RoomInvitations { get; set; }
+        public DbSet<EmailTemplate> EmailTemplates { get; set; }
 
         public DbSet<DataProtectionKey> DataProtectionKeys { get; set; } = null!;
 
@@ -174,6 +175,34 @@ namespace Infrastructure.Data
             modelBuilder.Entity<Settlement>()
                    .Property(s => s.Amount)
                    .HasPrecision(18, 2); 
+
+            modelBuilder.Entity<EmailTemplate>(entity =>
+            {
+                entity.HasKey(e => e.EmailTemplateId);
+
+                entity.Property(e => e.TemplateKey)
+                      .HasMaxLength(100)
+                      .IsRequired();
+
+                entity.HasIndex(e => e.TemplateKey)
+                      .IsUnique();
+
+                entity.Property(e => e.SubjectTemplate)
+                      .HasMaxLength(500)
+                      .IsRequired();
+
+                entity.Property(e => e.BodyHtml)
+                      .IsRequired();
+
+                entity.Property(e => e.Description)
+                      .HasMaxLength(500);
+
+                entity.Property(e => e.IsActive)
+                      .HasDefaultValue(true);
+
+                entity.Property(e => e.CreatedDate)
+                      .HasDefaultValueSql("DATEADD(MINUTE, 330, GETUTCDATE())");
+            });
         }
     }
 }

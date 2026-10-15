@@ -125,6 +125,9 @@ namespace AppExpenseTrackerApi
                 // 4. Rate Limiter (Singleton for memory state)
                 builder.Services.AddSingleton<IRateLimitService, RateLimitService>();
 
+                // 5. Email Template Service (Singleton Lazy Pattern)
+                builder.Services.AddSingleton<IEmailTemplateService, EmailTemplateService>();
+
                 // 5. Core Business Services (Scoped)
                 builder.Services.AddScoped<IRoomServices, RoomService>();
                 builder.Services.AddScoped<IExpenseServices, ExpenseService>();
